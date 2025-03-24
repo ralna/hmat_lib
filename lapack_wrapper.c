@@ -5,6 +5,7 @@
 int svd_double(int m,
                int n,
                int n_singular_values,
+               int matrix_leading_dim,
                double *matrix,
                double *s,
                double *u,
@@ -15,7 +16,7 @@ int svd_double(int m,
   int *iwork = malloc(8 * n_singular_values * sizeof(int));
   int info = 0;
 
-  dgesdd_("S", &m, &n, matrix, &m, s, u, &m, vt, &n_singular_values, work, &lwork, iwork, &info);
+  dgesdd_("S", &m, &n, matrix, &matrix_leading_dim, s, u, &m, vt, &n_singular_values, work, &lwork, iwork, &info);
   if (info != 0) {
     free(iwork);
 
@@ -25,7 +26,7 @@ int svd_double(int m,
   lwork = work_size;
   work = malloc(lwork * sizeof(double));
 
-  dgesdd_("S", &m, &n, matrix, &m, s, u, &m, vt, &n_singular_values, work, &lwork, iwork, &info);
+  dgesdd_("S", &m, &n, matrix, &matrix_leading_dim, s, u, &m, vt, &n_singular_values, work, &lwork, iwork, &info);
 
   free(work); free(iwork);
 
