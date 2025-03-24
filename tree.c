@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+
 #include "lapack_wrapper.h"
 #include "tree.h"
 // #include <clapack.h>
 //
 
 
-void print_matrix(int m, int n, double *matrix) {
+static void print_matrix(int m, int n, double *matrix) {
   for (int i=0; i<m; i++) {
     for (int j=0; j < n; j++) {
       printf("%f    ", matrix[j * m + i]);
@@ -17,17 +19,17 @@ void print_matrix(int m, int n, double *matrix) {
 }
 
 
-
-int compress_off_diagonal(struct HODLRNode *node,
+int compress_off_diagonal(struct NodeOffDiagonal *node,
                           int m, 
                           int n, 
                           int n_singular_values,
+                          int matrix_leading_dim,
                           double *lapack_matrix,
                           double *s,
                           double *u,
                           double *vt,
                           double svd_threshold) {
-  int result = svd_double(m, n, n_singular_values, lapack_matrix, s, u, vt);
+  int result = svd_double(m, n, n_singular_values, matrix_leading_dim, lapack_matrix, s, u, vt);
   //printf("svd result %d\n", result);
   if (result != 0) {
     return result;
@@ -36,6 +38,7 @@ int compress_off_diagonal(struct HODLRNode *node,
   double primary_s_fraction = 1 / s[0];
   int svd_cutoff_idx;
   for (svd_cutoff_idx=1; svd_cutoff_idx < n_singular_values; svd_cutoff_idx++) {
+    //printf("%f    ", s[svd_cutoff_idx]);
     if (s[svd_cutoff_idx] * primary_s_fraction < svd_threshold) {
       break;
     }
@@ -51,7 +54,6 @@ int compress_off_diagonal(struct HODLRNode *node,
   }
   //print_matrix(svd_cutoff_idx, m, u_top_right);
 
-
   double *v_top_right = malloc(svd_cutoff_idx * n * sizeof(double));
   for (int i=0; i<n; i++) {
     for (int j=0; j<svd_cutoff_idx; j++) {
@@ -60,153 +62,277 @@ int compress_off_diagonal(struct HODLRNode *node,
   }
   //print_matrix(n, svd_cutoff_idx, v_top_right);
 
-  node->data.off_diagonal.u = u_top_right;
-  node->data.off_diagonal.v = v_top_right;
+  node->u = u_top_right;
+  node->v = v_top_right;
 
-  node->data.off_diagonal.m = m;
-  node->data.off_diagonal.s = n_singular_values;
-  node->data.off_diagonal.n = n;
+  node->m = m;
+  node->s = svd_cutoff_idx;
+  node->n = n;
 
   return 0;
 }
 
 
 
-struct HODLRNode create_one_level(int m, int n, double *matrix, double svd_threshold) {
-  struct HODLRNode node_top_left;
-  struct HODLRNode node_top_right;
-  struct HODLRNode node_bottom_left;
-  struct HODLRNode node_bottom_right;
+void dense_to_tree_hodlr(struct TreeHODLR *hodlr, 
+                         int m,
+                         double *matrix, 
+                         double svd_threshold) { 
+  int m_smaller = m / 2;
+  int m_larger = m - m_smaller;
+  
+  int result, offset, end_offset, n_singular_values=m_smaller, len_queue=1;
+  double *sub_matrix_pointer;
+  double *data;
 
-  int m_top = m / 2;
-  int m_bottom = m - m_top;
+  hodlr->root->m = m;
 
-  int n_left = n / 2;
-  int n_right = n - n_left;
-
-  if (m_top != n_left) {
-    // error out
-  }
-
-  if (m_bottom != n_right) {
-    // error out
-  }
+  double *s = malloc(n_singular_values * sizeof(double));
+  double *u = malloc(m_larger * n_singular_values * sizeof(double));
+  double *vt = malloc(n_singular_values * m_smaller * sizeof(double));
 
   //printf("m_top=%d, m_bottom=%d, n_left=%d, n_right=%d\n", m_top, m_bottom, n_left, n_right);
+  int max_depth_n = (int)pow(2, hodlr->height-1); 
+  struct HODLRInternalNode **queue = malloc(max_depth_n * sizeof(struct HODLRInternalNode *));
+  struct HODLRInternalNode **next_level = malloc(max_depth_n * sizeof(struct HODLRInternalNode *));
+  struct HODLRInternalNode **temp_pointer;
 
-  // TOP LEFT QUARTER
-  double *top_left_data = malloc(m_top * n_left * sizeof(double));
-  for  (int j = 0; j < n_left; j++){
-    for (int i = 0; i < m_top; i++) {
-      top_left_data[i + j * m_top] = matrix[i + j * m];
+  //printf("%d\n", max_depth_n);
+  
+  queue[0] = hodlr->root;
+
+  for (int i = 1; i < hodlr->height; i++) {
+    offset = 0;
+    for (int j = 0; j < len_queue; j++) {
+      m_smaller = queue[j]->m / 2;
+      m_larger = queue[j]->m - m_smaller;
+
+      //printf("i=%d, j=%d\n", i, j);
+
+      // Off-diagonal block in the top right corner
+      sub_matrix_pointer = matrix + offset + m * (offset + m_larger);
+      result = compress_off_diagonal(
+        &(queue[j]->children[1].leaf->data.off_diagonal), 
+        m_larger, m_smaller, m_smaller, m, 
+        sub_matrix_pointer, 
+        s, u, vt, svd_threshold
+      );
+      if (result != 0) {
+        // error out
+        printf("compress 1 failed\n");
+      }
+      
+      // Off-diagonal block in the bottom left corner
+      sub_matrix_pointer = matrix + m * offset + offset + m_larger;
+      result = compress_off_diagonal(
+        &(queue[j]->children[2].leaf->data.off_diagonal), 
+        m_smaller, m_larger, n_singular_values, m,
+        sub_matrix_pointer, 
+        s, u, vt, svd_threshold
+      );
+      if (result != 0) {
+        // error out
+        printf("compress 2 failed\n");
+      }
+
+      offset += queue[j]->m;
+
+      next_level[2 * j] = queue[i]->children[0].internal;
+      next_level[2 * j + 1] = queue[i]->children[3].internal;
     }
+
+    temp_pointer = queue;
+    queue = next_level;
+    next_level = temp_pointer;
+
+    len_queue = len_queue * 2;
   }
-  //node_top_left.child = NULL;
-  node_top_left.data.diagonal.data = top_left_data;
-  node_top_left.data.diagonal.m = m_top;
 
-  //print_matrix(m_top, n_left, node_top_left.data.diagonal.data);
+  offset = 0; end_offset = 0;
+  for (int i = 0; i < len_queue; i++) {
+    m_smaller = queue[i]->m / 2;
+    m_larger = queue[i]->m - m_smaller;
 
-  // TOP RIGHT QUARTER
-  double *lapack_matrix = malloc(m_top * n_right * sizeof(double));
-  for (int i = 0; i < n_right; i++) {
-    for (int j = 0; j < m_top; j++) {
-      lapack_matrix[j + i * m_top] = matrix[j + (i+n_left) * m];
+    end_offset += m_larger;
+
+    //printf("i=%d, m_larger=%d, m_smaller=%d\n", i, m_larger, m_smaller);
+
+    // Diagonal block in the top left corner
+    data = malloc(m_larger * m_larger * sizeof(double));
+    for (int j = offset; j < end_offset; j++) {
+      for (int k = offset; k < end_offset; k++) {
+        data[k + j * m_larger] = matrix[k + j * m];
+      }
     }
-  }
-  int n_singular_values = m_top < n_right ? m_top : n_right;
-  double *s = malloc(n_singular_values * sizeof(double));
-  double *u = malloc(m_top * n_singular_values * sizeof(double));
-  double *vt = malloc(n_singular_values * n_right * sizeof(double));
+    queue[i]->children[0].leaf->data.diagonal.data = data;
+    queue[i]->children[0].leaf->data.diagonal.m = m_larger;
 
-  //print_matrix(m_top, n_right, lapack_matrix);
-
-  int result = compress_off_diagonal(&node_top_right, m_top, n_right, n_singular_values, lapack_matrix, s, u, vt, svd_threshold);
-  if (result != 0) {
-    // error out
-    printf("compress 1 failed\n");
-  }
-  //node_top_right.child = NULL;
-  //printf("compress 1 succeeded\n");
-
-  // BOTTOM LEFT QUARTER
-  n_singular_values = m_bottom < n_right ? m_bottom : n_right;
-  for (int i=0; i<n_right; i++) {
-    for (int j=0; j<m_bottom; j++) {
-      lapack_matrix[j + i * m_bottom] = matrix[j + m_top + i * m];
+    // Off-diagonal block in the top right corner
+    sub_matrix_pointer = matrix + offset + m * (offset + m_larger);
+    result = compress_off_diagonal(
+      &(queue[i]->children[1].leaf->data.off_diagonal), 
+      m_larger, m_smaller, m_smaller, m, 
+      sub_matrix_pointer, 
+      s, u, vt, svd_threshold
+    );
+    if (result != 0) {
+      // error out
+      printf("compress 1 failed\n");
     }
-  }
-  //print_matrix(m_bottom, n_left, lapack_matrix);
-
-
-  result = compress_off_diagonal(&node_bottom_left, m_bottom, n_left, n_singular_values, lapack_matrix, s, u, vt, svd_threshold);
-  if (result != 0) {
-    // Error out
-    printf("compress 2 failed\n");
-  }
-  //node_bottom_left.child = NULL;
-  //printf("compress 2 succeeded\n");
-
-  free(lapack_matrix); free(s); free(u); free(vt);
-
-  // BOTTOM RIGHT QUARTER
-  double *bottom_right_data = malloc(m_bottom * n_right * sizeof(double));
-  for (int i = 0; i < n_right; i++) {
-    for (int j = 0; j < m_bottom; j++) {
-      bottom_right_data[j + i * m_bottom] = matrix[j + m_top + (i+n_left) * m];
+    
+    // Off-diagonal block in the bottom left corner
+    sub_matrix_pointer = matrix + m * offset + offset + m_larger;
+    result = compress_off_diagonal(
+      &(queue[i]->children[2].leaf->data.off_diagonal), 
+      m_smaller, m_larger, n_singular_values, m,
+      sub_matrix_pointer, 
+      s, u, vt, svd_threshold
+    );
+    if (result != 0) {
+      // error out
+      printf("compress 2 failed\n");
     }
-  }  
-  //node_bottom_right.children = NULL;
-  node_bottom_right.data.diagonal.data = bottom_right_data;
-  node_bottom_right.data.diagonal.m = m_bottom;
 
-  //print_matrix(m_bottom, n_right, node_bottom_right.data.diagonal.data);
+    offset = end_offset;
+    end_offset += m_smaller;
 
-  //node_top_left.next_sibling = &node_top_right;
-  //node_top_right.next_sibling = &node_bottom_left;
-  //node_bottom_left.next_sibling = &node_bottom_right;
-  //node_bottom_right.next_sibling = NULL;
+    // Diagonal block in the bottom right corner
+    data = malloc(m_smaller * m_smaller * sizeof(double));
+    for (int j = offset; j < end_offset; j++) {
+      for (int k = offset; k < end_offset; k++) {
+        data[(k-offset) + (j-offset) * m_smaller] = matrix[k + j * m];
+        printf("%f   ", data[k + j * m_smaller]);
+      }
+      printf("\n");
+    } 
+    queue[i]->children[3].leaf->data.diagonal.data = data;
+    queue[i]->children[3].leaf->data.diagonal.m = m_smaller;
 
-  node_top_left.type = DIAGONAL;
-  node_top_right.type = OFFDIAGONAL;
-  node_bottom_left.type = OFFDIAGONAL;
-  node_bottom_right.type = DIAGONAL;
+    printf("node=%p,   data=%p\n", &queue[i]->children[3].leaf->data.diagonal, queue[i]->children[3].leaf->data.diagonal.data);
+    offset = end_offset;
+  }
 
-  //printf("all nodes created\n");
-  return node_top_left;
+  free(s); free(u); free(vt); free(queue); free(next_level);
 }
 
 
-struct TreeHODLR dense_to_tree_hodlr(int m, 
-                                     int n,
-                                     double *matrix,
-                                     double svd_threshold,
-                                     int depth) {
-  struct TreeHODLR root;
+struct TreeHODLR* allocate_tree(int height) {
+  if (height < 1) {
+    // error out
+  }
+  int len_queue = 1;
+  int max_depth_n = (int)pow(2, height - 1);
+  
+  struct TreeHODLR *root = malloc(sizeof(struct TreeHODLR));
+  //struct HODLRInternalNode *node = (HODLRInternalNode *)malloc(sizeof(HODLRInternalNode));
 
-  struct HODLRNode child = create_one_level(m, n, matrix, svd_threshold);
-  root.child = &child;
-  root.depth = depth;
+  root->height = height;
+  root->innermost_leaves = malloc(max_depth_n * 2 * sizeof(struct HODLRLeafNode *));
+
+  root->root = malloc(sizeof(struct HODLRInternalNode));
+  root->root->parent = NULL;
+
+  struct HODLRInternalNode **queue = malloc(max_depth_n * sizeof(void *));
+  struct HODLRInternalNode **next_level = malloc(max_depth_n * sizeof(void *));
+  struct HODLRInternalNode **temp_pointer;
+  queue[0] = root->root;
+
+  for (int i = 1; i < height; i++) {
+    //len_queue = (int)pow(2, i-1);
+    
+    for (int j = 0; j < len_queue; j++) {
+      queue[j]->children[1].leaf = malloc(sizeof(struct HODLRLeafNode));
+      queue[j]->children[1].leaf->type = OFFDIAGONAL;
+      queue[j]->children[1].leaf->parent = queue[j];
+
+      //queue[j]->children[2].leaf = queue[j]->children[1];
+      queue[j]->children[2].leaf = malloc(sizeof(struct HODLRLeafNode));
+      queue[j]->children[2].leaf->type = OFFDIAGONAL;
+      queue[j]->children[2].leaf->parent = queue[j];
+ 
+      queue[j]->children[0].internal = malloc(sizeof(struct HODLRInternalNode));
+      //queue[j]->children[0].internal.type = DIAGONAL;
+      queue[j]->children[0].internal->parent = queue[j];
+
+      queue[j]->children[3].internal = malloc(sizeof(struct HODLRInternalNode));
+      //queue[j]->children[3].internal.type = DIAGONAL;
+      queue[j]->children[3].internal->parent = queue[j];
+
+      next_level[2 * j] = queue[i]->children[0].internal;
+      next_level[2 * j + 1] = queue[i]->children[3].internal;
+    }
+
+    temp_pointer = queue;
+    queue = next_level;
+    next_level = temp_pointer;
+    
+    len_queue = len_queue * 2;
+  }
+
+  for (int i = 0; i < len_queue; i++) {
+    for (int j = 0; j < 4; j ++) {
+      queue[i]->children[j].leaf = malloc(sizeof(struct HODLRLeafNode));
+      queue[i]->children[j].leaf->parent = queue[i];
+    }
+    root->innermost_leaves[i * 2] = queue[i]->children[0].leaf;
+    root->innermost_leaves[i * 2 + 1] = queue[i]->children[3].leaf;
+    
+    queue[i]->children[0].leaf->type = DIAGONAL;
+    queue[i]->children[1].leaf->type = OFFDIAGONAL;
+    queue[i]->children[2].leaf->type = OFFDIAGONAL;
+    queue[i]->children[3].leaf->type = DIAGONAL;
+  }
+
+  free(queue); free(next_level);
 
   return root;
 }
 
 
 void free_tree_hodlr(struct TreeHODLR *hodlr) {
-  struct HODLRNode *node = hodlr->child;
+  int i, j, k, idx;
+  int n_parent_nodes = (int)pow(2, hodlr->height - 1);
 
-  free(node->data.diagonal.data);
+  struct HODLRInternalNode **queue = malloc(n_parent_nodes * sizeof(struct HODLRInternalNode *));
 
-  //node = node->next_sibling;
-  free(node->data.off_diagonal.u);
-  free(node->data.off_diagonal.v);
+  for (i = 0; i < n_parent_nodes; i++) {
+    queue[i] = hodlr->innermost_leaves[2 * i]->parent;
 
-  //node = node->next_sibling;
-  free(node->data.off_diagonal.u);
-  free(node->data.off_diagonal.v);
+    for (j = 0; j < 2; j++) {
+      free(hodlr->innermost_leaves[2 * i + j]->data.diagonal.data);
+      free(hodlr->innermost_leaves[2 * i + j]);
+    }
+  }
 
-  //node = node->next_sibling;
-  free(node->data.diagonal.data);
+  for (i = hodlr->height-1; i > 0; i--) {
+    n_parent_nodes /= 2;
+
+    for (j = 0; j < n_parent_nodes; j++) {
+      idx = 2 * j;
+      for (k = 0; k < 2; k++) {
+        free(queue[idx + k]->children[1].leaf->data.off_diagonal.u);
+        free(queue[idx + k]->children[1].leaf->data.off_diagonal.v);
+        free(queue[idx + k]->children[1].leaf);
+
+        free(queue[idx + k]->children[2].leaf->data.off_diagonal.u);
+        free(queue[idx + k]->children[2].leaf->data.off_diagonal.v);
+        free(queue[idx + k]->children[2].leaf);
+      }
+
+      free(queue[idx]);
+      queue[j] = queue[idx+1]->parent;
+      free(queue[idx+1]);
+    }
+  }
+
+  for (i = 1; i < 3; i++) {
+    free(queue[0]->children[i].leaf->data.off_diagonal.u);
+    free(queue[0]->children[i].leaf->data.off_diagonal.v);
+    free(queue[0]->children[i].leaf);
+  }
+
+  free(queue[0]);
+  free(hodlr);
 }
 
 

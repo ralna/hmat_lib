@@ -1,6 +1,7 @@
 enum NodeType {
   DIAGONAL,
-  OFFDIAGONAL
+  OFFDIAGONAL,
+  INTERNAL
 };
 
 
@@ -24,26 +25,41 @@ union HODLRData {
 };
 
 
-struct HODLRNode {
+struct HODLRLeafNode {
   enum NodeType type;
   union HODLRData data;
-  struct HODLRNode* children[4];
+  struct HODLRInternalNode *parent;
 };
 
+
+union HODLRNode {
+  struct HODLRLeafNode *leaf;
+  struct HODLRInternalNode *internal;
+};
+
+
+struct HODLRInternalNode {
+  //enum NodeType type;
+  union HODLRNode children[4];
+  struct HODLRInternalNode *parent;
+  int m;
+};
 
 
 struct TreeHODLR {
-  int depth;
-  struct HODLRNode *child;
+  int height;
+  struct HODLRInternalNode *root;
+  struct HODLRLeafNode **innermost_leaves;
 };
 
 
 
-struct TreeHODLR dense_to_tree_hodlr(int m, 
-                                     int n,
-                                     double *matrix,
-                                     double svd_threshold,
-                                     int depth);
+struct TreeHODLR* allocate_tree(int height);
+
+void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
+                         int m,
+                         double *matrix,
+                         double svd_threshold);
 
 void free_tree_hodlr(struct TreeHODLR *hodlr);
  
