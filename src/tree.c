@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "lapack_wrapper.h"
-#include "tree.h"
+#include "../include/lapack_wrapper.h"
+#include "../include/tree.h"
 // #include <clapack.h>
 //
 

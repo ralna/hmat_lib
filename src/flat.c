@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-#include "lapack_wrapper.h"
+#include "../include/lapack_wrapper.h"
 
 
 struct FlatHODLR {

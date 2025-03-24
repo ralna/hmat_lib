@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "tree.h"
+#include "../include/tree.h"
 
 
 static void print_matrix(int m, int n, double *matrix) {

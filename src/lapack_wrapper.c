@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "lapack_wrapper.h"
+#include "../include/lapack_wrapper.h"
 
 
 int svd_double(int m,
