@@ -137,8 +137,11 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
 
       offset += queue[j]->m;
 
-      next_level[2 * j] = queue[i]->children[0].internal;
-      next_level[2 * j + 1] = queue[i]->children[3].internal;
+      queue[j]->children[0].internal->m = m_larger;
+      queue[j]->children[3].internal->m = m_smaller;
+
+      next_level[2 * j] = queue[j]->children[0].internal;
+      next_level[2 * j + 1] = queue[j]->children[3].internal;
     }
 
     temp_pointer = queue;
@@ -233,14 +236,11 @@ struct TreeHODLR* allocate_tree(int height) {
   queue[0] = root->root;
 
   for (int i = 1; i < height; i++) {
-    //len_queue = (int)pow(2, i-1);
-    
     for (int j = 0; j < len_queue; j++) {
       queue[j]->children[1].leaf = malloc(sizeof(struct HODLRLeafNode));
       queue[j]->children[1].leaf->type = OFFDIAGONAL;
       queue[j]->children[1].leaf->parent = queue[j];
 
-      //queue[j]->children[2].leaf = queue[j]->children[1];
       queue[j]->children[2].leaf = malloc(sizeof(struct HODLRLeafNode));
       queue[j]->children[2].leaf->type = OFFDIAGONAL;
       queue[j]->children[2].leaf->parent = queue[j];
@@ -253,8 +253,8 @@ struct TreeHODLR* allocate_tree(int height) {
       //queue[j]->children[3].internal.type = DIAGONAL;
       queue[j]->children[3].internal->parent = queue[j];
 
-      next_level[2 * j] = queue[i]->children[0].internal;
-      next_level[2 * j + 1] = queue[i]->children[3].internal;
+      next_level[2 * j] = queue[j]->children[0].internal;
+      next_level[2 * j + 1] = queue[j]->children[3].internal;
     }
 
     temp_pointer = queue;
