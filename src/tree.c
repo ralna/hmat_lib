@@ -81,7 +81,7 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
   int m_smaller = m / 2;
   int m_larger = m - m_smaller;
   
-  int result, offset, end_offset, n_singular_values=m_smaller, len_queue=1;
+  int result, offset, n_singular_values=m_smaller, len_queue=1;
   double *sub_matrix_pointer;
   double *data;
 
@@ -148,20 +148,18 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
     len_queue = len_queue * 2;
   }
 
-  offset = 0; end_offset = 0;
+  offset = 0;
   for (int i = 0; i < len_queue; i++) {
     m_smaller = queue[i]->m / 2;
     m_larger = queue[i]->m - m_smaller;
-
-    end_offset += m_larger;
 
     //printf("i=%d, m_larger=%d, m_smaller=%d\n", i, m_larger, m_smaller);
 
     // Diagonal block in the top left corner
     data = malloc(m_larger * m_larger * sizeof(double));
-    for (int j = offset; j < end_offset; j++) {
-      for (int k = offset; k < end_offset; k++) {
-        data[k + j * m_larger] = matrix[k + j * m];
+    for (int j = 0; j < m_larger; j++) {
+      for (int k = 0; k < m_larger; k++) {
+        data[k + j * m_larger] = matrix[k + offset + (j + offset) * m];
       }
     }
     queue[i]->children[0].leaf->data.diagonal.data = data;
@@ -193,23 +191,20 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
       printf("compress 2 failed\n");
     }
 
-    offset = end_offset;
-    end_offset += m_smaller;
+    offset += m_larger;
 
     // Diagonal block in the bottom right corner
     data = malloc(m_smaller * m_smaller * sizeof(double));
-    for (int j = offset; j < end_offset; j++) {
-      for (int k = offset; k < end_offset; k++) {
-        data[(k-offset) + (j-offset) * m_smaller] = matrix[k + j * m];
-        printf("%f   ", data[k + j * m_smaller]);
+    for (int j = 0; j < m_smaller; j++) {
+      for (int k = 0; k < m_smaller; k++) {
+        data[k + j * m_smaller] = matrix[k + offset + (j + offset) * m];
       }
-      printf("\n");
     } 
     queue[i]->children[3].leaf->data.diagonal.data = data;
     queue[i]->children[3].leaf->data.diagonal.m = m_smaller;
 
-    printf("node=%p,   data=%p\n", &queue[i]->children[3].leaf->data.diagonal, queue[i]->children[3].leaf->data.diagonal.data);
-    offset = end_offset;
+    //printf("node=%p,   data=%p\n", &queue[i]->children[3].leaf->data.diagonal, queue[i]->children[3].leaf->data.diagonal.data);
+    offset += m_smaller;
   }
 
   free(s); free(u); free(vt); free(queue); free(next_level);
