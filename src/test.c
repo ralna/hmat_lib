@@ -71,8 +71,8 @@ static void print_tree_hodlr(struct TreeHODLR *hodlr) {
       printf("BOTTOM LEFT CORNER:\n");
       print_node_offdiagonal(&queue[j]->children[2].leaf->data.off_diagonal);
     
-      next_level[2 * j] = queue[i]->children[0].internal;
-      next_level[2 * j + 1] = queue[i]->children[3].internal;
+      next_level[2 * j] = queue[j]->children[0].internal;
+      next_level[2 * j + 1] = queue[j]->children[3].internal;
     }
     temp_pointer = queue;
     queue = next_level;
@@ -101,7 +101,7 @@ static void print_tree_hodlr(struct TreeHODLR *hodlr) {
 int main() {
   int m = 10;
   double svd_threshold = 0.1;
-  int depth = 1;
+  int depth = 2;
 
   int idx;
   double *matrix = malloc(m * m * sizeof(double));
