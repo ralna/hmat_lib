@@ -55,9 +55,9 @@ int compress_off_diagonal(struct NodeOffDiagonal *node,
   //print_matrix(svd_cutoff_idx, m, u_top_right);
 
   double *v_top_right = malloc(svd_cutoff_idx * n * sizeof(double));
-  for (int i=0; i<n; i++) {
-    for (int j=0; j<svd_cutoff_idx; j++) {
-      v_top_right[i + j * n] = vt[j + i * svd_cutoff_idx];
+  for (int i=0; i<svd_cutoff_idx; i++) {
+    for (int j=0; j<n; j++) {
+      v_top_right[j + i * n] = vt[i + j * n];
     }
   }
   //print_matrix(n, svd_cutoff_idx, v_top_right);
