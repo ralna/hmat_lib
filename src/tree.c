@@ -29,6 +29,8 @@ int compress_off_diagonal(struct NodeOffDiagonal *node,
                           double *u,
                           double *vt,
                           double svd_threshold) {
+  //printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
+  //print_matrix(matrix_leading_dim, matrix_leading_dim, lapack_matrix - 5);
   int result = svd_double(m, n, n_singular_values, matrix_leading_dim, lapack_matrix, s, u, vt);
   //printf("svd result %d\n", result);
   if (result != 0) {

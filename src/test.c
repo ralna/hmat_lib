@@ -109,9 +109,9 @@ int main() {
     for (int j = 0; j<m; j++) {
       idx = j + i * m;
       if (i == j) {
-        matrix[idx] = 1;
+        matrix[idx] = 2;
       } else if (i == j+1 || i == j-1) {
-        matrix[idx] = 0.5;
+        matrix[idx] = -1;
       } else {
         matrix[idx] = 0;
       }
