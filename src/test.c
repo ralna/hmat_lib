@@ -133,6 +133,7 @@ int main() {
   //printf("depth=%d   child.type=%d\n", hodlr.depth, hodlr.child->type);
   print_tree_hodlr(hodlr);
 
+  print_matrix(m, m, matrix);
   free_tree_hodlr(hodlr);
   free(matrix);
 
