@@ -1,3 +1,7 @@
+#ifndef TREE_H
+#define TREE_H
+
+
 enum NodeType {
   DIAGONAL,
   OFFDIAGONAL,
@@ -62,4 +66,6 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
                          double svd_threshold);
 
 void free_tree_hodlr(struct TreeHODLR *hodlr);
- 
+
+#endif
+
