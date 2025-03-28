@@ -91,8 +91,9 @@ void free_compress_params(struct criterion_test_params *params) {
 }
 
 
-ParameterizedTestParameters(tree, test_compress) {
+struct ParametersTestCompress * generate_compress_params(int * len) {
   int n_params = 4;
+  *len = n_params;
   struct ParametersTestCompress *params = cr_malloc(n_params * sizeof(struct ParametersTestCompress));
 
   for (int i = 0; i < 2; i++) {
@@ -143,6 +144,13 @@ ParameterizedTestParameters(tree, test_compress) {
   params[3].v_expected[0] = -1;
   params[3].v_expected[9] = 1;
 
+  return params;
+}
+
+
+ParameterizedTestParameters(tree, test_compress) {
+  int n_params;
+  struct ParametersTestCompress *params = generate_compress_params(&n_params);
   return cr_make_param_array(struct ParametersTestCompress, params, n_params, free_compress_params);
 }
 
