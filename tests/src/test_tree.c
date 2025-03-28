@@ -13,10 +13,10 @@
 static double DELTA = 1e-10;
 
 
-void log_matrix(double *matrix, int m, int n) {
+void log_matrix(double *matrix, int m, int n, int lda) {
   for (int i=0; i<m; i++) {
     for (int j=0; j < n; j++) {
-      printf("%f    ", matrix[j * m + i]);
+      printf("%f    ", matrix[j * lda + i]);
     }
     printf("\n");
   }
@@ -24,13 +24,18 @@ void log_matrix(double *matrix, int m, int n) {
 }
 
 
-void expect_arr_double_eq(double *actual, double *expected, int m, int n) {
+void expect_arr_double_eq(double *actual, 
+                          double *expected, 
+                          int m, 
+                          int n,
+                          int ld_actual,
+                          int ld_expected) {
   int errors = 0;
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < m; j++) {
-      if (fabs(actual[j + i * m] - expected[j + i * m]) > DELTA) {
+      if (fabs(actual[j + i * ld_actual] - expected[j + i * ld_expected]) > DELTA) {
         cr_log_error("actual value '%f' at index [%d, %d] is different from the expected '%f'", 
-                     actual[j + i * m], j, i, expected[j + i * m]);
+                     actual[j + i * ld_actual], j, i, expected[j + i * ld_expected]);
         errors += 1;
       }
     }
@@ -39,9 +44,9 @@ void expect_arr_double_eq(double *actual, double *expected, int m, int n) {
   if (errors > 0) {
     cr_fail("The matrices are not equal (%d errors)", errors);
     cr_log_info("Actual:");
-    log_matrix(actual, m, n);
+    log_matrix(actual, m, n, ld_actual);
     cr_log_info("Expected:");
-    log_matrix(expected, m, n);
+    log_matrix(expected, m, n, ld_expected);
   }
 }
 
@@ -178,7 +183,70 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, test_compress) {
   cr_expect(eq(result.s, params->expected_n_singular));
   cr_expect(eq(result.n, params->n));
 
-  expect_arr_double_eq(result.u, params->u_expected, params->m, params->expected_n_singular);
-  expect_arr_double_eq(result.v, params->v_expected, params->n, params->expected_n_singular);
+  expect_arr_double_eq(result.u, params->u_expected, params->m, params->expected_n_singular,
+                       result.m, params->m);
+  expect_arr_double_eq(result.v, params->v_expected, params->n, params->expected_n_singular,
+                       result.m, params->m);
 }
+
+
+ParameterizedTestParameters(tree, test_decompress) {
+  int n_params;
+  struct ParametersTestCompress *params = generate_compress_params(&n_params);
+  return cr_make_param_array(struct ParametersTestCompress, params, n_params, free_compress_params);
+}
+
+
+ParameterizedTest(struct ParametersTestCompress *params, tree, test_decompress) {
+  struct NodeOffDiagonal node;
+  node.m = params->m;
+  node.s = params->expected_n_singular;
+  node.n = params->n;
+
+  node.u = params->u_expected;
+  node.v = params->v_expected;
+
+  double *result = decompress_off_diagonal(&node);
+
+  expect_arr_double_eq(result, params->matrix, node.m, node.n, node.m, params->m_full);
+
+  free(result);
+}
+
+
+ParameterizedTestParameters(tree, recompress) {
+  int n_params;
+  struct ParametersTestCompress *params = generate_compress_params(&n_params);
+  return cr_make_param_array(struct ParametersTestCompress, params, n_params, free_compress_params);
+}
+
+
+ParameterizedTest(struct ParametersTestCompress *params, tree, recompress) {
+  struct NodeOffDiagonal node;
+  int n_singular_values = params->m < params->n ? params->m : params->n;
+  
+  int diff = params->matrix - params->full_matrix;
+  double *og_data = malloc(params->m_full * params->m_full * sizeof(double));
+  memcpy(og_data, params->full_matrix, params->m_full * params->m_full * sizeof(double));
+  double *og_matrix = og_data + diff;
+
+  double *s_work = malloc(n_singular_values * sizeof(double));
+  double *u_work = malloc(params->m * n_singular_values * sizeof(double));
+  double *vt_work = malloc(params->n * n_singular_values * sizeof(double));
+
+  int result_code = compress_off_diagonal(
+      &node, params->m, params->n, n_singular_values, params->m_full, 
+      params->matrix, s_work, u_work, vt_work, params->svd_threshold
+  );
+
+  free(s_work); free(u_work); free(vt_work);
+
+  double *result = decompress_off_diagonal(&node);
+
+  expect_arr_double_eq(result, og_matrix, node.m, node.n, 
+                       node.m, params->m_full);
+
+  free(og_data); free(result);
+}
+
 
