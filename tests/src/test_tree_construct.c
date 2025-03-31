@@ -1,54 +1,14 @@
-#include <criterion/logging.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 #include <criterion/criterion.h>
 #include <criterion/parameterized.h>
 #include <criterion/new/assert.h>
 #include <criterion/logging.h>
 
+#include "../include/utils.h"
+#include "../include/common_data.h"
+
 #include "../../src/tree.c"
-
-
-static double DELTA = 1e-10;
-
-
-void log_matrix(double *matrix, int m, int n, int lda) {
-  for (int i=0; i<m; i++) {
-    for (int j=0; j < n; j++) {
-      printf("%f    ", matrix[j * lda + i]);
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
-
-
-void expect_arr_double_eq(double *actual, 
-                          double *expected, 
-                          int m, 
-                          int n,
-                          int ld_actual,
-                          int ld_expected) {
-  int errors = 0;
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < m; j++) {
-      if (fabs(actual[j + i * ld_actual] - expected[j + i * ld_expected]) > DELTA) {
-        cr_log_error("actual value '%f' at index [%d, %d] is different from the expected '%f'", 
-                     actual[j + i * ld_actual], j, i, expected[j + i * ld_expected]);
-        errors += 1;
-      }
-    }
-  }
-
-  if (errors > 0) {
-    cr_fail("The matrices are not equal (%d errors)", errors);
-    cr_log_info("Actual:");
-    log_matrix(actual, m, n, ld_actual);
-    cr_log_info("Expected:");
-    log_matrix(expected, m, n, ld_expected);
-  }
-}
 
 
 struct ParametersTestCompress {
@@ -62,26 +22,6 @@ struct ParametersTestCompress {
   double *v_expected;
   double *full_matrix;
 };
-
-
-double * construct_laplacian_matrix(int m) {
-  int idx;
-  double *matrix = cr_malloc(m * m * sizeof(double));
-  for (int i = 0; i < m; i++) {
-    for (int j = 0; j < m; j++) {
-      idx = j + i * m;
-      if (i == j) {
-        matrix[idx] = 2;
-      } else if (i == j+1 || i == j-1) {
-        matrix[idx] = -1;
-      } else {
-        matrix[idx] = 0;
-      }
-    }
-  }
-
-  return matrix;
-}
 
 
 void free_compress_params(struct criterion_test_params *params) {
