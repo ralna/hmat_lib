@@ -67,5 +67,7 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
 
 void free_tree_hodlr(struct TreeHODLR *hodlr);
 
+double * multiply_vector(struct TreeHODLR *hodlr, double *vector, double *out);
+
 #endif
 

@@ -353,6 +353,95 @@ void free_tree_hodlr(struct TreeHODLR *hodlr) {
 }
 
 
+static inline void multiply_diagonal_vector(struct NodeDiagonal *node,
+                                            double *vector,
+                                            double *out) {
+  int m = node->m;
+  double *data = node->data;
+
+  for (int i = 0; i < m; i++) {
+    out[i] = data[i] * vector[0];
+    for (int j = 1; j < m; j++) {
+      out[i] += data[i + j * m] * vector[j];
+    }
+  }
+}
+
+
+static inline void multiply_off_diagonal_vector(struct NodeOffDiagonal *node,
+                                                double *vector,
+                                                double *out) {
+  int idx, i, j, k;
+  int m = node->m, n = node->n, s = node->s;
+  double decompression_val;
+
+  for (i = 0; i < m; i++) {
+    for (j = 0; j < n; j++) {
+      decompression_val = 0;
+      for (k = 0; k < s; k++) {
+        decompression_val += node->u[i + k * m] * node->v[j + k * n];
+      }
+      out[i] += decompression_val * vector[i];
+    }
+  }
+}
+
+
+double * mulitply_vector(struct TreeHODLR *hodlr,
+                         double *vector,
+                         double *out) {
+  if (out == NULL) {
+    double *out = malloc(hodlr->root->m * sizeof(double));
+  }
+
+  int offset = 0, offset2 = 0, i, j, k, idx, len_queue = 0;
+  int n_parent_nodes = (int)pow(2, hodlr->height - 1);
+
+  struct HODLRInternalNode **queue = malloc(n_parent_nodes * sizeof(struct HODLRInternalNode *));
+
+  for (i = 0; i < n_parent_nodes; i++) {
+    queue[i] = hodlr->innermost_leaves[2 * i]->parent;
+
+    for (j = 0; j < 2; j++) {
+      idx = 2 * i + j;
+      multiply_diagonal_vector(&(hodlr->innermost_leaves[idx]->data.diagonal), 
+                               vector + offset, out + offset);
+      offset += hodlr->innermost_leaves[idx]->data.diagonal.m;
+    }
+  }
+
+  for (i = hodlr->height-1; i > 0; i--) {
+    n_parent_nodes /= 2;
+    offset = 0; offset2 = 0;
+
+    for (j = 0; j < n_parent_nodes; j++) {
+      idx = 2 * j;
+      for (k = 0; k < 2; k++) {
+        offset += queue[idx + k]->children[1].leaf->data.off_diagonal.m;
+        multiply_off_diagonal_vector(&(queue[idx + k]->children[1].leaf->data.off_diagonal),
+                                    vector + offset, out + offset2);
+        
+        multiply_off_diagonal_vector(&(queue[idx + k]->children[2].leaf->data.off_diagonal),
+                                    vector + offset2, out + offset);
+      
+        offset += queue[idx + k]->children[1].leaf->data.off_diagonal.n;
+        offset2 = offset;
+      }
+
+      queue[j] = queue[idx+1]->parent;
+    }
+  }
+
+//  for (i = 1; i < 3; i++) {
+//    free(queue[0]->children[i].leaf->data.off_diagonal.u);
+//    free(queue[0]->children[i].leaf->data.off_diagonal.v);
+//    free(queue[0]->children[i].leaf);
+//  }
+
+  return out;
+}
+
+
 //int main() {
   //int m = 5, n = 5, leading_dimension = 5;
   //double *matrix;
