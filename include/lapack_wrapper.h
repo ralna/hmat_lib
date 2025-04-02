@@ -10,5 +10,6 @@ int svd_double(int m,
                double *matrix,
                double *s,
                double *u,
-               double *vt);
+               double *vt,
+               int *ierr);
 

@@ -1,0 +1,12 @@
+#ifndef HODLR_ERROR_H
+#define HODLR_ERROR_H
+
+enum ErrorCode {
+  SUCCESS,
+  ALLOCATION_FAILURE,
+  SVD_FAILURE,
+  SVD_ALLOCATION_FAILURE
+};
+
+#endif
+
