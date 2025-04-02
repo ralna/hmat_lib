@@ -60,10 +60,11 @@ struct TreeHODLR {
 
 struct TreeHODLR* allocate_tree(int height);
 
-void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
-                         int m,
-                         double *matrix,
-                         double svd_threshold);
+int dense_to_tree_hodlr(struct TreeHODLR *hodlr,
+                        int m,
+                        double *matrix,
+                        double svd_threshold,
+                        int *ierr);
 
 void free_tree_hodlr(struct TreeHODLR *hodlr);
 

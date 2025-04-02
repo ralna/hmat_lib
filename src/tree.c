@@ -4,6 +4,7 @@
 
 #include "../include/lapack_wrapper.h"
 #include "../include/tree.h"
+#include "../include/error.h"
 // #include <clapack.h>
 //
 
@@ -18,7 +19,7 @@ static void print_matrix(int m, int n, double *matrix) {
   printf("\n");
 }
 
-
+// no allocation
 double * decompress_off_diagonal(struct NodeOffDiagonal *node) {
   int idx, i, j, k;
   int m = node->m, n = node->n, s = node->s;
@@ -44,16 +45,17 @@ int compress_off_diagonal(struct NodeOffDiagonal *node,
                           int n, 
                           int n_singular_values,
                           int matrix_leading_dim,
-                          double *lapack_matrix,
-                          double *s,
-                          double *u,
-                          double *vt,
-                          double svd_threshold) {
+                          double *restrict lapack_matrix,
+                          double *restrict s,
+                          double *restrict u,
+                          double *restrict vt,
+                          double svd_threshold,
+                          int *restrict ierr) {
   //printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
   //print_matrix(matrix_leading_dim, matrix_leading_dim, lapack_matrix - 5);
-  int result = svd_double(m, n, n_singular_values, matrix_leading_dim, lapack_matrix, s, u, vt);
+  int result = svd_double(m, n, n_singular_values, matrix_leading_dim, lapack_matrix, s, u, vt, ierr);
   //printf("svd result %d\n", result);
-  if (result != 0) {
+  if (*ierr != SUCCESS) {
     return result;
   }
 
@@ -68,6 +70,10 @@ int compress_off_diagonal(struct NodeOffDiagonal *node,
   //printf("svd cut-off=%d, m=%d\n", svd_cutoff_idx, m);
 
   double *u_top_right = malloc(m * svd_cutoff_idx * sizeof(double));
+  if (u_top_right == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    return result;
+  }
   for (int i=0; i<svd_cutoff_idx; i++) {
     for (int j=0; j<m; j++) {
       //printf("i=%d, j=%d, idx=%d\n", i, j, j + i * m);
@@ -77,6 +83,10 @@ int compress_off_diagonal(struct NodeOffDiagonal *node,
   //print_matrix(svd_cutoff_idx, m, u_top_right);
 
   double *v_top_right = malloc(svd_cutoff_idx * n * sizeof(double));
+  if (v_top_right == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    return result;
+  }
   for (int i=0; i<svd_cutoff_idx; i++) {
     for (int j=0; j<n; j++) {
       v_top_right[j + i * n] = vt[i + j * n];
@@ -91,15 +101,17 @@ int compress_off_diagonal(struct NodeOffDiagonal *node,
   node->s = svd_cutoff_idx;
   node->n = n;
 
-  return 0;
+  *ierr = SUCCESS;
+  return result;
 }
 
 
 
-void dense_to_tree_hodlr(struct TreeHODLR *hodlr, 
-                         int m,
-                         double *matrix, 
-                         double svd_threshold) { 
+int dense_to_tree_hodlr(struct TreeHODLR *hodlr, 
+                        int m,
+                        double *matrix, 
+                        double svd_threshold,
+                        int *ierr) { 
   int m_smaller = m / 2;
   int m_larger = m - m_smaller;
   
@@ -110,17 +122,44 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
   hodlr->root->m = m;
 
   double *s = malloc(n_singular_values * sizeof(double));
+  if (s == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    return 0;
+  }
   double *u = malloc(m_larger * n_singular_values * sizeof(double));
+  if (u == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(s);
+    return 0;
+  }
+
   double *vt = malloc(n_singular_values * m_smaller * sizeof(double));
+  if (vt == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(s); free(u);
+    return 0;
+  }
+
 
   //printf("m_top=%d, m_bottom=%d, n_left=%d, n_right=%d\n", m_top, m_bottom, n_left, n_right);
   int max_depth_n = (int)pow(2, hodlr->height-1); 
   struct HODLRInternalNode **queue = malloc(max_depth_n * sizeof(struct HODLRInternalNode *));
+  if (queue == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(s); free(u); free(vt);
+    return 0;
+  }
+
   struct HODLRInternalNode **next_level = malloc(max_depth_n * sizeof(struct HODLRInternalNode *));
   struct HODLRInternalNode **temp_pointer;
+  if (next_level == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(s); free(u); free(vt); free(queue);
+    return 0;
+  }
+
 
   //printf("%d\n", max_depth_n);
-  
   queue[0] = hodlr->root;
 
   for (int i = 1; i < hodlr->height; i++) {
@@ -136,12 +175,14 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
       result = compress_off_diagonal(
         &(queue[j]->children[1].leaf->data.off_diagonal), 
         m_larger, m_smaller, m_smaller, m, 
-        sub_matrix_pointer, 
-        s, u, vt, svd_threshold
+        sub_matrix_pointer,
+        s, u, vt, svd_threshold, ierr
       );
-      if (result != 0) {
+      if (*ierr != SUCCESS) {
+        //handle_error(ierr, result);  // 
         // error out
-        printf("compress 1 failed\n");
+        free(s); free(u); free(vt); free(queue); free(next_level);
+        return result;
       }
       
       // Off-diagonal block in the bottom left corner
@@ -150,11 +191,12 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
         &(queue[j]->children[2].leaf->data.off_diagonal), 
         m_smaller, m_larger, n_singular_values, m,
         sub_matrix_pointer, 
-        s, u, vt, svd_threshold
+        s, u, vt, svd_threshold, ierr
       );
-      if (result != 0) {
+      if (*ierr != SUCCESS) {
         // error out
-        printf("compress 2 failed\n");
+        free(s); free(u); free(vt); free(queue); free(next_level);
+        return result;
       }
 
       offset += queue[j]->m;
@@ -182,6 +224,11 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
 
     // Diagonal block in the top left corner
     data = malloc(m_larger * m_larger * sizeof(double));
+    if (data == NULL) {
+      *ierr = ALLOCATION_FAILURE;
+      free(s); free(u); free(vt); free(queue); free(next_level);
+      return 0;
+    }
     for (int j = 0; j < m_larger; j++) {
       for (int k = 0; k < m_larger; k++) {
         data[k + j * m_larger] = matrix[k + offset + (j + offset) * m];
@@ -196,11 +243,12 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
       &(queue[i]->children[1].leaf->data.off_diagonal), 
       m_larger, m_smaller, m_smaller, m, 
       sub_matrix_pointer, 
-      s, u, vt, svd_threshold
+      s, u, vt, svd_threshold, ierr
     );
-    if (result != 0) {
+    if (*ierr != SUCCESS) {
       // error out
-      printf("compress 1 failed\n");
+      free(s); free(u); free(vt); free(queue); free(next_level);
+      return result;
     }
     
     // Off-diagonal block in the bottom left corner
@@ -209,17 +257,22 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
       &(queue[i]->children[2].leaf->data.off_diagonal), 
       m_smaller, m_larger, n_singular_values, m,
       sub_matrix_pointer, 
-      s, u, vt, svd_threshold
+      s, u, vt, svd_threshold, ierr
     );
-    if (result != 0) {
+    if (*ierr != SUCCESS) {
       // error out
-      printf("compress 2 failed\n");
+      free(s); free(u); free(vt); free(queue); free(next_level);
+      return result;
     }
 
     offset += m_larger;
 
     // Diagonal block in the bottom right corner
     data = malloc(m_smaller * m_smaller * sizeof(double));
+    if (data == NULL) {
+      free(s); free(u); free(vt); free(queue); free(next_level);
+      return 0;
+    }
     for (int j = 0; j < m_smaller; j++) {
       for (int k = 0; k < m_smaller; k++) {
         data[k + j * m_smaller] = matrix[k + offset + (j + offset) * m];
@@ -233,6 +286,9 @@ void dense_to_tree_hodlr(struct TreeHODLR *hodlr,
   }
 
   free(s); free(u); free(vt); free(queue); free(next_level);
+  *ierr = SUCCESS;
+
+  return 0;
 }
 
 
@@ -266,7 +322,7 @@ struct TreeHODLR* allocate_tree(int height) {
       queue[j]->children[2].leaf = malloc(sizeof(struct HODLRLeafNode));
       queue[j]->children[2].leaf->type = OFFDIAGONAL;
       queue[j]->children[2].leaf->parent = queue[j];
- 
+
       queue[j]->children[0].internal = malloc(sizeof(struct HODLRInternalNode));
       //queue[j]->children[0].internal.type = DIAGONAL;
       queue[j]->children[0].internal->parent = queue[j];

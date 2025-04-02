@@ -9,6 +9,7 @@
 #include "../include/common_data.h"
 
 #include "../../src/tree.c"
+#include "../../include/error.h"
 
 
 struct ParametersTestCompress {
@@ -102,6 +103,7 @@ ParameterizedTestParameters(tree, test_compress) {
 
 ParameterizedTest(struct ParametersTestCompress *params, tree, test_compress) {
   struct NodeOffDiagonal result;
+  int ierr;
   int n_singular_values = params->m < params->n ? params->m : params->n;
   
   double *s_work = malloc(n_singular_values * sizeof(double));
@@ -110,13 +112,14 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, test_compress) {
 
   int result_code = compress_off_diagonal(
       &result, params->m, params->n, n_singular_values, params->m_full, 
-      params->matrix, s_work, u_work, vt_work, params->svd_threshold
+      params->matrix, s_work, u_work, vt_work, params->svd_threshold, &ierr
   );
 
   free(s_work); free(u_work); free(vt_work);
 
+  cr_expect(eq(ierr, SUCCESS));
   cr_expect(eq(result_code, 0));
-  if (result_code != 0) {
+  if (result_code != 0 || ierr != SUCCESS) {
     cr_fatal();
   } 
   cr_expect(eq(result.m, params->m));
@@ -163,6 +166,8 @@ ParameterizedTestParameters(tree, recompress) {
 
 ParameterizedTest(struct ParametersTestCompress *params, tree, recompress) {
   struct NodeOffDiagonal node;
+  int ierr;
+
   int n_singular_values = params->m < params->n ? params->m : params->n;
   
   int diff = params->matrix - params->full_matrix;
@@ -176,11 +181,19 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, recompress) {
 
   int result_code = compress_off_diagonal(
       &node, params->m, params->n, n_singular_values, params->m_full, 
-      params->matrix, s_work, u_work, vt_work, params->svd_threshold
+      params->matrix, s_work, u_work, vt_work, params->svd_threshold,
+      &ierr
   );
-
+  
   free(s_work); free(u_work); free(vt_work);
-
+  
+  cr_expect(eq(ierr, SUCCESS));
+  cr_expect(eq(result_code, 0));
+  if (result_code != 0 || ierr != SUCCESS) {
+    free(og_data);
+    cr_fatal();
+  } 
+ 
   double *result = decompress_off_diagonal(&node);
 
   expect_arr_double_eq(result, og_matrix, node.m, node.n, 

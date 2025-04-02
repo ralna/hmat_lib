@@ -101,7 +101,7 @@ static void print_tree_hodlr(struct TreeHODLR *hodlr) {
 int main() {
   int m = 10;
   double svd_threshold = 0.1;
-  int depth = 2;
+  int depth = 2, ierr;
 
   int idx;
   double *matrix = malloc(m * m * sizeof(double));
@@ -125,7 +125,7 @@ int main() {
   struct TreeHODLR *hodlr = allocate_tree(depth);
   printf("HODLR matrix allocated, converting from dense...\n");
 
-  dense_to_tree_hodlr(hodlr, m, matrix, svd_threshold);
+  dense_to_tree_hodlr(hodlr, m, matrix, svd_threshold, &ierr);
 
   printf("HODLR matrix computed, printing...\n");
 
