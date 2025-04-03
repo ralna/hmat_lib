@@ -10,6 +10,7 @@
 
 #include "../../src/tree.c"
 #include "../../include/error.h"
+#include "../../include/blas_wrapper.h"
 
 
 struct ParametersTestCompress {
@@ -133,30 +134,6 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, test_compress) {
 }
 
 
-ParameterizedTestParameters(tree, test_decompress) {
-  int n_params;
-  struct ParametersTestCompress *params = generate_compress_params(&n_params);
-  return cr_make_param_array(struct ParametersTestCompress, params, n_params, free_compress_params);
-}
-
-
-ParameterizedTest(struct ParametersTestCompress *params, tree, test_decompress) {
-  struct NodeOffDiagonal node;
-  node.m = params->m;
-  node.s = params->expected_n_singular;
-  node.n = params->n;
-
-  node.u = params->u_expected;
-  node.v = params->v_expected;
-
-  double *result = decompress_off_diagonal(&node);
-
-  expect_arr_double_eq(result, params->matrix, node.m, node.n, node.m, params->m_full);
-
-  free(result);
-}
-
-
 ParameterizedTestParameters(tree, recompress) {
   int n_params;
   struct ParametersTestCompress *params = generate_compress_params(&n_params);
@@ -167,6 +144,7 @@ ParameterizedTestParameters(tree, recompress) {
 ParameterizedTest(struct ParametersTestCompress *params, tree, recompress) {
   struct NodeOffDiagonal node;
   int ierr;
+  double alpha = 1, beta = 0;
 
   int n_singular_values = params->m < params->n ? params->m : params->n;
   
@@ -193,8 +171,11 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, recompress) {
     free(og_data);
     cr_fatal();
   } 
- 
-  double *result = decompress_off_diagonal(&node);
+
+  double *result = malloc(params->m * params->n * sizeof(double));
+  dgemm_("N", "T", &node.m, &node.n, 
+         &node.s, &alpha, node.u, &node.m, 
+         node.v, &node.n, &beta, result, &params->m);
 
   expect_arr_double_eq(result, og_matrix, node.m, node.n, 
                        node.m, params->m_full);

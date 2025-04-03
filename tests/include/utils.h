@@ -1,12 +1,12 @@
 
-void log_matrix(double *matrix, int m, int n, int lda);
+void log_matrix(const double *matrix, const int m, const int n, const int lda);
 
-void expect_arr_double_eq(double *actual, 
-                          double *expected, 
-                          int m, 
-                          int n,
-                          int ld_actual,
-                          int ld_expected);
+void expect_arr_double_eq(const double *actual, 
+                          const double *expected, 
+                          const int m, 
+                          const int n,
+                          const int ld_actual,
+                          const int ld_expected);
 
 
  

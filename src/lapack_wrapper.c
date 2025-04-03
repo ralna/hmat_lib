@@ -49,5 +49,6 @@ int svd_double(int m,
   //printf("dgesdd completed=%d\n", info);
   free(work); free(iwork);
 
+  *ierr = SUCCESS;
   return info;
 }

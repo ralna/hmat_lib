@@ -23,6 +23,7 @@ test_tree_construct.o: ${TESTS_DIR}/test_tree_construct.c lapack_wrapper.o utils
 	gcc \
 		-c ${TESTS_DIR}/test_tree_construct.c \
 		-o ${BUILD_DIR}/test_tree_construct.o \
+		-lopenblas \
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${EXTRA_FLAGS}
 

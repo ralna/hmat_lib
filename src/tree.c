@@ -19,26 +19,6 @@ static void print_matrix(int m, int n, double *matrix) {
   printf("\n");
 }
 
-// no allocation
-double * decompress_off_diagonal(struct NodeOffDiagonal *node) {
-  int idx, i, j, k;
-  int m = node->m, n = node->n, s = node->s;
-  double *matrix = malloc(node->m * node->n * sizeof(double));
-
-  for (i = 0; i < n; i++) {
-    for (j = 0; j < m; j++) {
-      idx = j + i * m;
-      matrix[idx] = node->u[j] * node->v[i];
-
-      for (k = 1; k < s; k++) {
-        matrix[idx] += node->u[j + k * m] * node->v[i + k * n];
-      }
-    }
-  }
-
-  return matrix;
-}
-
 
 int compress_off_diagonal(struct NodeOffDiagonal *node,
                           int m, 
