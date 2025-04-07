@@ -58,7 +58,7 @@ struct TreeHODLR {
 
 
 
-struct TreeHODLR* allocate_tree(int height);
+struct TreeHODLR* allocate_tree(const int height, int *ierr);
 
 int dense_to_tree_hodlr(struct TreeHODLR *hodlr,
                         int m,
@@ -68,6 +68,10 @@ int dense_to_tree_hodlr(struct TreeHODLR *hodlr,
 
 void free_tree_hodlr(struct TreeHODLR *hodlr);
 
+void free_partial_tree_hodlr(struct TreeHODLR *hodlr, 
+                             struct HODLRInternalNode **queue, 
+                             struct HODLRInternalNode **next_level);
+ 
 double * multiply_vector(struct TreeHODLR *hodlr, double *vector, double *out);
 
 #endif
