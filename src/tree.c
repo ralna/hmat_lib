@@ -119,24 +119,17 @@ int dense_to_tree_hodlr(struct TreeHODLR *hodlr,
     free(s); free(u);
     return 0;
   }
-
-  //printf("m_top=%d, m_bottom=%d, n_left=%d, n_right=%d\n", m_top, m_bottom, n_left, n_right);
   int max_depth_n = (int)pow(2, hodlr->height-1); 
-  struct HODLRInternalNode **queue = malloc(max_depth_n * sizeof(struct HODLRInternalNode *));
-  if (queue == NULL) {
+  struct HODLRInternalNode **queue_memory = malloc(2 * max_depth_n * sizeof(struct HODLRInternalNode *));
+  if (queue_memory == NULL) {
     *ierr = ALLOCATION_FAILURE;
     free(s); free(u); free(vt);
     return 0;
   }
 
-  struct HODLRInternalNode **next_level = malloc(max_depth_n * sizeof(struct HODLRInternalNode *));
+  struct HODLRInternalNode **queue = queue_memory;
+  struct HODLRInternalNode **next_level = queue_memory + max_depth_n;
   struct HODLRInternalNode **temp_pointer;
-  if (next_level == NULL) {
-    *ierr = ALLOCATION_FAILURE;
-    free(s); free(u); free(vt); free(queue);
-    return 0;
-  }
-
 
   //printf("%d\n", max_depth_n);
   queue[0] = hodlr->root;
@@ -168,7 +161,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *hodlr,
       sub_matrix_pointer = matrix + m * offset + offset + m_larger;
       result = compress_off_diagonal(
         &(queue[j]->children[2].leaf->data.off_diagonal), 
-        m_smaller, m_larger, n_singular_values, m,
+        m_smaller, m_larger, m_smaller, m,
         sub_matrix_pointer, 
         s, u, vt, svd_threshold, ierr
       );
@@ -234,7 +227,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *hodlr,
     sub_matrix_pointer = matrix + m * offset + offset + m_larger;
     result = compress_off_diagonal(
       &(queue[i]->children[2].leaf->data.off_diagonal), 
-      m_smaller, m_larger, n_singular_values, m,
+      m_smaller, m_larger, m_smaller, m,
       sub_matrix_pointer, 
       s, u, vt, svd_threshold, ierr
     );
@@ -249,6 +242,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *hodlr,
     // Diagonal block in the bottom right corner
     data = malloc(m_smaller * m_smaller * sizeof(double));
     if (data == NULL) {
+      *ierr = ALLOCATION_FAILURE;
       free(s); free(u); free(vt); free(queue); free(next_level);
       return 0;
     }
@@ -263,10 +257,10 @@ int dense_to_tree_hodlr(struct TreeHODLR *hodlr,
     //printf("node=%p,   data=%p\n", &queue[i]->children[3].leaf->data.diagonal, queue[i]->children[3].leaf->data.diagonal.data);
     offset += m_smaller;
   }
+  free(s); free(u); free(vt); free(queue_memory); 
 
-  free(s); free(u); free(vt); free(queue); free(next_level);
   *ierr = SUCCESS;
-
+  
   return 0;
 }
 
@@ -395,41 +389,45 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
 }
 
 
-void free_partial_tree_hodlr(struct TreeHODLR *hodlr, 
-                             struct HODLRInternalNode **queue, 
-                             struct HODLRInternalNode **next_level) {
+static void free_partial_tree_hodlr(struct TreeHODLR *hodlr, 
+                                    struct HODLRInternalNode **queue, 
+                                    struct HODLRInternalNode **next_level) {
   int len_queue = 1;
   if (hodlr->root == NULL) {
     return;
   }
   queue[0] = hodlr->root;
+  free(hodlr->innermost_leaves);
 
   struct HODLRInternalNode **temp_pointer;
 
   for (int i = 1; i < hodlr->height; i++) {
     for (int j = 0; j < len_queue; j++) {
       if (queue[j]->children[1].leaf == NULL) {
+        free(queue[j]);
         return;
       }
       free(queue[j]->children[1].leaf);
 
       if (queue[j]->children[2].leaf == NULL) {
+        free(queue[j]);
         return;
       }
       free(queue[j]->children[2].leaf);
 
       if (queue[j]->children[0].internal == NULL) {
+        free(queue[j]);
         return;
       }
-      free(queue[j]->children[0].internal);
+      next_level[2 * j] = queue[j]->children[0].internal;
       
       if (queue[j]->children[3].internal == NULL) {
+        free(queue[j]);
         return;
       }
-      free(queue[j]->children[3].internal);
-      
-      next_level[2 * j] = queue[j]->children[0].internal;
       next_level[2 * j + 1] = queue[j]->children[3].internal;
+      
+      free(queue[j]);
     }
     temp_pointer = queue;
     queue = next_level;
@@ -445,7 +443,9 @@ void free_partial_tree_hodlr(struct TreeHODLR *hodlr,
       }
       free(queue[i]->children[j].leaf);
     }
+    free(queue[i]);
   }
+  free(hodlr);
 }
 
 
@@ -469,11 +469,12 @@ void free_tree_data(struct TreeHODLR *hodlr) {
     for (j = 0; j < n_parent_nodes; j++) {
       idx = 2 * j;
       for (k = 0; k < 2; k++) {
-        free(queue[idx + k]->children[1].leaf->data.off_diagonal.u);
-        free(queue[idx + k]->children[1].leaf->data.off_diagonal.v);
+        idx += k;
+        free(queue[idx]->children[1].leaf->data.off_diagonal.u);
+        free(queue[idx]->children[1].leaf->data.off_diagonal.v);
 
-        free(queue[idx + k]->children[2].leaf->data.off_diagonal.u);
-        free(queue[idx + k]->children[2].leaf->data.off_diagonal.v);
+        free(queue[idx]->children[2].leaf->data.off_diagonal.u);
+        free(queue[idx]->children[2].leaf->data.off_diagonal.v);
       }
 
       queue[j] = queue[idx+1]->parent;
@@ -502,6 +503,7 @@ void free_tree_hodlr(struct TreeHODLR *hodlr) {
       free(hodlr->innermost_leaves[2 * i + j]);
     }
   }
+  free(hodlr->innermost_leaves);
 
   for (i = hodlr->height-1; i > 0; i--) {
     n_parent_nodes /= 2;
