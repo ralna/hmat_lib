@@ -8,5 +8,13 @@ void expect_arr_double_eq(const double *actual,
                           const int ld_actual,
                           const int ld_expected);
 
-
+int expect_arr_double_eq_safe(
+  const double *actual, 
+  const double *expected, 
+  const int m_actual, 
+  const int n_actual,
+  const int m_expected, 
+  const int n_expected,
+  const int ld_actual, 
+  const int ld_expected);
  
