@@ -26,15 +26,16 @@ int svd_double(int m,
   int info = 0;
 
   //printf("before dgesdd=%d\n", info);
-  dgesdd_("S", &m, &n, matrix, &matrix_leading_dim, s, u, &m, vt, &n_singular_values, work, &lwork, iwork, &info);
-  if (info != 0) {
+  dgesdd_("S", &m, &n, matrix, &matrix_leading_dim, s, u, &m, vt, &n_singular_values, 
+          work, &lwork, iwork, &info);
+  if (info < 0) {
     free(iwork);
     *ierr = SVD_FAILURE;
     return info;
   }
   //printf("first dgesdd completed=%d\n", info);
 
-  lwork = work_size;
+  lwork = (int)work_size;
   work = malloc(lwork * sizeof(double));
   if (work == NULL) {
     free(iwork);
@@ -43,7 +44,7 @@ int svd_double(int m,
   }
   //printf("lowrk=%d\n", lwork);
   dgesdd_("S", &m, &n, matrix, &matrix_leading_dim, s, u, &m, vt, &n_singular_values, work, &lwork, iwork, &info);
-  if (info != 0) {
+  if (info < 0) {
     *ierr = SVD_FAILURE;
   }
   //printf("dgesdd completed=%d\n", info);
