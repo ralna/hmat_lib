@@ -39,7 +39,7 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
     return result;
   }
 
-  int svd_cutoff_idx = 0;
+  int svd_cutoff_idx = 1;
   for (svd_cutoff_idx=1; svd_cutoff_idx < n_singular_values; svd_cutoff_idx++) {
     //printf("%f    ", s[svd_cutoff_idx]);
     if (s[svd_cutoff_idx] < svd_threshold * s[0]) {
@@ -67,7 +67,7 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
     return result;
   }
   for (int i=0; i<svd_cutoff_idx; i++) {
-    for (int j=0; j<n_singular_values; j++) {
+    for (int j=0; j<n; j++) {
       v_top_right[j + i * n] = vt[i + j * n_singular_values];
     }
   }
