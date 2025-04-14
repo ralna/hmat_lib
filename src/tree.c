@@ -31,7 +31,7 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
                           double *restrict vt,
                           double svd_threshold,
                           int *restrict ierr) {
-  printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
+  //printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
   //print_matrix(matrix_leading_dim, matrix_leading_dim, lapack_matrix - 5);
   int result = svd_double(m, n, n_singular_values, matrix_leading_dim, lapack_matrix, s, u, vt, ierr);
   //printf("svd result %d\n", result);
@@ -59,7 +59,7 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
       u_top_right[j + i * m] = u[j + i * m] * s[i];
     }
   }
-  print_matrix(svd_cutoff_idx, m, u_top_right);
+  //print_matrix(svd_cutoff_idx, m, u_top_right);
 
   double *v_top_right = malloc(svd_cutoff_idx * n * sizeof(double));
   if (v_top_right == NULL) {
@@ -71,7 +71,7 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
       v_top_right[j + i * n] = vt[i + j * n_singular_values];
     }
   }
-  print_matrix(n, svd_cutoff_idx, v_top_right);
+  //print_matrix(n, svd_cutoff_idx, v_top_right);
 
   node->u = u_top_right;
   node->v = v_top_right;
@@ -86,11 +86,15 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
 
 
 
-int dense_to_tree_hodlr(struct TreeHODLR *hodlr, 
+int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr, 
                         int m,
-                        double *matrix, 
+                        double *restrict matrix, 
                         double svd_threshold,
-                        int *ierr) { 
+                        int *ierr) {
+  if (hodlr == NULL) {
+    *ierr = INPUT_ERROR;
+    return 0;
+  }
   int m_smaller = m / 2;
   int m_larger = m - m_smaller;
   
@@ -450,6 +454,9 @@ static void free_partial_tree_hodlr(struct TreeHODLR *hodlr,
 
 
 void free_tree_data(struct TreeHODLR *hodlr) {
+  if (hodlr == NULL) {
+    return;
+  }
   int i, j, k, idx;
   int n_parent_nodes = (int)pow(2, hodlr->height - 1);
 
@@ -578,6 +585,9 @@ static inline void multiply_off_diagonal_vector(struct NodeOffDiagonal *node,
 double * mulitply_vector(struct TreeHODLR *hodlr,
                          double *vector,
                          double *out) {
+  if (hodlr == NULL) {
+    return NULL;
+  }
   if (out == NULL) {
     double *out = malloc(hodlr->root->m * sizeof(double));
   }
