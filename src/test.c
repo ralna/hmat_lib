@@ -95,11 +95,13 @@ static void print_tree_hodlr(struct TreeHODLR *hodlr) {
     printf("BOTTOM RIGHT CORNER:\n");
     print_node_diagonal(&queue[i]->children[3].leaf->data.diagonal);
   }
+
+  free(queue); free(next_level);
 }
 
 
 int main() {
-  int m = 10;
+  int m = 21;
   double svd_threshold = 0.1;
   int depth = 2, ierr;
 
@@ -122,7 +124,7 @@ int main() {
 
   printf("%d x %d matrix initialised - constructing HOLDR matrix...\n", m, m);
 
-  struct TreeHODLR *hodlr = allocate_tree(depth);
+  struct TreeHODLR *hodlr = allocate_tree(depth, &ierr);
   printf("HODLR matrix allocated, converting from dense...\n");
 
   dense_to_tree_hodlr(hodlr, m, matrix, svd_threshold, &ierr);
