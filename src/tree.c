@@ -31,7 +31,7 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
                           double *restrict vt,
                           double svd_threshold,
                           int *restrict ierr) {
-  //printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
+  printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
   //print_matrix(matrix_leading_dim, matrix_leading_dim, lapack_matrix - 5);
   int result = svd_double(m, n, n_singular_values, matrix_leading_dim, lapack_matrix, s, u, vt, ierr);
   //printf("svd result %d\n", result);
@@ -39,11 +39,10 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
     return result;
   }
 
-  double primary_s_fraction = 1 / s[0];
-  int svd_cutoff_idx;
+  int svd_cutoff_idx = 0;
   for (svd_cutoff_idx=1; svd_cutoff_idx < n_singular_values; svd_cutoff_idx++) {
     //printf("%f    ", s[svd_cutoff_idx]);
-    if (s[svd_cutoff_idx] * primary_s_fraction < svd_threshold) {
+    if (s[svd_cutoff_idx] < svd_threshold * s[0]) {
       break;
     }
   }
@@ -60,7 +59,7 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
       u_top_right[j + i * m] = u[j + i * m] * s[i];
     }
   }
-  //print_matrix(svd_cutoff_idx, m, u_top_right);
+  print_matrix(svd_cutoff_idx, m, u_top_right);
 
   double *v_top_right = malloc(svd_cutoff_idx * n * sizeof(double));
   if (v_top_right == NULL) {
@@ -68,11 +67,11 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
     return result;
   }
   for (int i=0; i<svd_cutoff_idx; i++) {
-    for (int j=0; j<n; j++) {
-      v_top_right[j + i * n] = vt[i + j * n];
+    for (int j=0; j<n_singular_values; j++) {
+      v_top_right[j + i * n] = vt[i + j * n_singular_values];
     }
   }
-  //print_matrix(n, svd_cutoff_idx, v_top_right);
+  print_matrix(n, svd_cutoff_idx, v_top_right);
 
   node->u = u_top_right;
   node->v = v_top_right;
@@ -349,6 +348,7 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
       }
       //queue[j]->children[3].internal.type = DIAGONAL;
       queue[j]->children[3].internal->parent = queue[j];
+      // TODO: ADD NULL SETTING
 
       next_level[2 * j] = queue[j]->children[0].internal;
       next_level[2 * j + 1] = queue[j]->children[3].internal;
@@ -491,6 +491,9 @@ void free_tree_data(struct TreeHODLR *hodlr) {
 
 void free_tree_hodlr(struct TreeHODLR *hodlr) {
   int i, j, k, idx;
+  if (hodlr == NULL) {
+    return;
+  }
   int n_parent_nodes = (int)pow(2, hodlr->height - 1);
 
   struct HODLRInternalNode **queue = malloc(n_parent_nodes * sizeof(struct HODLRInternalNode *));
