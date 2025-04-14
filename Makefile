@@ -1,4 +1,4 @@
-EXTRA_FLAGS := -g
+EXTRA_FLAGS := -g -O0 #-fsanitize=address -fsanitize=leak -fsanitize=undefined
 
 SRC_DIR := src
 INCLUDE_DIR := include
