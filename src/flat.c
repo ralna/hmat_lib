@@ -1,16 +1,31 @@
 #include <stdlib.h>
 
 #include "../include/lapack_wrapper.h"
+#include "../include/flat.h"
 
 
-struct FlatHODLR {
-  double *data;
-  int *indices;
-  double *vts;
-};
+
+struct FlatHODLR* dense_to_flat_hodlr(int m, double *matrix, int height, double svd_threshold) {
+  struct FlatHODLR *hodlr = malloc(sizeof(struct FlatHODLR));
+
+  int m_smaller = m / 2;
+  int m_larger = m - m_smaller;
+
+  double *s = malloc(m_smaller * sizeof(double));
+  double *u = malloc(m_larger * m_smaller * sizeof(double));
+  double *vt = malloc(m_smaller * m_smaller * sizeof(double));
 
 
-struct FlatHODLR dense_to_flat_hodlr(int m, int n, double *matrix, double svd_threshold) {
+
+  for (int i = 1; i < height; i++) {
+    
+  }
+
+  return hodlr;
+}
+
+
+struct FlatHODLR de3nse_to_flat_hodlr(int m, int n, double *matrix, double svd_threshold) {
   struct FlatHODLR hodlr;
 
   int m_top = m / 2;
