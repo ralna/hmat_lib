@@ -24,10 +24,10 @@ int svd_double(int m,
   }
 
   int info = 0;
-
+  //printf("m=%d, n=%d, s=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
   //printf("before dgesdd=%d\n", info);
-  dgesdd_("S", &m, &n, matrix, &matrix_leading_dim, s, u, &m, vt, &n_singular_values, 
-          work, &lwork, iwork, &info);
+  dgesdd_("S", &m, &n, matrix, &matrix_leading_dim, s, u, &m, vt, 
+          &n_singular_values, work, &lwork, iwork, &info);
   if (info < 0) {
     free(iwork);
     *ierr = SVD_FAILURE;
@@ -43,7 +43,8 @@ int svd_double(int m,
     return info;
   }
   //printf("lowrk=%d\n", lwork);
-  dgesdd_("S", &m, &n, matrix, &matrix_leading_dim, s, u, &m, vt, &n_singular_values, work, &lwork, iwork, &info);
+  dgesdd_("S", &m, &n, matrix, &matrix_leading_dim, s, u, &m, vt, 
+          &n_singular_values, work, &lwork, iwork, &info);
   if (info < 0) {
     *ierr = SVD_FAILURE;
   }
