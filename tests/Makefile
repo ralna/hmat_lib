@@ -14,16 +14,26 @@ test: test_tree_construct.o
 		${BUILD_DIR}/lapack_wrapper.o  \
 		${BUILD_DIR}/utils.o \
 		${BUILD_DIR}/common_data.o \
+		${BUILD_DIR}/tree_stubs.o \
 		-o ${OUT_DIR}/test_tree \
-		-lopenblas -lm -lcriterion \
+		-lopenblas -lm -lcriterion -lmimick \
 		-Wall -Wextra \
 		${EXTRA_FLAGS}
 
-test_tree_construct.o: ${TESTS_DIR}/test_tree_construct.c lapack_wrapper.o utils.o common_data.o
+test_tree_construct.o: ${TESTS_DIR}/test_tree_construct.c lapack_wrapper.o utils.o common_data.o tree_stubs.o
 	gcc \
 		-c ${TESTS_DIR}/test_tree_construct.c \
 		-o ${BUILD_DIR}/test_tree_construct.o \
 		-lopenblas \
+		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
+		${EXTRA_FLAGS}
+
+
+tree_stubs.o: ${TESTS_DIR}/tree_stubs.c lapack_wrapper.o
+	gcc \
+		-c ${TESTS_DIR}/tree_stubs.c \
+		-o ${BUILD_DIR}/tree_stubs.o \
+		-lopenblas -lcriterion \
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${EXTRA_FLAGS}
 
