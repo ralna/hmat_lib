@@ -38,23 +38,26 @@ int expect_arr_double_eq_safe(
   const int m_expected, 
   const int n_expected,
   const int ld_actual, 
-  const int ld_expected) 
+  const int ld_expected,
+  const char name)
 {
   int err = 0;
+  printf("m=%d n=%d\n", m_expected, n_expected);
   if (m_actual != m_expected) {
     err = 1;
     cr_fail("actual matrix dimension 1 (M) different than expected (actual=%d vs expected=%d)",
             m_actual, m_expected);
   }
   
+  printf("m=%d n=%d\n", m_expected, n_expected);
   if (n_actual != n_expected) {
     err = 1;
     cr_fail("actual matrix dimension 2 (N) different than expected (actual=%d vs expected=%d)",
             n_actual, n_expected);
   }
-
+  printf("m=%d n=%d\n", m_expected, n_expected);
   if (err == 0) {
-    expect_arr_double_eq(actual, expected, m_expected, n_expected, ld_actual, ld_expected);
+    expect_arr_double_eq(actual, expected, m_expected, n_expected, ld_actual, ld_expected, name);
   }
 
   return err;
@@ -63,7 +66,8 @@ int expect_arr_double_eq_safe(
 
 void expect_arr_double_eq(const double *restrict actual, const double *restrict expected, 
                           const int m, const int n,
-                          const int ld_actual, const int ld_expected) {
+                          const int ld_actual, const int ld_expected,
+                          const char name) {
 
   int errors = 0;
   for (int i = 0; i < n; i++) {
@@ -80,7 +84,7 @@ void expect_arr_double_eq(const double *restrict actual, const double *restrict 
   }
 
   if (errors > 0) {
-    cr_fail("The matrices are not equal (%d errors)", errors);
+    cr_fail("The %c matrices are not equal (%d errors)", name, errors);
     cr_log_info("Actual:");
     log_matrix(actual, m, n, ld_actual);
     cr_log_info("Expected:");

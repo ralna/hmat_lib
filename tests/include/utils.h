@@ -6,7 +6,8 @@ void expect_arr_double_eq(const double *actual,
                           const int m, 
                           const int n,
                           const int ld_actual,
-                          const int ld_expected);
+                          const int ld_expected,
+                          const char name);
 
 int expect_arr_double_eq_safe(
   const double *actual, 
@@ -16,5 +17,6 @@ int expect_arr_double_eq_safe(
   const int m_expected, 
   const int n_expected,
   const int ld_actual, 
-  const int ld_expected);
+  const int ld_expected,
+  const char name);
  
