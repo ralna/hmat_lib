@@ -31,7 +31,7 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
                           double *restrict vt,
                           double svd_threshold,
                           int *restrict ierr) {
-  printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
+  //printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
   //print_matrix(matrix_leading_dim, matrix_leading_dim, lapack_matrix - 5);
   int result = svd_double(m, n, n_singular_values, matrix_leading_dim, lapack_matrix, s, u, vt, ierr);
   //printf("svd result %d\n", result);
@@ -502,7 +502,9 @@ void free_tree_data(struct TreeHODLR *hodlr) {
 }
 
 
-void free_tree_hodlr(struct TreeHODLR *hodlr) {
+void free_tree_hodlr(struct TreeHODLR **hodlr_ptr) {
+  struct TreeHODLR *hodlr = *hodlr_ptr;
+
   int i = 0, j = 0, k = 0, idx = 0;
   if (hodlr == NULL) {
     return;
@@ -557,7 +559,7 @@ void free_tree_hodlr(struct TreeHODLR *hodlr) {
 
   free(queue[0]);
   free(hodlr);
-  hodlr = NULL;
+  *hodlr_ptr = NULL;
   free(queue);
 }
 

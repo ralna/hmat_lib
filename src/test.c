@@ -136,7 +136,7 @@ int main() {
   print_tree_hodlr(hodlr);
 
   print_matrix(m, m, matrix);
-  free_tree_hodlr(hodlr);
+  free_tree_hodlr(&hodlr);
   free(matrix);
 
   return 0;
