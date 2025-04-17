@@ -128,9 +128,9 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, test_compress) {
   cr_expect(eq(result.s, params->expected_n_singular));
   cr_expect(eq(result.n, params->n));
 
-  expect_arr_double_eq(result.u, params->u_expected, params->m, params->expected_n_singular,
+  expect_matrix_double_eq(result.u, params->u_expected, params->m, params->expected_n_singular,
                        result.m, params->m, 'U');
-  expect_arr_double_eq(result.v, params->v_expected, params->n, params->expected_n_singular,
+  expect_matrix_double_eq(result.v, params->v_expected, params->n, params->expected_n_singular,
                        result.m, params->m, 'V');
 }
 
@@ -178,7 +178,7 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, recompress) {
          &node.s, &alpha, node.u, &node.m, 
          node.v, &node.n, &beta, result, &params->m);
 
-  expect_arr_double_eq(result, og_matrix, node.m, node.n, 
+  expect_matrix_double_eq(result, og_matrix, node.m, node.n, 
                        node.m, params->m_full, 'A');
 
   free(og_data); free(result);
@@ -270,13 +270,13 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
         act = &(queue_a[j]->children[k].leaf->data);
         exp = &(queue_e[j]->children[k].leaf->data);
 
-        err += expect_arr_double_eq_safe(act->off_diagonal.u, exp->off_diagonal.u,
+        err += expect_matrix_double_eq_safe(act->off_diagonal.u, exp->off_diagonal.u,
                                          act->off_diagonal.m, act->off_diagonal.s,
                                          exp->off_diagonal.m, exp->off_diagonal.s,
                                          act->off_diagonal.m, exp->off_diagonal.m,
                                          'U');
         
-        err += expect_arr_double_eq_safe(act->off_diagonal.v, exp->off_diagonal.v,
+        err += expect_matrix_double_eq_safe(act->off_diagonal.v, exp->off_diagonal.v,
                                          act->off_diagonal.n, exp->off_diagonal.s,
                                          exp->off_diagonal.n, exp->off_diagonal.s,
                                          act->off_diagonal.n, exp->off_diagonal.n,
@@ -308,12 +308,12 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
       cr_log_info("Lowest level: i=%d j=%d", i, j);
       act = &(queue_a[i]->children[j].leaf->data);
       exp = &(queue_e[i]->children[j].leaf->data);
-      err += expect_arr_double_eq_safe(act->off_diagonal.u, exp->off_diagonal.u,
+      err += expect_matrix_double_eq_safe(act->off_diagonal.u, exp->off_diagonal.u,
                                        act->off_diagonal.m, act->off_diagonal.s,
                                        exp->off_diagonal.m, exp->off_diagonal.s,
                                        act->off_diagonal.m, exp->off_diagonal.m,
                                        'U');
-      err += expect_arr_double_eq_safe(act->off_diagonal.v, exp->off_diagonal.v,
+      err += expect_matrix_double_eq_safe(act->off_diagonal.v, exp->off_diagonal.v,
                                        act->off_diagonal.n, exp->off_diagonal.s,
                                        exp->off_diagonal.n, exp->off_diagonal.s,
                                        act->off_diagonal.n, exp->off_diagonal.n,
@@ -325,7 +325,7 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
     cr_expect(eq(act->diagonal.m, exp->diagonal.m));
 
     if (act->diagonal.m == exp->diagonal.m) {
-      expect_arr_double_eq(act->diagonal.data, exp->diagonal.data, 
+      expect_matrix_double_eq(act->diagonal.data, exp->diagonal.data, 
                            exp->diagonal.m, exp->diagonal.m, 
                            act->diagonal.m, exp->diagonal.m, 'M');
     }
@@ -336,7 +336,7 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
     cr_expect(eq(act->diagonal.m, exp->diagonal.m));
 
     if (act->diagonal.m == exp->diagonal.m) {
-      expect_arr_double_eq(act->diagonal.data, exp->diagonal.data, 
+      expect_matrix_double_eq(act->diagonal.data, exp->diagonal.data, 
                            exp->diagonal.m, exp->diagonal.m, 
                            act->diagonal.m, exp->diagonal.m, 'M');
     } 
