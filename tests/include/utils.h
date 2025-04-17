@@ -1,15 +1,15 @@
 
 void log_matrix(const double *matrix, const int m, const int n, const int lda);
 
-void expect_arr_double_eq(const double *actual, 
-                          const double *expected, 
-                          const int m, 
-                          const int n,
-                          const int ld_actual,
-                          const int ld_expected,
-                          const char name);
+void expect_matrix_double_eq(const double *actual, 
+                             const double *expected, 
+                             const int m, 
+                             const int n,
+                             const int ld_actual,
+                             const int ld_expected,
+                             const char name);
 
-int expect_arr_double_eq_safe(
+int expect_matrix_double_eq_safe(
   const double *actual, 
   const double *expected, 
   const int m_actual, 
