@@ -308,14 +308,11 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
       cr_log_info("Lowest level: i=%d j=%d", i, j);
       act = &(queue_a[i]->children[j].leaf->data);
       exp = &(queue_e[i]->children[j].leaf->data);
-      printf("%f\n", act->off_diagonal.u[0]);
-      printf("shortcuts created\n");
       err += expect_arr_double_eq_safe(act->off_diagonal.u, exp->off_diagonal.u,
                                        act->off_diagonal.m, act->off_diagonal.s,
                                        exp->off_diagonal.m, exp->off_diagonal.s,
                                        act->off_diagonal.m, exp->off_diagonal.m,
                                        'U');
-      printf("U compared\n");
       err += expect_arr_double_eq_safe(act->off_diagonal.v, exp->off_diagonal.v,
                                        act->off_diagonal.n, exp->off_diagonal.s,
                                        exp->off_diagonal.n, exp->off_diagonal.s,
@@ -354,8 +351,7 @@ void free_dense_params(struct criterion_test_params *params) {
   for (int i = 0; i < params->length; i++) {
     struct ParametersTestDense *param = params->params + i;
     cr_free(param->matrix);
-    free_tree_hodlr_cr(param->expected);
-    //cr_free(param);
+    free_tree_hodlr_cr(&param->expected);
   }
   cr_free(params->params);
 }
@@ -404,12 +400,12 @@ struct ParametersTestDense * generate_dense_params(int * len) {
     
     params[0].expected->root->children[i].leaf->data.off_diagonal.u = cr_calloc(m_larger * 2, sizeof(double));
     params[0].expected->root->children[i].leaf->data.off_diagonal.v = cr_calloc(m_smaller * 2, sizeof(double));
-    
-    params[0].expected->innermost_leaves[0] = params[0].expected->root->children[0].leaf;
-    params[0].expected->innermost_leaves[1] = params[0].expected->root->children[3].leaf;
-    
+     
     m_larger -= 1; m_smaller += 1;
   }
+
+  params[0].expected->innermost_leaves[0] = params[0].expected->root->children[0].leaf;
+  params[0].expected->innermost_leaves[1] = params[0].expected->root->children[3].leaf;
 
   // Top right block
   params[0].expected->root->children[1].leaf->data.off_diagonal.u[10] = 1;
@@ -424,7 +420,6 @@ struct ParametersTestDense * generate_dense_params(int * len) {
 
   params[0].expected->root->children[2].leaf->data.off_diagonal.v[10] = -1;
   params[0].expected->root->children[2].leaf->data.off_diagonal.v[11] = 1;
-
 
   return params;
 }
@@ -454,10 +449,10 @@ ParameterizedTest(struct ParametersTestDense *params, tree, dense_to_tree) {
   cr_expect(eq(ierr, SUCCESS));
   cr_expect(zero(svd));
   if (ierr != SUCCESS) {
-    free_tree_hodlr(result);
+    free_tree_hodlr(&result);
     cr_fatal();
   }
 
   expect_tree_hodlr(result, params->expected);
-  free_tree_hodlr(result);
+  free_tree_hodlr(&result);
 }
