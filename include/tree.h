@@ -66,7 +66,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *hodlr,
                         double svd_threshold,
                         int *ierr);
 
-void free_tree_hodlr(struct TreeHODLR *hodlr);
+void free_tree_hodlr(struct TreeHODLR **hodlr_ptr);
 
 static void free_partial_tree_hodlr(struct TreeHODLR *hodlr, 
                                     struct HODLRInternalNode **queue, 
