@@ -89,3 +89,54 @@ void expect_matrix_double_eq(const double *restrict actual, const double *restri
   }
 }
 
+
+void log_vector(const double *restrict vector, const int len) {
+  char *buffer = malloc(len * 16 * sizeof(char));
+  buffer[0] = '\0';
+
+  for (int j = 0; j < len; j++) {
+    char temp[16];
+    snprintf(temp, sizeof(temp), "%12.5e  ", vector[j]);
+    strcat(buffer, temp);
+    //printf("%f    ", matrix[j * lda + i]);
+  }
+  //printf("\n");
+  cr_log_info("%s", buffer);
+  free(buffer);
+}
+
+
+int expect_vector_double_eq_safe(
+  const double *restrict actual,
+  const double *restrict expected,
+  const int len_actual,
+  const int len_expected,
+  const char name
+) {
+  int errors = 0;
+
+  if (len_actual != len_expected) {
+    cr_fail("actual vector (%c) length (%f) is different from expected (%f)",
+            name, len_actual, len_expected);
+    return 1;
+  }
+
+  for (int i = 0; i < len_expected; i++) {
+    if (fabs(actual[i] - expected[i]) > DELTA) {
+      cr_log_error("actual value '%f' at index [%d] is different from "
+                   "the expected '%f'", actual[i], i, expected[i]);
+      errors += 1;
+    }
+  }
+
+  if (errors > 0) {
+    cr_fail("The %c vectors are not equal (%d errors)", name, errors);
+    cr_log_info("Actual:");
+    log_vector(actual, len_actual);
+    cr_log_info("Expected:");
+    log_vector(expected, len_expected);
+  }
+
+  return errors;
+}
+
