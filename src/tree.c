@@ -598,14 +598,14 @@ static inline void multiply_off_diagonal_vector(struct NodeOffDiagonal *node,
 }
 
 
-double * mulitply_vector(struct TreeHODLR *hodlr,
+double * multiply_vector(struct TreeHODLR *hodlr,
                          double *vector,
                          double *out) {
   if (hodlr == NULL) {
     return NULL;
   }
   if (out == NULL) {
-    double *out = malloc(hodlr->root->m * sizeof(double));
+    out = malloc(hodlr->root->m * sizeof(double));
   }
 
   int offset = 0, offset2 = 0, i, j, k, idx, len_queue = 0;
