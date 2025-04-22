@@ -16,6 +16,14 @@ static void print_matrix(int m, int n, double *matrix) {
 }
 
 
+static void print_vector(int m, double *vector) {
+  for (int i = 0; i < m; i++) {
+    printf("%f    ", vector[i]);
+  }
+  printf("\n");
+}
+
+
 static void print_node_diagonal(struct NodeDiagonal *node) {
   int m = node->m;
 
@@ -135,9 +143,19 @@ int main() {
   //printf("depth=%d   child.type=%d\n", hodlr.depth, hodlr.child->type);
   print_tree_hodlr(hodlr);
 
-  print_matrix(m, m, matrix);
+  //print_matrix(m, m, matrix);
+  
+  double *vector = malloc(m * sizeof(double));
+  for (int i = 0; i < m; i++) {
+    vector[i] = 10;
+  }
+
+  double *result = multiply_vector(hodlr, vector, NULL);
+  print_vector(m, result);
+
   free_tree_hodlr(&hodlr);
   free(matrix);
+  free(vector);
 
   return 0;
 }
