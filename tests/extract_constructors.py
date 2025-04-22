@@ -23,6 +23,7 @@ EXTRACT_FUNCS = [
     'free_tree_hodlr',
     'free_partial_tree_hodlr',
     'free_tree_data',
+    'allocate_tree',
 ]
 
 
