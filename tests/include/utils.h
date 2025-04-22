@@ -19,4 +19,13 @@ int expect_matrix_double_eq_safe(
   const int ld_actual, 
   const int ld_expected,
   const char name);
- 
+
+
+int expect_vector_double_eq_safe(
+  const double *actual,
+  const double *expected,
+  const int len_actual,
+  const int len_expected,
+  const char name
+);
+
