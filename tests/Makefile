@@ -5,17 +5,38 @@ INCLUDE_DIR := ../include
 BUILD_DIR := build
 OUT_DIR := ../bin
 
-EXTRA_FLAGS := -g
+EXTRA_FLAGS := -g #-fsanitize=address
 
 
-test: test_tree_construct.o
+test_tree_algebra: test_tree_algebra.o
+	gcc \
+		${BUILD_DIR}/test_tree_algebra.o \
+		${BUILD_DIR}/lapack_wrapper.o \
+		${BUILD_DIR}/utils.o \
+		${BUILD_DIR}/common_data.o \
+		${BUILD_DIR}/tree_stubs.o \
+		-o ${OUT_DIR}/test_tree_algebra \
+		-lopenblas -lm -lcriterion \
+		-Wall -Wextra \
+		${EXTRA_FLAGS}
+
+test_tree_algebra.o: ${TESTS_DIR}/test_tree_algebra.c lapack_wrapper.o utils.o common_data.o tree_stubs.o
+	gcc \
+		-c ${TESTS_DIR}/test_tree_algebra.c \
+		-o ${BUILD_DIR}/test_tree_algebra.o \
+		-lopenblas -lm -lcriterion -lmimick \
+		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
+		${EXTRA_FLAGS}
+
+
+test_tree_construct: test_tree_construct.o
 	gcc \
 		${BUILD_DIR}/test_tree_construct.o \
 		${BUILD_DIR}/lapack_wrapper.o  \
 		${BUILD_DIR}/utils.o \
 		${BUILD_DIR}/common_data.o \
 		${BUILD_DIR}/tree_stubs.o \
-		-o ${OUT_DIR}/test_tree \
+		-o ${OUT_DIR}/test_tree_construct \
 		-lopenblas -lm -lcriterion -lmimick \
 		-Wall -Wextra \
 		${EXTRA_FLAGS}
