@@ -9,7 +9,14 @@ OUT_DIR := bin
 
 
 test: test.o tree.o
-	${COMPILER} ${BUILD_DIR}/test.o ${BUILD_DIR}/tree.o ${BUILD_DIR}/lapack_wrapper.o -o ${OUT_DIR}/test -llapack -lm -Wall -Wextra ${EXTRA_FLAGS}
+	${COMPILER} \
+		${BUILD_DIR}/test.o \
+		${BUILD_DIR}/tree.o \
+		${BUILD_DIR}/lapack_wrapper.o \
+		-o ${OUT_DIR}/test \
+		-llapack -lm -lopenblas \
+		-Wall -Wextra \
+		${EXTRA_FLAGS}
 
 test.o: ${SRC_DIR}/test.c
 	${COMPILER} -c ${SRC_DIR}/test.c -o ${BUILD_DIR}/test.o -I ${INCLUDE_DIR} ${EXTRA_FLAGS}
