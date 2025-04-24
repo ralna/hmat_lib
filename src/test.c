@@ -108,13 +108,8 @@ static void print_tree_hodlr(struct TreeHODLR *hodlr) {
 }
 
 
-int main() {
-  int m = 21;
-  double svd_threshold = 0.1;
-  int depth = 2, ierr;
-
-  int idx;
-  double *matrix = malloc(m * m * sizeof(double));
+void construct_laplacian_matrix(int m, double *matrix) {
+  int idx = 0;
   for (int i = 0; i<m; i++) {
     for (int j = 0; j<m; j++) {
       idx = j + i * m;
@@ -127,6 +122,17 @@ int main() {
       }
     }
   }
+}
+
+
+int main() {
+  int m = 10;
+  double svd_threshold = 0.1;
+  int depth = 2, ierr;
+
+  int idx;
+  double *matrix = malloc(m * m * sizeof(double));
+  construct_laplacian_matrix(m, matrix);
 
   print_matrix(m, m, matrix);
 
@@ -151,7 +157,27 @@ int main() {
   }
 
   double *result = multiply_vector(hodlr, vector, NULL);
+  printf("HODLR vector multiplication:\n");
   print_vector(m, result);
+  free(result);
+
+  /* for (int i = 0; i < m; i++) { */
+  /*   for (int j = 0 ; j < m; j++) { */
+  /*     if (i == j) { */
+  /*       matrix[i + j * m] = 1.0; */
+  /*     } else { */
+  /*       matrix[i + j * m] = 0.0; */
+  /*     } */
+  /*   } */
+  /* } */
+
+  construct_laplacian_matrix(m, matrix);
+  //printf("\n\n");
+
+  result = multiply_hodlr_dense(hodlr, matrix, m, NULL);
+  printf("\n\nHODLR dense matrix multiplication:\n");
+  print_matrix(m, m, result);
+  free(result);
 
   free_tree_hodlr(&hodlr);
   free(matrix);
