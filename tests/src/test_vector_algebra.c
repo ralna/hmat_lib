@@ -9,7 +9,7 @@
 #include "../include/common_data.h"
 #include "../include/tree_stubs.h"
 
-#include "../../src/tree.c"
+#include "../../src/vector_algebra.c"
 
 
 struct ParametersTestHxV {
@@ -33,7 +33,7 @@ void free_hv_params(struct criterion_test_params *params) {
 }
 
 
-struct ParametersTestHxV * generate_compress_params(int * len) {
+struct ParametersTestHxV * generate_hodlr_vector_params(int * len) {
   int n_params = 6, ierr = 0;
   *len = n_params;
   struct ParametersTestHxV *params = cr_malloc(n_params * sizeof(struct ParametersTestHxV));
@@ -80,7 +80,7 @@ struct ParametersTestHxV * generate_compress_params(int * len) {
 
 ParameterizedTestParameters(tree, test_hodlr_vector) {
   int n_params;
-  struct ParametersTestHxV *params = generate_compress_params(&n_params);
+  struct ParametersTestHxV *params = generate_hodlr_vector_params(&n_params);
 
   return cr_make_param_array(struct ParametersTestHxV, params, n_params, free_hv_params);
 }
