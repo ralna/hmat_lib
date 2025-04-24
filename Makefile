@@ -1,6 +1,14 @@
 COMPILER := gcc
 
-EXTRA_FLAGS := -g -O0 -fsanitize=address -fsanitize=leak -fsanitize=undefined
+$(info asan = $(asan))
+
+ifeq ($(asan), 0)
+	EXTRA_FLAGS := -g -O0
+	EXE := test_unsafe
+else
+	EXTRA_FLAGS := -g -O0 -fsanitize=address -fsanitize=leak -fsanitize=undefined
+	EXE := test_asan
+endif
 
 SRC_DIR := src
 INCLUDE_DIR := include
@@ -13,7 +21,7 @@ test: test.o tree.o
 		${BUILD_DIR}/test.o \
 		${BUILD_DIR}/tree.o \
 		${BUILD_DIR}/lapack_wrapper.o \
-		-o ${OUT_DIR}/test \
+		-o ${OUT_DIR}/${EXE} \
 		-llapack -lm -lopenblas \
 		-Wall -Wextra \
 		${EXTRA_FLAGS}
