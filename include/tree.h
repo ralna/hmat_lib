@@ -79,6 +79,8 @@ double * multiply_vector(struct TreeHODLR *hodlr, double *vector, double *out);
 double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
                               const double *matrix,
                               const int matrix_n,
-                              double *out);
+                              const int matrix_ld,
+                              double *out,
+                              const int out_ld);
 #endif
 
