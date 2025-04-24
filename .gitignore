@@ -3,3 +3,5 @@ bin/
 build/
 
 *.o
+
+tests/src/test_bug.c
