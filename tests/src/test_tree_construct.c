@@ -9,7 +9,7 @@
 #include "../include/common_data.h"
 #include "../include/tree_stubs.h"
 
-#include "../../src/tree.c"
+#include "../../src/constructors.c"
 #include "../../include/error.h"
 #include "../../include/blas_wrapper.h"
 

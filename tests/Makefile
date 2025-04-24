@@ -8,22 +8,38 @@ OUT_DIR := ../bin
 EXTRA_FLAGS := -g #-fsanitize=address
 
 
-test_tree_algebra: test_tree_algebra.o
+unit_tests: test_tree_construct.o test_vector_algebra.o
 	gcc \
-		${BUILD_DIR}/test_tree_algebra.o \
+		${BUILD_DIR}/test_vector_algebra.o \
+		${BUILD_DIR}/test_tree_construct.o \
 		${BUILD_DIR}/lapack_wrapper.o \
 		${BUILD_DIR}/utils.o \
 		${BUILD_DIR}/common_data.o \
 		${BUILD_DIR}/tree_stubs.o \
-		-o ${OUT_DIR}/test_tree_algebra \
+		-o ${OUT_DIR}/unit_test \
 		-lopenblas -lm -lcriterion \
 		-Wall -Wextra \
 		${EXTRA_FLAGS}
 
-test_tree_algebra.o: ${TESTS_DIR}/test_tree_algebra.c lapack_wrapper.o utils.o common_data.o tree_stubs.o
+
+
+
+test_vector_algebra: test_vector_algebra.o
 	gcc \
-		-c ${TESTS_DIR}/test_tree_algebra.c \
-		-o ${BUILD_DIR}/test_tree_algebra.o \
+		${BUILD_DIR}/test_vector_algebra.o \
+		${BUILD_DIR}/lapack_wrapper.o \
+		${BUILD_DIR}/utils.o \
+		${BUILD_DIR}/common_data.o \
+		${BUILD_DIR}/tree_stubs.o \
+		-o ${OUT_DIR}/test_vector_algebra \
+		-lopenblas -lm -lcriterion \
+		-Wall -Wextra \
+		${EXTRA_FLAGS}
+
+test_vector_algebra.o: ${TESTS_DIR}/test_vector_algebra.c lapack_wrapper.o utils.o common_data.o tree_stubs.o
+	gcc \
+		-c ${TESTS_DIR}/test_vector_algebra.c \
+		-o ${BUILD_DIR}/test_vector_algebra.o \
 		-lopenblas -lm -lcriterion -lmimick \
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${EXTRA_FLAGS}

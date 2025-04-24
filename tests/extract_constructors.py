@@ -13,7 +13,7 @@ TEST_SRC_DIR = os.path.join(TEST_DIR, 'src')
 TEST_INCLUDE_DIR = os.path.join(TEST_DIR, 'include')
 
 
-SRC_FILE = os.path.join(SRC_DIR, 'tree.c')
+SRC_FILE = os.path.join(SRC_DIR, 'constructors.c')
 INCLUDE_FILE = os.path.join(INCLUDE_DIR, 'tree.h')
 
 
