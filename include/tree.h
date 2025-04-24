@@ -61,16 +61,16 @@ struct TreeHODLR {
 struct TreeHODLR* allocate_tree(const int height, int *ierr);
 
 int dense_to_tree_hodlr(struct TreeHODLR *hodlr,
-                        int m,
+                        const int m,
                         double *matrix,
-                        double svd_threshold,
+                        const double svd_threshold,
                         int *ierr);
 
 void free_tree_hodlr(struct TreeHODLR **hodlr_ptr);
 
 void free_tree_data(struct TreeHODLR *hodlr);
 
-double * multiply_vector(struct TreeHODLR *hodlr, double *vector, double *out);
+double * multiply_vector(const struct TreeHODLR *hodlr, const double *vector, double *out);
 
 double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
                               const double *matrix,

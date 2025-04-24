@@ -56,8 +56,8 @@ static inline void multiply_off_diagonal_dense(
   const int out_ld,
   double *restrict workspace,
   double *restrict workspace2,
-  double alpha,
-  double beta,
+  const double alpha,
+  const double beta,
   int *restrict offset_ptr,
   const int offset2
 ) {

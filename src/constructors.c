@@ -19,15 +19,15 @@ static void print_matrix(int m, int n, double *matrix, int lda) {
 
 
 int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
-                          int m, 
-                          int n, 
-                          int n_singular_values,
-                          int matrix_leading_dim,
+                          const int m, 
+                          const int n, 
+                          const int n_singular_values,
+                          const int matrix_leading_dim,
                           double *restrict lapack_matrix,
                           double *restrict s,
                           double *restrict u,
                           double *restrict vt,
-                          double svd_threshold,
+                          const double svd_threshold,
                           int *restrict ierr) {
   //printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
   //print_matrix(matrix_leading_dim, matrix_leading_dim, lapack_matrix - 5);
@@ -85,9 +85,9 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
 
 
 int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr, 
-                        int m,
+                        const int m,
                         double *restrict matrix, 
-                        double svd_threshold,
+                        const double svd_threshold,
                         int *ierr) {
   if (hodlr == NULL) {
     *ierr = INPUT_ERROR;
