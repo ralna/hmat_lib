@@ -174,7 +174,7 @@ int main() {
   construct_laplacian_matrix(m, matrix);
   //printf("\n\n");
 
-  result = multiply_hodlr_dense(hodlr, matrix, m, NULL);
+  result = multiply_hodlr_dense(hodlr, matrix, m, m, NULL, m);
   printf("\n\nHODLR dense matrix multiplication:\n");
   print_matrix(m, m, result);
   free(result);

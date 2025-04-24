@@ -729,6 +729,7 @@ static inline void multiply_off_diagonal_dense(
   const int matrix_n,
   const int ldb,
   double *restrict out,
+  const int out_ld,
   double *restrict workspace,
   double *restrict workspace2,
   double alpha,
@@ -756,7 +757,7 @@ static inline void multiply_off_diagonal_dense(
 
   for (j = 0; j < matrix_n; j++) {
     for (i = 0; i < m; i++) {
-      out[offset2 + i + j * ldb] += workspace2[i + j * m];
+      out[offset2 + i + j * out_ld] += workspace2[i + j * m];
     }
   }
   
@@ -773,7 +774,7 @@ static inline void multiply_off_diagonal_dense(
 
   for (j = 0; j < matrix_n; j++) {
     for (i = 0; i < n; i++) {
-      out[offset + i + j * ldb] += workspace2[i + j * n];
+      out[offset + i + j * out_ld] += workspace2[i + j * n];
     }
   }
   *offset_ptr += n;
@@ -782,18 +783,19 @@ static inline void multiply_off_diagonal_dense(
 
 double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
                               const double *restrict matrix,
-                              const int matrix_n,//LDA
-                              double *restrict out) {//ldb
+                              const int matrix_n,
+                              const int matrix_ld,
+                              double *restrict out,
+                              const int out_ld) {
   if (hodlr == NULL) {
     return NULL;
   }
   if (out == NULL) {
-    out = malloc(hodlr->root->m * matrix_n * sizeof(double));
+    out = malloc(out_ld * matrix_n * sizeof(double));
   }
 
   int offset = 0, offset2 = 0, i=0, j=0, k=0, idx=0;
   int m = 0;
-  const int ldb = hodlr->root->m;
   int n_parent_nodes = (int)pow(2, hodlr->height - 1);
   const double alpha = 1.0, beta = 0.0;
 
@@ -812,8 +814,8 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
       m = hodlr->innermost_leaves[idx]->data.diagonal.m;
       dgemm_("N", "N", &m, &matrix_n, &m, &alpha, 
              hodlr->innermost_leaves[idx]->data.diagonal.data, 
-             &m, matrix + offset, &ldb, 
-             &beta, out + offset, &ldb);
+             &m, matrix + offset, &matrix_ld,
+             &beta, out + offset, &out_ld);
       
       offset += m;
     }
@@ -827,8 +829,8 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
       idx = 2 * j;
       for (k = 0; k < 2; k++) {
         multiply_off_diagonal_dense(
-          queue[idx], matrix, matrix_n, ldb, 
-          out, workspace, workspace2, 
+          queue[idx], matrix, matrix_n, matrix_ld, 
+          out, out_ld, workspace, workspace2, 
           alpha, beta, &offset, offset2
         );
         offset2 = offset;
@@ -842,8 +844,8 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
 
   offset = 0; offset2 = 0;
   multiply_off_diagonal_dense(
-    hodlr->root, matrix, matrix_n, ldb, 
-    out, workspace, workspace2, 
+    hodlr->root, matrix, matrix_n, matrix_ld, 
+    out, out_ld, workspace, workspace2, 
     alpha, beta, &offset, offset2
   );
 
