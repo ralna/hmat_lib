@@ -76,5 +76,9 @@ void free_tree_data(struct TreeHODLR *hodlr);
 
 double * multiply_vector(struct TreeHODLR *hodlr, double *vector, double *out);
 
+double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
+                              const double *matrix,
+                              const int matrix_n,
+                              double *out);
 #endif
 
