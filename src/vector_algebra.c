@@ -13,8 +13,8 @@ static inline void multiply_off_diagonal_vector(
   double *restrict out,
   double *restrict workspace,
   double *restrict workspace2,
-  double alpha,
-  double beta,
+  const double alpha,
+  const double beta,
   const int increment,
   int *restrict offset_ptr,
   const int offset2
@@ -59,8 +59,8 @@ static inline void multiply_off_diagonal_vector(
 }
 
 
-double * multiply_vector(struct TreeHODLR *hodlr,
-                         double *vector,
+double * multiply_vector(const struct TreeHODLR *hodlr,
+                         const double *vector,
                          double *out) {
   if (hodlr == NULL) {
     return NULL;
@@ -70,11 +70,12 @@ double * multiply_vector(struct TreeHODLR *hodlr,
   }
 
   int offset = 0, offset2 = 0, i=0, j=0, k=0, idx=0;
-  int m = 0, increment = 1;
+  int m = 0;
   int n_parent_nodes = (int)pow(2, hodlr->height - 1);
-  double alpha = 1, beta = 0;
+  const int increment = 1;
+  const double alpha = 1, beta = 0;
 
-  int largest_m = (hodlr->root->m - hodlr->root->m / 2);
+  const int largest_m = hodlr->root->children[1].leaf->data.off_diagonal.m ;
   double *workspace = malloc(2 * largest_m * sizeof(double));
   double *workspace2 = workspace + largest_m;
 
