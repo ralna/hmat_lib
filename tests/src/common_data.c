@@ -22,3 +22,21 @@ double * construct_laplacian_matrix(int m) {
   return matrix;
 }
 
+
+double * construct_identity_matrix(int m) {
+  int idx;
+  double *matrix = cr_malloc(m * m * sizeof(double));
+  for (int i = 0; i < m; i++) {
+    for (int j = 0; j < m; j++) {
+      idx = j + i * m;
+      if (i == j) {
+        matrix[idx] = 1;
+      } else {
+        matrix[idx] = 0;
+      }
+    }
+  }
+
+  return matrix;
+}
+

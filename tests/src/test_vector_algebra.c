@@ -33,15 +33,13 @@ void free_hv_params(struct criterion_test_params *params) {
 }
 
 
-struct ParametersTestHxV * generate_hodlr_vector_params(int * len) {
-  int n_params = 6, ierr = 0;
-  *len = n_params;
-  struct ParametersTestHxV *params = cr_malloc(n_params * sizeof(struct ParametersTestHxV));
+void laplacian_matrix(struct ParametersTestHxV *params,
+                      int start) {
+  int i = 0, ierr = 0;
   double svd_threshold = 0.1;
-  int i = 0;
 
   for (int height = 1; height < 4; height++) {
-    i = 2 * (height - 1);
+    i = 2 * (height - 1) + start;
 
     params[i].len = 21;
     params[i].hodlr = allocate_tree_cr(height, &ierr);
@@ -73,7 +71,52 @@ struct ParametersTestHxV * generate_hodlr_vector_params(int * len) {
     params[i+1].expected[0] = 15;
     params[i+1].expected[params[i+1].len - 1] = 15;
   }
+}
 
+
+void identity_matrix(struct ParametersTestHxV *params,
+                     int start) {
+  int i = 0, idx = 0, ierr = 0, n_cases = 3;
+  double svd_threshold = 0.1;
+
+  for (int height = 1; height < 4; height++) {
+    idx = n_cases * (height - 1) + start;
+
+    for (i = idx; i < idx+n_cases; i++) {
+      params[i].len = 21;
+      params[i].hodlr = allocate_tree_cr(height, &ierr);
+      dense_to_tree_hodlr_cr(params[i].hodlr, params[i].len, 
+                            construct_identity_matrix(params[i].len), 
+                            svd_threshold, &ierr);
+      params[i].vector = cr_calloc(params[i].len, sizeof(double));
+      params[i].expected = cr_calloc(params[i].len, sizeof(double));
+    }
+
+    for (int k = 0; k < params[idx].len; k++) {
+      params[idx].vector[k] = 10.;
+      params[idx].expected[k] = 10.;
+    }
+
+    for (int k = 0; k < params[idx+1].len; k++) {
+      params[idx+1].vector[k] = 0.;
+      params[idx+1].expected[k] = 0.;
+    }
+
+    for (int k = 0; k < params[idx+2].len; k++) {
+      params[idx+2].vector[k] = (double)(k - 10);
+      params[idx+2].expected[k] = (double)(k - 10);
+    }
+  }
+}
+
+
+struct ParametersTestHxV * generate_hodlr_vector_params(int * len) {
+  int n_params = 6+9;
+  *len = n_params;
+  struct ParametersTestHxV *params = cr_malloc(n_params * sizeof(struct ParametersTestHxV));
+
+  laplacian_matrix(params, 0);
+  identity_matrix(params, 6);
   return params;
 }
 
