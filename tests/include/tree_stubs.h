@@ -3,9 +3,9 @@
 
 #include "../../include/tree.h"
 
-int compress_off_diagonal_cr(struct NodeOffDiagonal *, int, int, int, int, double *, double *, double *, double *, double, int *);
+int compress_off_diagonal_cr(struct NodeOffDiagonal *, const int, const int, const int, const int, double *, double *, double *, double *, const double, int *);
 
-int dense_to_tree_hodlr_cr(struct TreeHODLR *, int, double *, double, int *);
+int dense_to_tree_hodlr_cr(struct TreeHODLR *, const int, double *, const double, int *);
 
 void free_partial_tree_hodlr_cr(struct TreeHODLR *, struct HODLRInternalNode **, struct HODLRInternalNode **);
 

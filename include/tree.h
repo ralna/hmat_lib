@@ -54,6 +54,8 @@ struct TreeHODLR {
   int height;
   struct HODLRInternalNode *root;
   struct HODLRLeafNode **innermost_leaves;
+  long len_work_queue;
+  struct HODLRInternalNode **work_queue;
 };
 
 

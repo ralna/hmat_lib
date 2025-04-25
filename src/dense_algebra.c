@@ -14,9 +14,9 @@ void compute_multiply_hodlr_dense_workspace(
   int *restrict workspace_sizes
 ) {
   int i = 0, j = 0, k = 0, idx = 0, s = 0;
-  int n_parent_nodes = (int)pow(2, hodlr->height - 1);
+  long n_parent_nodes = hodlr->len_work_queue;
 
-  struct HODLRInternalNode **queue = malloc(n_parent_nodes * sizeof(struct HODLRInternalNode *));
+  struct HODLRInternalNode **queue = hodlr->work_queue;
 
   for (i = 0; i < n_parent_nodes; i++) {
     queue[i] = hodlr->innermost_leaves[2 * i]->parent;
@@ -42,8 +42,6 @@ void compute_multiply_hodlr_dense_workspace(
 
   workspace_sizes[0] *= matrix_n;
   workspace_sizes[1] = hodlr->root->children[1].leaf->data.off_diagonal.m * matrix_n;
-
-  free(queue);
 }
 
 
@@ -120,7 +118,7 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
 
   int offset = 0, offset2 = 0, i=0, j=0, k=0, idx=0;
   int m = 0;
-  int n_parent_nodes = (int)pow(2, hodlr->height - 1);
+  long n_parent_nodes = hodlr->len_work_queue;
   const double alpha = 1.0, beta = 0.0;
 
   int workspace_size[2] = {0, 0};
@@ -128,7 +126,7 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
   double *workspace = malloc((workspace_size[0] + workspace_size[1]) * sizeof(double));
   double *workspace2 = workspace + workspace_size[0];
 
-  struct HODLRInternalNode **queue = malloc(n_parent_nodes * sizeof(struct HODLRInternalNode *));
+  struct HODLRInternalNode **queue = hodlr->work_queue;
   
   for (i = 0; i < n_parent_nodes; i++) {
     queue[i] = hodlr->innermost_leaves[2 * i]->parent;
@@ -173,7 +171,7 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
     alpha, beta, &offset, offset2
   );
 
-  free(workspace); free(queue);
+  free(workspace);
         
   return out;
 }

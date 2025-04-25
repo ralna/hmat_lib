@@ -71,15 +71,15 @@ double * multiply_vector(const struct TreeHODLR *hodlr,
 
   int offset = 0, offset2 = 0, i=0, j=0, k=0, idx=0;
   int m = 0;
-  int n_parent_nodes = (int)pow(2, hodlr->height - 1);
   const int increment = 1;
   const double alpha = 1, beta = 0;
+  long n_parent_nodes = hodlr->len_work_queue;
 
   const int largest_m = hodlr->root->children[1].leaf->data.off_diagonal.m ;
   double *workspace = malloc(2 * largest_m * sizeof(double));
   double *workspace2 = workspace + largest_m;
 
-  struct HODLRInternalNode **queue = malloc(n_parent_nodes * sizeof(struct HODLRInternalNode *));
+  struct HODLRInternalNode **queue = hodlr->work_queue;
 
   for (i = 0; i < n_parent_nodes; i++) {
     queue[i] = hodlr->innermost_leaves[2 * i]->parent;
@@ -121,7 +121,7 @@ double * multiply_vector(const struct TreeHODLR *hodlr,
     alpha, beta, increment, &offset, offset2
   );
 
-  free(workspace); free(queue);
+  free(workspace);
         
   return out;
 }

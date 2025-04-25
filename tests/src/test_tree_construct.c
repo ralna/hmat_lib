@@ -204,10 +204,15 @@ struct ParametersTestDense {
 };
 
 
-int expect_tree_consistent(struct TreeHODLR *hodlr, int height) {
-  const int max_depth_n = (int)pow(2, height - 1);
+int expect_tree_consistent(struct TreeHODLR *hodlr, 
+                           int height,
+                           const long max_depth_n) {
   int len_queue = 1;
 
+  cr_expect(eq(hodlr->height, height));
+  cr_expect(eq(hodlr->len_work_queue, max_depth_n));
+
+  cr_expect(ne(hodlr->work_queue, NULL));
   cr_expect(eq(hodlr->root->parent, NULL));
 
   struct HODLRInternalNode **queue = malloc(max_depth_n * sizeof(void *));
@@ -374,6 +379,8 @@ struct ParametersTestDense * generate_dense_params(int * len) {
   params[0].expected = cr_malloc(sizeof(struct TreeHODLR));
   params[0].expected->height = params[0].height;
   params[0].expected->innermost_leaves = cr_malloc(2 * sizeof(struct NodeDiagonal *));
+  params[0].expected->len_work_queue = 1;
+  params[0].expected->work_queue = cr_malloc(sizeof(struct HODLRInternalNode *));
 
   // Set up the root node
   params[0].expected->root = cr_malloc(sizeof(struct HODLRInternalNode));
@@ -442,7 +449,7 @@ ParameterizedTest(struct ParametersTestDense *params, tree, dense_to_tree) {
     cr_fatal("Tree HODLR allocation failed");
   }
 
-  expect_tree_consistent(result, params->height);
+  expect_tree_consistent(result, params->height, params->expected->len_work_queue);
   
   int svd = dense_to_tree_hodlr(result, params->m, params->matrix, params->svd_threshold, &ierr);
   
