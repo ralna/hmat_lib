@@ -35,41 +35,50 @@ void free_hv_params(struct criterion_test_params *params) {
 
 void laplacian_matrix(struct ParametersTestHxV *params,
                       int start) {
-  int i = 0, ierr = 0;
+  int i = 0, ierr = 0, n_cases = 3;
   double svd_threshold = 0.1;
 
   for (int height = 1; height < 4; height++) {
-    i = 2 * (height - 1) + start;
+    i = n_cases * (height - 1) + start;
 
-    params[i].len = 21;
-    params[i].hodlr = allocate_tree_cr(height, &ierr);
+    for (int j = i; j < i+n_cases; j++) {
+      params[j].len = 21;
+      params[j].hodlr = allocate_tree_cr(height, &ierr);
+    }
+
     dense_to_tree_hodlr_cr(params[i].hodlr, params[i].len, 
                            construct_laplacian_matrix(params[i].len), 
                            svd_threshold, &ierr);
-
-    params[i+1].len = 21;
-    params[i+1].hodlr = allocate_tree_cr(height, &ierr);
 
     double *matrix = construct_laplacian_matrix(params[i+1].len);
     matrix[params[i+1].len - 1] = 0.5;
     matrix[params[i+1].len * (params[i+1].len - 1)] = 0.5;
     dense_to_tree_hodlr_cr(params[i+1].hodlr, params[i+1].len,
-                          matrix, svd_threshold, &ierr);
+                           matrix, svd_threshold, &ierr);
     cr_free(matrix);
 
-    for (int j = 0; j < 2; j++) {
+    matrix = construct_laplacian_matrix(params[i+2].len);
+    matrix[params[i+2].len - 1] = 0.5;
+    dense_to_tree_hodlr_cr(params[i+2].hodlr, params[i+2].len,
+                           matrix, svd_threshold, &ierr);
+    cr_free(matrix);
+
+    for (int j = 0; j < n_cases; j++) {
       params[i+j].vector = cr_malloc(params[i+j].len * sizeof(double));
       for (int k = 0; k < params[i+j].len; k++) {
-        params[i+j].vector[k] = 10;
+        params[i+j].vector[k] = 10.;
       }
       params[i+j].expected = cr_calloc(params[i+j].len, sizeof(double));
     }
 
-    params[i].expected[0] = 10;
-    params[i].expected[params[i].len - 1] = 10;
+    params[i].expected[0] = 10.;
+    params[i].expected[params[i].len - 1] = 10.;
 
-    params[i+1].expected[0] = 15;
-    params[i+1].expected[params[i+1].len - 1] = 15;
+    params[i+1].expected[0] = 15.;
+    params[i+1].expected[params[i+1].len - 1] = 15.;
+ 
+    params[i+2].expected[0] = 10.;
+    params[i+2].expected[params[i+2].len - 1] = 15.;
   }
 }
 
@@ -111,12 +120,12 @@ void identity_matrix(struct ParametersTestHxV *params,
 
 
 struct ParametersTestHxV * generate_hodlr_vector_params(int * len) {
-  int n_params = 6+9;
+  int n_params = 9+9;
   *len = n_params;
   struct ParametersTestHxV *params = cr_malloc(n_params * sizeof(struct ParametersTestHxV));
 
   laplacian_matrix(params, 0);
-  identity_matrix(params, 6);
+  identity_matrix(params, 9);
   return params;
 }
 
