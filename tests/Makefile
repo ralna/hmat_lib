@@ -22,6 +22,25 @@ unit_tests: test_tree_construct.o test_vector_algebra.o
 		${EXTRA_FLAGS}
 
 
+test_dense_algebra: test_dense_algebra.o
+	gcc \
+		${BUILD_DIR}/test_dense_algebra.o \
+		${BUILD_DIR}/lapack_wrapper.o \
+		${BUILD_DIR}/utils.o \
+		${BUILD_DIR}/common_data.o \
+		${BUILD_DIR}/tree_stubs.o \
+		-o ${OUT_DIR}/test_dense_algebra \
+		-lopenblas -lm -lcriterion \
+		-Wall -Wextra \
+		${EXTRA_FLAGS}
+
+test_dense_algebra.o: ${TESTS_DIR}/test_hodlr_dense_algebra.c lapack_wrapper.o utils.o common_data.o tree_stubs.o
+	gcc \
+		-c ${TESTS_DIR}/test_hodlr_dense_algebra.c \
+		-o ${BUILD_DIR}/test_dense_algebra.o \
+		-lopenblas -lm -lcriterion \
+		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
+		${EXTRA_FLAGS}
 
 
 test_vector_algebra: test_vector_algebra.o

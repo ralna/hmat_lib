@@ -40,3 +40,15 @@ double * construct_identity_matrix(int m) {
   return matrix;
 }
 
+
+double * construct_full_matrix(const int m, const double val) {
+  int idx = 0, i = 0, j = 0;
+  double *matrix = cr_malloc(m * m * sizeof(double));
+  for (i = 0; i < m; i++) {
+    for (j = 0; j < m; j ++) {
+      matrix[i + j * m] = val;
+    }
+  }
+  return matrix;
+}
+

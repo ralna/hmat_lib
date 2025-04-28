@@ -155,7 +155,6 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
   compute_multiply_hodlr_dense_workspace(hodlr, matrix_n, &workspace_size);
   double *workspace = malloc((workspace_size[0] + workspace_size[1]) * sizeof(double));
   double *workspace2 = workspace + workspace_size[0];
-  printf("%d %d\n", workspace_size[0], workspace_size[1]);
 
   struct HODLRInternalNode **queue = hodlr->work_queue;
   
