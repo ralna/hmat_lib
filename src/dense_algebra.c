@@ -1,11 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
 #include "../include/lapack_wrapper.h"
 #include "../include/tree.h"
 #include "../include/error.h"
 #include "../include/blas_wrapper.h"
+
+
+static void print_matrix(const int m, const int n, 
+                         const double *matrix, const int lda) {
+  for (int i=0; i<m; i++) {
+    for (int j=0; j < n; j++) {
+      printf("%f    ", matrix[j * lda + i]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
 
 
 void compute_multiply_hodlr_dense_workspace(
@@ -17,6 +28,15 @@ void compute_multiply_hodlr_dense_workspace(
   long n_parent_nodes = hodlr->len_work_queue;
 
   struct HODLRInternalNode **queue = hodlr->work_queue;
+
+  workspace_sizes[1] = hodlr->root->children[1].leaf->data.off_diagonal.m * matrix_n;
+  if (hodlr->height < 2) {
+    i = hodlr->root->children[1].leaf->data.off_diagonal.s;
+    j = hodlr->root->children[2].leaf->data.off_diagonal.s;
+    s = i > j ? i : j;
+    workspace_sizes[0] = s * matrix_n;
+    return;
+  }
 
   for (i = 0; i < n_parent_nodes; i++) {
     queue[i] = hodlr->innermost_leaves[2 * i]->parent;
@@ -41,7 +61,6 @@ void compute_multiply_hodlr_dense_workspace(
   }
 
   workspace_sizes[0] *= matrix_n;
-  workspace_sizes[1] = hodlr->root->children[1].leaf->data.off_diagonal.m * matrix_n;
 }
 
 
@@ -67,15 +86,18 @@ static inline void multiply_off_diagonal_dense(
   *offset_ptr += m;
   int offset = *offset_ptr;
 
+  print_matrix(m, s, parent->children[1].leaf->data.off_diagonal.u, m);
   dgemm_("T", "N", &s, &matrix_n, &n, &alpha, 
          parent->children[1].leaf->data.off_diagonal.v, 
          &n, matrix + offset, &ldb, 
          &beta, workspace, &s);
+  print_matrix(s, matrix_n, workspace, s);
 
   dgemm_("N", "N", &m, &matrix_n, &s, &alpha, 
          parent->children[1].leaf->data.off_diagonal.u, 
          &m, workspace, &s,
          &beta, workspace2, &m);
+  print_matrix(m, matrix_n, workspace2, m);
 
   for (j = 0; j < matrix_n; j++) {
     for (i = 0; i < m; i++) {
@@ -88,11 +110,13 @@ static inline void multiply_off_diagonal_dense(
          parent->children[2].leaf->data.off_diagonal.v, 
          &m, matrix + offset2, &ldb, 
          &beta, workspace, &s);
+  print_matrix(s, matrix_n, workspace, m);
 
   dgemm_("N", "N", &n, &matrix_n, &s, &alpha, 
          parent->children[2].leaf->data.off_diagonal.u, 
          &n, workspace, &s,
          &beta, workspace2, &n);
+  print_matrix(n, matrix_n, workspace2, n);
 
   for (j = 0; j < matrix_n; j++) {
     for (i = 0; i < n; i++) {
@@ -121,10 +145,13 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
   long n_parent_nodes = hodlr->len_work_queue;
   const double alpha = 1.0, beta = 0.0;
 
+  //print_matrix(hodlr->root->m, matrix_n, matrix, matrix_ld);
+
   int workspace_size[2] = {0, 0};
   compute_multiply_hodlr_dense_workspace(hodlr, matrix_n, &workspace_size);
   double *workspace = malloc((workspace_size[0] + workspace_size[1]) * sizeof(double));
   double *workspace2 = workspace + workspace_size[0];
+  printf("%d %d\n", workspace_size[0], workspace_size[1]);
 
   struct HODLRInternalNode **queue = hodlr->work_queue;
   
