@@ -29,14 +29,8 @@ void compute_multiply_hodlr_dense_workspace(
 
   struct HODLRInternalNode **queue = hodlr->work_queue;
 
+  workspace_sizes[0] = 1;
   workspace_sizes[1] = hodlr->root->children[1].leaf->data.off_diagonal.m * matrix_n;
-  if (hodlr->height < 2) {
-    i = hodlr->root->children[1].leaf->data.off_diagonal.s;
-    j = hodlr->root->children[2].leaf->data.off_diagonal.s;
-    s = i > j ? i : j;
-    workspace_sizes[0] = s * matrix_n;
-    return;
-  }
 
   for (i = 0; i < n_parent_nodes; i++) {
     queue[i] = hodlr->innermost_leaves[2 * i]->parent;
@@ -58,6 +52,16 @@ void compute_multiply_hodlr_dense_workspace(
         }
       }
     } 
+  }
+
+  s = hodlr->root->children[1].leaf->data.off_diagonal.s;
+  if (s > workspace_sizes[0]) {
+    workspace_sizes[0] = s;
+  }
+
+  s = hodlr->root->children[2].leaf->data.off_diagonal.s;
+  if (s > workspace_sizes[0]) {
+    workspace_sizes[0] = s;
   }
 
   workspace_sizes[0] *= matrix_n;
@@ -86,18 +90,18 @@ static inline void multiply_off_diagonal_dense(
   *offset_ptr += m;
   int offset = *offset_ptr;
 
-  print_matrix(m, s, parent->children[1].leaf->data.off_diagonal.u, m);
+  //print_matrix(m, s, parent->children[1].leaf->data.off_diagonal.u, m);
   dgemm_("T", "N", &s, &matrix_n, &n, &alpha, 
          parent->children[1].leaf->data.off_diagonal.v, 
          &n, matrix + offset, &ldb, 
          &beta, workspace, &s);
-  print_matrix(s, matrix_n, workspace, s);
+  //print_matrix(s, matrix_n, workspace, s);
 
   dgemm_("N", "N", &m, &matrix_n, &s, &alpha, 
          parent->children[1].leaf->data.off_diagonal.u, 
          &m, workspace, &s,
          &beta, workspace2, &m);
-  print_matrix(m, matrix_n, workspace2, m);
+  //print_matrix(m, matrix_n, workspace2, m);
 
   for (j = 0; j < matrix_n; j++) {
     for (i = 0; i < m; i++) {
@@ -110,13 +114,13 @@ static inline void multiply_off_diagonal_dense(
          parent->children[2].leaf->data.off_diagonal.v, 
          &m, matrix + offset2, &ldb, 
          &beta, workspace, &s);
-  print_matrix(s, matrix_n, workspace, m);
+  //print_matrix(s, matrix_n, workspace, m);
 
   dgemm_("N", "N", &n, &matrix_n, &s, &alpha, 
          parent->children[2].leaf->data.off_diagonal.u, 
          &n, workspace, &s,
          &beta, workspace2, &n);
-  print_matrix(n, matrix_n, workspace2, n);
+  //print_matrix(n, matrix_n, workspace2, n);
 
   for (j = 0; j < matrix_n; j++) {
     for (i = 0; i < n; i++) {

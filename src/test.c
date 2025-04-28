@@ -128,11 +128,13 @@ void construct_laplacian_matrix(int m, double *matrix) {
 int main() {
   int m = 10;
   double svd_threshold = 0.1;
-  int depth = 2, ierr;
+  int depth = 1, ierr;
 
   int idx;
   double *matrix = malloc(m * m * sizeof(double));
   construct_laplacian_matrix(m, matrix);
+  //matrix[m - 1] = 0.5;
+  //matrix[m * (m - 1)] = 0.5;
 
   print_matrix(m, m, matrix);
 
@@ -156,8 +158,8 @@ int main() {
     vector[i] = 10;
   }
 
-  double *result = multiply_vector(hodlr, vector, NULL);
   printf("HODLR vector multiplication:\n");
+  double *result = multiply_vector(hodlr, vector, NULL);
   print_vector(m, result);
   free(result);
 
@@ -172,10 +174,10 @@ int main() {
   /* } */
 
   construct_laplacian_matrix(m, matrix);
-  //printf("\n\n");
+ //printf("\n\n");
+  printf("\n\nHODLR dense matrix multiplication:\n");
 
   result = multiply_hodlr_dense(hodlr, matrix, m, m, NULL, m);
-  printf("\n\nHODLR dense matrix multiplication:\n");
   print_matrix(m, m, result);
   free(result);
 
