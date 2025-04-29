@@ -18,17 +18,63 @@ static void print_matrix(int m, int n, double *matrix, int lda) {
 }
 
 
-int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
-                          const int m, 
-                          const int n, 
-                          const int n_singular_values,
-                          const int matrix_leading_dim,
-                          double *restrict lapack_matrix,
-                          double *restrict s,
-                          double *restrict u,
-                          double *restrict vt,
-                          const double svd_threshold,
-                          int *restrict ierr) {
+/**
+ * Compresses a dense off-diagonal block.
+ *
+ * Internal function that computes the SVD of a matrix block
+ * and saves the the significant parts of the U and V matrices
+ * on a off-diagonal node.
+ *
+ * :param node: The node to which to save the results.
+ * :param m: The number of rows of the ``lapack_matrix`` matrix.
+ * :param n: The number of columns of the ``lapack_matrix`` matrix.
+ * :param n_singular_values: The number of singular values returned
+ *                           by the compact SVD. I.e. the smaller
+ *                           value between ``m`` and ``n``.
+ * :param matrix_leading_dim: The number of rows of the full matrix
+ *                            ``lapack_matrix`` (lda). 
+ *                            ``matrix_leading_dim`` >= ``m``.
+ * :param lapack_matrix: A pointer to a column-major array containing
+ *                       the 2D matrix to compress. This may be a 
+ *                       subset of a larger matrix. Might be 
+ *                       overwritten by the SVD routine.
+ * :param s: Pointer to an array used to store all the singular values
+ *           of ``lapack_matrix``. A 1D aray of size of at least
+ *           ``n_singular_values``.
+ * :param u: Pointer to an array used to temporarily store all the 
+ *           columns of the U matrix of the ``lapack_matrix``. 
+ *           A 2D array of size of at least ``m`` x 
+ *           ``n_singular_values``.
+ * :param vt: Pointer to an array used to temporarily store all the
+ *            rows of the VT matrix of the ``lapack_matrix``.
+ *            A 2D array of size of at least ``n_singular_values``
+ *            x ``n``.
+ * :param svd_threshold: The threshold for discarding singular values. 
+ *                       Any singular values (and the corresponding 
+ *                       column vectors of the U and V matrices) that 
+ *                       satisfy :math:`s_i < t * s_0` will be 
+ *                       discarded (:math:`s_i` is i-th singular value, 
+ *                       :math:`t` is the ``svd_threshold``, and 
+ *                       :math:`s_0` is the largest singular value).
+ * :param ierr: Error code corresponding to :c:enum:`ErrorCode`. On 
+ *              successful completion of the function, 
+ *              :c:enum:`ErrorCode.SUCCESS` is returned. Otherwise,
+ *              a corresponding error code is set.
+ *              Must NOT be ``NULL`` pointer - passing in ``NULL``
+ *              as ``ierr`` is undefined behaviour.
+ * :return: The return code from the SVD routine.
+ */
+static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
+                                 const int m, 
+                                 const int n, 
+                                 const int n_singular_values,
+                                 const int matrix_leading_dim,
+                                 double *restrict lapack_matrix,
+                                 double *restrict s,
+                                 double *restrict u,
+                                 double *restrict vt,
+                                 const double svd_threshold,
+                                 int *restrict ierr) {
   //printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
   //print_matrix(matrix_leading_dim, matrix_leading_dim, lapack_matrix - 5);
   int result = svd_double(m, n, n_singular_values, matrix_leading_dim, lapack_matrix, s, u, vt, ierr);
@@ -59,20 +105,20 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
   }
   //print_matrix(svd_cutoff_idx, m, u_top_right);
 
-  double *v_top_right = malloc(svd_cutoff_idx * n * sizeof(double));
-  if (v_top_right == NULL) {
+  double *v_store = malloc(svd_cutoff_idx * n * sizeof(double));
+  if (v_store == NULL) {
     *ierr = ALLOCATION_FAILURE;
     return result;
   }
   for (int i=0; i<svd_cutoff_idx; i++) {
     for (int j=0; j<n; j++) {
-      v_top_right[j + i * n] = vt[i + j * n_singular_values];
+      v_store[j + i * n] = vt[i + j * n_singular_values];
     }
   }
-  //print_matrix(n, svd_cutoff_idx, v_top_right);
+  //print_matrix(n, svd_cutoff_idx, v_store);
 
   node->u = u_top_right;
-  node->v = v_top_right;
+  node->v = v_store;
 
   node->m = m;
   node->s = svd_cutoff_idx;
@@ -83,22 +129,76 @@ int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
 }
 
 
-
+/**
+ * Compresses a dense matrix into a HODLR tree matrix.
+ *
+ * Requires a preallocated HODLR tree (e.g. from 
+ * :c:func:`allocate_tree`), a matrix, and some settings.
+ *
+ * :param hodlr: A pointer to a HODLR tree. This *should*
+ *               be an empty tree, with no data filled in,
+ *               since any pointers to data will be 
+ *               overwritten with newly allocated data and
+ *               therefore lost, potentially causing memory 
+ *               leaks.
+ *               If ``NULL``, aborts immediately.
+ *               Passing in a partially or incorrectly 
+ *               allocated tree is an undefined behaviour.
+ *
+ * :param m: The size of the ``matrix`` matrix. I.e., the
+ *           number of rows and columns.
+ *
+ * :param matrix: The dense matrix to compress. This must 
+ *                be an column-major array holding an 
+ *                ``m`` x ``m`` square 2D matrix.
+ *                If ``NULL``, aborts immediately.
+ *                *Some of the values may be overwritten
+ *                during SVD compuration*
+ *
+ * :param svd_threshold: The threshold for discarding 
+ *                       singular values. Any singular 
+ *                       values (and the corresponding 
+ *                       column vectors of the U and V
+ *                       matrices) that satisfy 
+ *                       :math:`s_i < t * s_0` will be 
+ *                       discarded (:math:`s_i` is i-th 
+ *                       singular value, :math:`t` is the 
+ *                       ``svd_threshold``, and :math:`s_0` 
+ *                       is the largest singular value).
+ *
+ * :param ierr: Error code corresponding to :c:enum:`ErrorCode`. On 
+ *              successful completion of the function, 
+ *              :c:enum:`ErrorCode.SUCCESS` is returned. Otherwise,
+ *              a corresponding error code is set.
+ *              Must NOT be ``NULL`` pointer - passing in ``NULL``
+ *              as ``ierr`` is undefined behaviour.
+ *
+ * :return: The error code from the SVD routine.
+ *
+ * .. warning::
+ *
+ *     No clean-up is performed if the compression fails for any 
+ *     reason. Therefore, it is likely that the data will be 
+ *     partially allocated. If that is the case, it must be 
+ *     freed (e.g. using :c:func:`free_tree_data`) before attempting
+ *     to use this function again to avoid memory leaks.
+ */
 int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr, 
                         const int m,
                         double *restrict matrix, 
                         const double svd_threshold,
                         int *ierr) {
-  if (hodlr == NULL) {
+  if (hodlr == NULL || matrix == NULL) {
     *ierr = INPUT_ERROR;
     return 0;
   }
   int m_smaller = m / 2;
   int m_larger = m - m_smaller;
-  
+
+  // TODO: OPNEMP
   int result = 0, offset = 0, n_singular_values=m_smaller, len_queue=1;
   double *sub_matrix_pointer = NULL; double *data = NULL;
-
+  // TODO: Standardise i and j indices
   hodlr->root->m = m;
 
   double *s = malloc(n_singular_values * sizeof(double));
@@ -153,7 +253,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
       if (*ierr != SUCCESS) {
         //handle_error(ierr, result);  // 
         // error out
-        free(s); free(u); free(vt); free(queue); free(next_level);
+        free(s); free(u); free(vt); free(queue_memory);
         return result;
       }
       
@@ -167,7 +267,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
       );
       if (*ierr != SUCCESS) {
         // error out
-        free(s); free(u); free(vt); free(queue); free(next_level);
+        free(s); free(u); free(vt); free(queue_memory);
         return result;
       }
 
@@ -198,7 +298,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
     data = malloc(m_larger * m_larger * sizeof(double));
     if (data == NULL) {
       *ierr = ALLOCATION_FAILURE;
-      free(s); free(u); free(vt); free(queue); free(next_level);
+      free(s); free(u); free(vt); free(queue_memory);
       return 0;
     }
     for (int j = 0; j < m_larger; j++) {
@@ -219,7 +319,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
     );
     if (*ierr != SUCCESS) {
       // error out
-      free(s); free(u); free(vt); free(queue); free(next_level);
+      free(s); free(u); free(vt); free(queue_memory);
       return result;
     }
     
@@ -233,7 +333,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
     );
     if (*ierr != SUCCESS) {
       // error out
-      free(s); free(u); free(vt); free(queue); free(next_level);
+      free(s); free(u); free(vt); free(queue_memory);
       return result;
     }
 
@@ -243,7 +343,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
     data = malloc(m_smaller * m_smaller * sizeof(double));
     if (data == NULL) {
       *ierr = ALLOCATION_FAILURE;
-      free(s); free(u); free(vt); free(queue); free(next_level);
+      free(s); free(u); free(vt); free(queue_memory);
       return 0;
     }
     for (int j = 0; j < m_smaller; j++) {
@@ -265,6 +365,20 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
 }
 
 
+/**
+ * Internal function used to free a partially allocated HODLR tree.
+ *
+ * Used to clean up after unsuccessful allocation of a HODLR tree
+ * via :c:func:`allocate_tree`.
+ *
+ * :param hodlr: Pointer to a HODLR tree.
+ * :param queue: A dynamic array of pointers to internal nodes.
+ *               Used as a workspace.
+ * :param next_level: Dynamic array of pointers to internal nodes.
+ *                    Used as a workspace.
+ *
+ * :return: Nothing
+ */
 static void free_partial_tree_hodlr(struct TreeHODLR *hodlr, 
                                     struct HODLRInternalNode **queue, 
                                     struct HODLRInternalNode **next_level) {
@@ -326,6 +440,42 @@ static void free_partial_tree_hodlr(struct TreeHODLR *hodlr,
 }
 
 
+/**
+ * Allocates the HODLR tree without allocating the data.
+ *
+ * Allocates all the structs composing the HODLR tree structure using
+ * the ``malloc`` function from ``stdlib``. All the known data is 
+ * filled in and pointers are assigned, but no data is allocated or
+ * computed. Any such values are not defined are left to the compiler
+ * to (potentially) set, so accessing them is undefined behaviour.
+ *
+ * The tree obtained from this function should only be passed into 
+ * a function that fills in the data (e.g. 
+ * :c:func:`dense_to_tree_hodlr`) - it should not be used anywhere 
+ * else.
+ *
+ * :param height: The height of the HODLR tree to construct, i.e. the
+ *                number of times the matrix will be split. E.g., 
+ *                ``height==1`` splits the matrix once into 4 blocks,
+ *                none of which will be split further, giving a HODLR
+ *                composed of a root internal node, holding 4 terminal
+ *                leaf nodes. 
+ *                Must be 1 or greater - smaller values cause early 
+ *                abort, returning ``NULL``.
+ *
+ * :param ierr: Error code corresponding to :c:enum:`ErrorCode`. On 
+ *              successful completion of the function, 
+ *              :c:enum:`ErrorCode.SUCCESS` is returned. Otherwise,
+ *              a corresponding error code is set and ``NULL`` is
+ *              returned.
+ *              Must NOT be ``NULL`` pointer - passing in ``NULL``
+ *              as ``ierr`` is undefined behaviour.
+ *
+ * :return: A pointer to an empty :c:struct:`TreeHODLR` on successful 
+ *          allocation, otherwise NULL. Any partially allocated 
+ *          memory is automatically freed on failure and NULL is 
+ *          returned.
+ */
 struct TreeHODLR* allocate_tree(const int height, int *ierr) {
   if (height < 1) {
     *ierr = INPUT_ERROR;
@@ -454,6 +604,23 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
 }
 
 
+/**
+ * Frees the allocated data in a HODLR tree.
+ *
+ * Does NOT free the tree structure, only the data that can
+ * be allocated by a function that fills in the tree, such 
+ * as :c:func:`dense_to_tree_hodlr`. 
+ * 
+ * May be used even if the compression function failed, 
+ * resulting in partial allocation of data.
+ *
+ * Additionally, sets all the data pointers to ``NULL``.
+ *
+ * :param hodlr: Pointer to a HODLR tree whose data to free.
+ *               If ``NULL``, returns immediately.
+ *
+ * :return: Nothing
+ */
 void free_tree_data(struct TreeHODLR *hodlr) {
   if (hodlr == NULL) {
     return;
@@ -503,7 +670,29 @@ void free_tree_data(struct TreeHODLR *hodlr) {
 }
 
 
+/**
+ * Frees the entire HOLDR tree.
+ *
+ * Frees all the allocated data *and* the entire tree structure,
+ * including all the structs etc. I.e. completely cleans up a 
+ * HODLR tree. Additionally, sets all the intermediate values
+ * as well as the HODLR tree itself to ``NULL``.
+ *
+ * :param hodlr_ptr: A pointer to a pointer to a HODLR tree.
+ *                   Must be a pointer to a dynamically 
+ *                   allocated HODLR tree; if ``hodlr_ptr``
+ *                   is an array of pointers to HODLR trees,
+ *                   only the first tree will be freed.
+ *                   If either ``hodlr_ptr`` is ``NULL`` or
+ *                   it points to ``NULL``, the function 
+ *                   aborts immediately.
+ *
+ * :return: Nothing
+ */
 void free_tree_hodlr(struct TreeHODLR **hodlr_ptr) {
+  if (hodlr_ptr == NULL) {
+    return;
+  }
   struct TreeHODLR *hodlr = *hodlr_ptr;
 
   int i = 0, j = 0, k = 0, idx = 0;
