@@ -11,6 +11,9 @@
 static double DELTA = 1e-10;
 
 
+
+
+
 void log_matrix(const double *matrix, const int m, const int n, const int lda) {
   for (int i = 0; i < m; i++) {
     char *buffer = malloc(n * 16 * sizeof(char));
