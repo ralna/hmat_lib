@@ -16,13 +16,13 @@
  *                to multiply.
  * :param vector: Pointer to an array holding the vector being multiplied.
  *                This should be a pointer to the start of the array, and the
- *                ``offset_ptr`` and ``offset2`` parameters should be used for
- *                aligning the vector and the HODLR blocks.
+ *                ``offset_ptr`` parameter should be used for aligning the 
+ *                vector and the HODLR blocks.
  *                Must not overlap with any of the other pointers - doing so
  *                is an undefined behaviour.
  * :param out: Pointer to an array to which the results are to be saved. This
  *             should be a pointer to the start of the array, and the 
- *             ``offset_ptr`` and ``offset2`` parameters should be used for
+ *             ``offset_ptr`` parameter should be used for
  *             aligning it with the HODLR blocks.
  *             This array *must* be populated since the results are added to 
  *             it. The values not being set is an undefined behaviour.
