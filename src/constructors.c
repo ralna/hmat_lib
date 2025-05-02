@@ -77,7 +77,8 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
                                  int *restrict ierr) {
   //printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
   //print_matrix(matrix_leading_dim, matrix_leading_dim, lapack_matrix - 5);
-  int result = svd_double(m, n, n_singular_values, matrix_leading_dim, lapack_matrix, s, u, vt, ierr);
+  int result = svd_double(m, n, n_singular_values, matrix_leading_dim, 
+                          lapack_matrix, s, u, vt, ierr);
   //printf("svd result %d\n", result);
   if (*ierr != SUCCESS) {
     return result;
@@ -197,6 +198,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
 
   // TODO: OPNEMP
   int result = 0, offset = 0, n_singular_values=m_smaller, len_queue=1;
+  int idx = 0;
   double *sub_matrix_pointer = NULL; double *data = NULL;
   // TODO: Standardise i and j indices
   hodlr->root->m = m;
@@ -219,86 +221,39 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
     free(s); free(u);
     return 0;
   }
-  long max_depth_n = hodlr->len_work_queue; 
-  struct HODLRInternalNode **queue_memory = malloc(2 * max_depth_n * sizeof(struct HODLRInternalNode *));
-  if (queue_memory == NULL) {
-    *ierr = ALLOCATION_FAILURE;
-    free(s); free(u); free(vt);
-    return 0;
-  }
 
-  struct HODLRInternalNode **queue = queue_memory;
-  struct HODLRInternalNode **next_level = queue_memory + max_depth_n;
-  struct HODLRInternalNode **temp_pointer = NULL;
+  long n_parent_nodes = hodlr->len_work_queue; 
+  struct HODLRInternalNode **queue = hodlr->work_queue;
 
-  //printf("%d\n", max_depth_n);
   queue[0] = hodlr->root;
+  for (int _ = 1; _ < hodlr->height; _++) {
+    for (int parent = 0; parent < len_queue; parent++) {
+      m_smaller = queue[parent]->m / 2;
+      m_larger = queue[parent]->m - m_smaller;
 
-  for (int i = 1; i < hodlr->height; i++) {
-    offset = 0;
-    for (int j = 0; j < len_queue; j++) {
-      m_smaller = queue[j]->m / 2;
-      m_larger = queue[j]->m - m_smaller;
+      idx = parent * n_parent_nodes;
+      queue[idx]->children[0].internal->m = m_larger;
+      queue[idx]->children[3].internal->m = m_smaller;
 
-      //printf("i=%d, j=%d\n", i, j);
-
-      // Off-diagonal block in the top right corner
-      sub_matrix_pointer = matrix + offset + m * (offset + m_larger);
-      result = compress_off_diagonal(
-        &(queue[j]->children[1].leaf->data.off_diagonal), 
-        m_larger, m_smaller, m_smaller, m, 
-        sub_matrix_pointer,
-        s, u, vt, svd_threshold, ierr
-      );
-      if (*ierr != SUCCESS) {
-        //handle_error(ierr, result);  // 
-        // error out
-        free(s); free(u); free(vt); free(queue_memory);
-        return result;
-      }
-      
-      // Off-diagonal block in the bottom left corner
-      sub_matrix_pointer = matrix + m * offset + offset + m_larger;
-      result = compress_off_diagonal(
-        &(queue[j]->children[2].leaf->data.off_diagonal), 
-        m_smaller, m_larger, m_smaller, m,
-        sub_matrix_pointer, 
-        s, u, vt, svd_threshold, ierr
-      );
-      if (*ierr != SUCCESS) {
-        // error out
-        free(s); free(u); free(vt); free(queue_memory);
-        return result;
-      }
-
-      offset += queue[j]->m;
-
-      queue[j]->children[0].internal->m = m_larger;
-      queue[j]->children[3].internal->m = m_smaller;
-
-      next_level[2 * j] = queue[j]->children[0].internal;
-      next_level[2 * j + 1] = queue[j]->children[3].internal;
+      queue[2 * idx] = queue[idx]->children[0].internal;
+      queue[(2 * parent + 1) * n_parent_nodes] = 
+        queue[idx]->children[3].internal;
     }
-
-    temp_pointer = queue;
-    queue = next_level;
-    next_level = temp_pointer;
-
     len_queue = len_queue * 2;
+    n_parent_nodes /= 2;
   }
 
-  offset = 0;
-  for (int i = 0; i < len_queue; i++) {
-    m_smaller = queue[i]->m / 2;
-    m_larger = queue[i]->m - m_smaller;
+  n_parent_nodes = hodlr->len_work_queue;
 
-    //printf("i=%d, m_larger=%d, m_smaller=%d\n", i, m_larger, m_smaller);
+  for (int parent = 0; parent < n_parent_nodes; parent++) {
+    //queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
+    m_smaller = queue[parent]->m / 2;
+    m_larger = queue[parent]->m - m_smaller;
 
-    // Diagonal block in the top left corner
     data = malloc(m_larger * m_larger * sizeof(double));
     if (data == NULL) {
       *ierr = ALLOCATION_FAILURE;
-      free(s); free(u); free(vt); free(queue_memory);
+      free(s); free(u); free(vt);
       return 0;
     }
     for (int j = 0; j < m_larger; j++) {
@@ -306,58 +261,102 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
         data[k + j * m_larger] = matrix[k + offset + (j + offset) * m];
       }
     }
-    queue[i]->children[0].leaf->data.diagonal.data = data;
-    queue[i]->children[0].leaf->data.diagonal.m = m_larger;
-
-    // Off-diagonal block in the top right corner
-    sub_matrix_pointer = matrix + offset + m * (offset + m_larger);
-    result = compress_off_diagonal(
-      &(queue[i]->children[1].leaf->data.off_diagonal), 
-      m_larger, m_smaller, m_smaller, m, 
-      sub_matrix_pointer, 
-      s, u, vt, svd_threshold, ierr
-    );
-    if (*ierr != SUCCESS) {
-      // error out
-      free(s); free(u); free(vt); free(queue_memory);
-      return result;
-    }
-    
-    // Off-diagonal block in the bottom left corner
-    sub_matrix_pointer = matrix + m * offset + offset + m_larger;
-    result = compress_off_diagonal(
-      &(queue[i]->children[2].leaf->data.off_diagonal), 
-      m_smaller, m_larger, m_smaller, m,
-      sub_matrix_pointer, 
-      s, u, vt, svd_threshold, ierr
-    );
-    if (*ierr != SUCCESS) {
-      // error out
-      free(s); free(u); free(vt); free(queue_memory);
-      return result;
-    }
+    queue[parent]->children[0].leaf->data.diagonal.data = data;
+    queue[parent]->children[0].leaf->data.diagonal.m = m_larger;
 
     offset += m_larger;
 
-    // Diagonal block in the bottom right corner
     data = malloc(m_smaller * m_smaller * sizeof(double));
     if (data == NULL) {
       *ierr = ALLOCATION_FAILURE;
-      free(s); free(u); free(vt); free(queue_memory);
+      free(s); free(u); free(vt);
       return 0;
     }
     for (int j = 0; j < m_smaller; j++) {
       for (int k = 0; k < m_smaller; k++) {
         data[k + j * m_smaller] = matrix[k + offset + (j + offset) * m];
       }
-    } 
-    queue[i]->children[3].leaf->data.diagonal.data = data;
-    queue[i]->children[3].leaf->data.diagonal.m = m_smaller;
+    }
+    queue[parent]->children[3].leaf->data.diagonal.data = data;
+    queue[parent]->children[3].leaf->data.diagonal.m = m_smaller;
 
-    //printf("node=%p,   data=%p\n", &queue[i]->children[3].leaf->data.diagonal, queue[i]->children[3].leaf->data.diagonal.data);
     offset += m_smaller;
   }
-  free(s); free(u); free(vt); free(queue_memory); 
+
+  for (int _ = hodlr->height-1; _ > 0; _--) {
+    n_parent_nodes /= 2;
+    offset = 0;
+  
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      for (int child = 2 * parent; child < 2 * parent + 2; child++) {
+        m_smaller = queue[child]->m / 2;
+        m_larger = queue[child]->m - m_smaller;
+
+        sub_matrix_pointer = matrix + offset + m * (offset + m_larger);
+        result = compress_off_diagonal(
+          &(queue[child]->children[1].leaf->data.off_diagonal), 
+          m_larger, m_smaller, m_smaller, m, 
+          sub_matrix_pointer,
+          s, u, vt, svd_threshold, ierr
+        );
+        if (*ierr != SUCCESS) {
+          //handle_error(ierr, result);  // 
+          // error out
+          free(s); free(u); free(vt);
+          return result;
+        }
+        
+        // Off-diagonal block in the bottom left corner
+        sub_matrix_pointer = matrix + m * offset + offset + m_larger;
+        result = compress_off_diagonal(
+          &(queue[child]->children[2].leaf->data.off_diagonal), 
+          m_smaller, m_larger, m_smaller, m,
+          sub_matrix_pointer, 
+          s, u, vt, svd_threshold, ierr
+        );
+        if (*ierr != SUCCESS) {
+          // error out
+          free(s); free(u); free(vt);
+          return result;
+        }
+      }
+
+      queue[parent] = queue[2 * parent + 1]->parent;
+    }
+  }
+
+  m_smaller = queue[0]->m / 2;
+  m_larger = queue[0]->m - m_smaller;
+
+  sub_matrix_pointer = matrix + m * m_larger;
+  result = compress_off_diagonal(
+    &(queue[0]->children[1].leaf->data.off_diagonal), 
+    m_larger, m_smaller, m_smaller, m, 
+    sub_matrix_pointer,
+    s, u, vt, svd_threshold, ierr
+  );
+  if (*ierr != SUCCESS) {
+    //handle_error(ierr, result);  // 
+    // error out
+    free(s); free(u); free(vt);
+    return result;
+  }
+  
+  // Off-diagonal block in the bottom left corner
+  sub_matrix_pointer = matrix + m_larger;
+  result = compress_off_diagonal(
+    &(queue[0]->children[2].leaf->data.off_diagonal), 
+    m_smaller, m_larger, m_smaller, m,
+    sub_matrix_pointer, 
+    s, u, vt, svd_threshold, ierr
+  );
+  if (*ierr != SUCCESS) {
+    // error out
+    free(s); free(u); free(vt);
+    return result;
+  }
+
+  free(s); free(u); free(vt); 
 
   *ierr = SUCCESS;
   

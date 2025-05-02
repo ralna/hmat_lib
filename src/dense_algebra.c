@@ -305,7 +305,7 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
     }
   }
 
-  offset = 0; offset2 = 0;
+  offset = 0;
   multiply_off_diagonal_dense(
     hodlr->root, matrix, matrix_n, matrix_ld, 
     out, out_ld, workspace, workspace2, 
