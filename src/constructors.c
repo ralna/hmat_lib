@@ -42,6 +42,53 @@ static void compute_block_sizes(struct TreeHODLR *hodlr,
 }
 
 
+static void copy_diagonal_blocks(struct TreeHODLR *restrict hodlr,
+                                 double *restrict matrix,
+                                 int m,
+                                 struct HODLRInternalNode **restrict queue,
+                                 int *restrict ierr) {
+  long n_parent_nodes = hodlr->len_work_queue;
+  int m_larger = 0, m_smaller = 0, offset = 0;
+  double *data = NULL;
+
+  for (int parent = 0; parent < n_parent_nodes; parent++) {
+    //queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
+    m_smaller = queue[parent]->m / 2;
+    m_larger = queue[parent]->m - m_smaller;
+
+    data = malloc(m_larger * m_larger * sizeof(double));
+    if (data == NULL) {
+      *ierr = ALLOCATION_FAILURE;
+      return;
+    }
+    for (int j = 0; j < m_larger; j++) {
+      for (int k = 0; k < m_larger; k++) {
+        data[k + j * m_larger] = matrix[k + offset + (j + offset) * m];
+      }
+    }
+    queue[parent]->children[0].leaf->data.diagonal.data = data;
+    queue[parent]->children[0].leaf->data.diagonal.m = m_larger;
+
+    offset += m_larger;
+
+    data = malloc(m_smaller * m_smaller * sizeof(double));
+    if (data == NULL) {
+      *ierr = ALLOCATION_FAILURE;
+      return;
+    }
+    for (int j = 0; j < m_smaller; j++) {
+      for (int k = 0; k < m_smaller; k++) {
+        data[k + j * m_smaller] = matrix[k + offset + (j + offset) * m];
+      }
+    }
+    queue[parent]->children[3].leaf->data.diagonal.data = data;
+    queue[parent]->children[3].leaf->data.diagonal.m = m_smaller;
+
+    offset += m_smaller;
+  }
+}
+
+
 /**
  * Compresses a dense off-diagonal block.
  *
@@ -221,9 +268,8 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
   int m_larger = m - m_smaller;
 
   // TODO: OPNEMP
-  int result = 0, offset = 0, n_singular_values=m_smaller, len_queue=1;
-  int idx = 0;
-  double *sub_matrix_pointer = NULL; double *data = NULL;
+  int result = 0, offset = 0, n_singular_values=m_smaller;
+  double *sub_matrix_pointer = NULL;
   // TODO: Standardise i and j indices
   hodlr->root->m = m;
 
@@ -253,43 +299,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
 
   compute_block_sizes(hodlr, queue);
 
-  for (int parent = 0; parent < n_parent_nodes; parent++) {
-    //queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
-    m_smaller = queue[parent]->m / 2;
-    m_larger = queue[parent]->m - m_smaller;
-
-    data = malloc(m_larger * m_larger * sizeof(double));
-    if (data == NULL) {
-      *ierr = ALLOCATION_FAILURE;
-      free(s); free(u); free(vt);
-      return 0;
-    }
-    for (int j = 0; j < m_larger; j++) {
-      for (int k = 0; k < m_larger; k++) {
-        data[k + j * m_larger] = matrix[k + offset + (j + offset) * m];
-      }
-    }
-    queue[parent]->children[0].leaf->data.diagonal.data = data;
-    queue[parent]->children[0].leaf->data.diagonal.m = m_larger;
-
-    offset += m_larger;
-
-    data = malloc(m_smaller * m_smaller * sizeof(double));
-    if (data == NULL) {
-      *ierr = ALLOCATION_FAILURE;
-      free(s); free(u); free(vt);
-      return 0;
-    }
-    for (int j = 0; j < m_smaller; j++) {
-      for (int k = 0; k < m_smaller; k++) {
-        data[k + j * m_smaller] = matrix[k + offset + (j + offset) * m];
-      }
-    }
-    queue[parent]->children[3].leaf->data.diagonal.data = data;
-    queue[parent]->children[3].leaf->data.diagonal.m = m_smaller;
-
-    offset += m_smaller;
-  }
+  copy_diagonal_blocks(hodlr, matrix, m, queue, ierr);
 
   for (int _ = hodlr->height-1; _ > 0; _--) {
     n_parent_nodes /= 2;
