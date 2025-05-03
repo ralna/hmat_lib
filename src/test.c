@@ -128,7 +128,7 @@ void construct_laplacian_matrix(int m, double *matrix) {
 int main() {
   int m = 10;
   double svd_threshold = 0.1;
-  int depth = 1, ierr;
+  int depth = 2, ierr;
 
   int idx;
   double *matrix = malloc(m * m * sizeof(double));

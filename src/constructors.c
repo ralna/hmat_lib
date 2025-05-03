@@ -18,6 +18,30 @@ static void print_matrix(int m, int n, double *matrix, int lda) {
 }
 
 
+static void compute_block_sizes(struct TreeHODLR *hodlr,
+                                struct HODLRInternalNode **queue) {
+  long len_queue = 1, n_parent_nodes = hodlr->len_work_queue;
+  int m_smaller = 0, m_larger = 0, idx = 0;
+
+  for (int _ = 1; _ < hodlr->height; _++) {
+    n_parent_nodes /= 2;
+    for (int parent = 0; parent < len_queue; parent++) {
+      m_smaller = queue[parent]->m / 2;
+      m_larger = queue[parent]->m - m_smaller;
+
+      idx = parent * n_parent_nodes;
+      queue[idx]->children[0].internal->m = m_larger;
+      queue[idx]->children[3].internal->m = m_smaller;
+
+      queue[(2 * parent + 1) * n_parent_nodes] = 
+        queue[idx]->children[3].internal;
+      queue[2 * idx] = queue[idx]->children[0].internal;
+    }
+    len_queue = len_queue * 2;
+  }
+}
+
+
 /**
  * Compresses a dense off-diagonal block.
  *
@@ -226,24 +250,8 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
   struct HODLRInternalNode **queue = hodlr->work_queue;
 
   queue[0] = hodlr->root;
-  for (int _ = 1; _ < hodlr->height; _++) {
-    for (int parent = 0; parent < len_queue; parent++) {
-      m_smaller = queue[parent]->m / 2;
-      m_larger = queue[parent]->m - m_smaller;
 
-      idx = parent * n_parent_nodes;
-      queue[idx]->children[0].internal->m = m_larger;
-      queue[idx]->children[3].internal->m = m_smaller;
-
-      queue[2 * idx] = queue[idx]->children[0].internal;
-      queue[(2 * parent + 1) * n_parent_nodes] = 
-        queue[idx]->children[3].internal;
-    }
-    len_queue = len_queue * 2;
-    n_parent_nodes /= 2;
-  }
-
-  n_parent_nodes = hodlr->len_work_queue;
+  compute_block_sizes(hodlr, queue);
 
   for (int parent = 0; parent < n_parent_nodes; parent++) {
     //queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
@@ -292,6 +300,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
         m_smaller = queue[child]->m / 2;
         m_larger = queue[child]->m - m_smaller;
 
+        printf("parent=%d, ms=%d, ml=%d, offset=%d\n", parent, m_smaller, m_larger, offset);
         sub_matrix_pointer = matrix + offset + m * (offset + m_larger);
         result = compress_off_diagonal(
           &(queue[child]->children[1].leaf->data.off_diagonal), 
@@ -305,8 +314,9 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
           free(s); free(u); free(vt);
           return result;
         }
-        
+    
         // Off-diagonal block in the bottom left corner
+        printf("parent=%d, ms=%d, ml=%d, offset=%d\n", parent, m_smaller, m_larger, offset);
         sub_matrix_pointer = matrix + m * offset + offset + m_larger;
         result = compress_off_diagonal(
           &(queue[child]->children[2].leaf->data.off_diagonal), 
@@ -319,6 +329,8 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
           free(s); free(u); free(vt);
           return result;
         }
+
+        offset += m_larger + m_smaller;
       }
 
       queue[parent] = queue[2 * parent + 1]->parent;
