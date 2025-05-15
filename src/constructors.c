@@ -18,10 +18,32 @@ static void print_matrix(int m, int n, double *matrix, int lda) {
 }
 
 
-static void compute_block_sizes(struct TreeHODLR *hodlr,
-                                struct HODLRInternalNode **queue) {
+/**
+ * Computes and sets the sizes of all HODLR internal nodes.
+ *
+ * Given a HODLR tree and the size of the matrix (number of rows), iterates 
+ * over the entire tree and computes the size of each diagonal HODLR block
+ * represented by a :c:struct:`HODLRInternalNode`. Saves each size on the 
+ * appropriate node.
+ *
+ * :param hodlr: The HODLR tree whose block sizes to compute. Must be a 
+ *               correctly allocated tree and should be empty - any data on 
+ *               the tree may be overwritten. Must not be NULL; otherwise is
+ *               undefined.
+ * :param queue: An empty array of pointers to internal nodes. Does not have 
+ *               to be empty, but its contents will be overwritten. Must of 
+ *               size at least :c:member:`TreeHODLR.len_work_queue`.
+ *               Must not be NULL; otherwise is undefined.
+ * :param m: The number of rows of the full HODLR matrix.
+ */
+static void compute_block_sizes(struct TreeHODLR *restrict hodlr,
+                                struct HODLRInternalNode **restrict queue,
+                                int m) {
   long len_queue = 1, n_parent_nodes = hodlr->len_work_queue;
   int m_smaller = 0, m_larger = 0, idx = 0;
+  
+  hodlr->root->m = m;
+  queue[0] = hodlr->root;
 
   for (int _ = 1; _ < hodlr->height; _++) {
     n_parent_nodes /= 2;
@@ -42,17 +64,30 @@ static void compute_block_sizes(struct TreeHODLR *hodlr,
 }
 
 
-static void copy_diagonal_blocks(struct TreeHODLR *restrict hodlr,
-                                 double *restrict matrix,
+/**
+ * Copies each innermost diagonal leaf node data from a matrix.
+ *
+ * Given a dense matrix and an array of the innermost (higest depth) internal
+ * nodes of a HODLR tree, copies the appropriate data from the dense matrix 
+ * into data array (:c:member:`NodeDiagonal.data`) of each node's two diagonal
+ * children.
+ *
+ * :param matrix: Pointer to the array holding the dense matrix from which to 
+ *                copy data. Must be an ``m`` x ``m`` square 2D column-major 
+ *                matrix. Must not be NULL; otherwise is undefined.
+ * :param m: The number of rows and columns of ``matrix``.
+ * :param queue: Pointer to an array of internal nodes. Must be of length 
+ *               ``n_parent_nodes``
+ */
+static void copy_diagonal_blocks(double *restrict matrix,
                                  int m,
                                  struct HODLRInternalNode **restrict queue,
+                                 long n_parent_nodes,
                                  int *restrict ierr) {
-  long n_parent_nodes = hodlr->len_work_queue;
   int m_larger = 0, m_smaller = 0, offset = 0;
   double *data = NULL;
 
   for (int parent = 0; parent < n_parent_nodes; parent++) {
-    //queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
     m_smaller = queue[parent]->m / 2;
     m_larger = queue[parent]->m - m_smaller;
 
@@ -268,79 +303,75 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
   int m_larger = m - m_smaller;
 
   // TODO: OPNEMP
-  int result = 0, offset = 0, n_singular_values=m_smaller;
+  int result = 0, offset_matrix = 0, n_singular_values=m_smaller;
   double *sub_matrix_pointer = NULL;
   // TODO: Standardise i and j indices
-  hodlr->root->m = m;
 
-  double *s = malloc(n_singular_values * sizeof(double));
+  double *s = malloc(4 * m_smaller * sizeof(double));
   if (s == NULL) {
     *ierr = ALLOCATION_FAILURE;
     return 0;
   }
-  double *u = malloc(m_larger * n_singular_values * sizeof(double));
+  double *u = malloc(8 * m_larger * m_smaller * sizeof(double));
   if (u == NULL) {
     *ierr = ALLOCATION_FAILURE;
     free(s);
     return 0;
   }
 
-  double *vt = malloc(n_singular_values * m_larger * sizeof(double));
-  if (vt == NULL) {
-    *ierr = ALLOCATION_FAILURE;
-    free(s); free(u);
-    return 0;
-  }
+  double *vt = u + (4 * m_larger * m_smaller);
 
   long n_parent_nodes = hodlr->len_work_queue; 
   struct HODLRInternalNode **queue = hodlr->work_queue;
 
-  queue[0] = hodlr->root;
+  compute_block_sizes(hodlr, queue, m);
 
-  compute_block_sizes(hodlr, queue);
+  copy_diagonal_blocks(matrix, m, queue, n_parent_nodes, ierr);
+  if (*ierr != SUCCESS) {
+    free(s); free(u);
+    return 0;
+  }
 
-  copy_diagonal_blocks(hodlr, matrix, m, queue, ierr);
+  int offset_s = 0, offset_u = 0;
 
   for (int _ = hodlr->height-1; _ > 0; _--) {
     n_parent_nodes /= 2;
-    offset = 0;
+    offset_matrix = 0;
   
     for (int parent = 0; parent < n_parent_nodes; parent++) {
       for (int child = 2 * parent; child < 2 * parent + 2; child++) {
         m_smaller = queue[child]->m / 2;
         m_larger = queue[child]->m - m_smaller;
 
-        printf("parent=%d, ms=%d, ml=%d, offset=%d\n", parent, m_smaller, m_larger, offset);
-        sub_matrix_pointer = matrix + offset + m * (offset + m_larger);
+        sub_matrix_pointer = matrix + offset_matrix + m * (offset_matrix + m_larger);
         result = compress_off_diagonal(
           &(queue[child]->children[1].leaf->data.off_diagonal), 
-          m_larger, m_smaller, m_smaller, m, 
-          sub_matrix_pointer,
-          s, u, vt, svd_threshold, ierr
+          m_larger, m_smaller, m_smaller, m, sub_matrix_pointer,
+          s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
         );
         if (*ierr != SUCCESS) {
           //handle_error(ierr, result);  // 
           // error out
-          free(s); free(u); free(vt);
+          free(s); free(u);
           return result;
         }
+        offset_s += m_smaller; offset_u += m_larger * m_smaller;
     
         // Off-diagonal block in the bottom left corner
-        printf("parent=%d, ms=%d, ml=%d, offset=%d\n", parent, m_smaller, m_larger, offset);
-        sub_matrix_pointer = matrix + m * offset + offset + m_larger;
+        sub_matrix_pointer = matrix + m * offset_matrix + offset_matrix + m_larger;
         result = compress_off_diagonal(
           &(queue[child]->children[2].leaf->data.off_diagonal), 
-          m_smaller, m_larger, m_smaller, m,
-          sub_matrix_pointer, 
-          s, u, vt, svd_threshold, ierr
+          m_smaller, m_larger, m_smaller, m, sub_matrix_pointer, 
+          s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
         );
         if (*ierr != SUCCESS) {
           // error out
-          free(s); free(u); free(vt);
+          free(s); free(u);
           return result;
         }
+        offset_s += m_larger; offset_u += m_larger * m_smaller;
 
-        offset += m_larger + m_smaller;
+        offset_matrix += m_larger + m_smaller;
       }
 
       queue[parent] = queue[2 * parent + 1]->parent;
@@ -353,14 +384,13 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
   sub_matrix_pointer = matrix + m * m_larger;
   result = compress_off_diagonal(
     &(queue[0]->children[1].leaf->data.off_diagonal), 
-    m_larger, m_smaller, m_smaller, m, 
-    sub_matrix_pointer,
-    s, u, vt, svd_threshold, ierr
+    m_larger, m_smaller, m_smaller, m, sub_matrix_pointer,
+    s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
   );
   if (*ierr != SUCCESS) {
     //handle_error(ierr, result);  // 
     // error out
-    free(s); free(u); free(vt);
+    free(s); free(u);
     return result;
   }
   
@@ -368,17 +398,16 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
   sub_matrix_pointer = matrix + m_larger;
   result = compress_off_diagonal(
     &(queue[0]->children[2].leaf->data.off_diagonal), 
-    m_smaller, m_larger, m_smaller, m,
-    sub_matrix_pointer, 
-    s, u, vt, svd_threshold, ierr
+    m_smaller, m_larger, m_smaller, m, sub_matrix_pointer, 
+    s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
   );
   if (*ierr != SUCCESS) {
     // error out
-    free(s); free(u); free(vt);
+    free(s); free(u);
     return result;
   }
 
-  free(s); free(u); free(vt); 
+  free(s); free(u);
 
   *ierr = SUCCESS;
   
