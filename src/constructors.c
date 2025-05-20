@@ -48,10 +48,11 @@ static void compute_block_sizes(struct TreeHODLR *restrict hodlr,
   for (int _ = 1; _ < hodlr->height; _++) {
     n_parent_nodes /= 2;
     for (int parent = 0; parent < len_queue; parent++) {
-      m_smaller = queue[parent]->m / 2;
-      m_larger = queue[parent]->m - m_smaller;
-
       idx = parent * n_parent_nodes;
+      
+      m_smaller = queue[idx]->m / 2;
+      m_larger = queue[idx]->m - m_smaller;
+
       queue[idx]->children[0].internal->m = m_larger;
       queue[idx]->children[3].internal->m = m_smaller;
 
@@ -201,6 +202,7 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
 
   double *u_top_right = malloc(m * svd_cutoff_idx * sizeof(double));
   if (u_top_right == NULL) {
+    #pragma omp atomic write
     *ierr = ALLOCATION_FAILURE;
     return result;
   }
@@ -214,6 +216,7 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
 
   double *v_store = malloc(svd_cutoff_idx * n * sizeof(double));
   if (v_store == NULL) {
+    #pragma omp atomic write
     *ierr = ALLOCATION_FAILURE;
     return result;
   }
@@ -231,8 +234,139 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
   node->s = svd_cutoff_idx;
   node->n = n;
 
-  *ierr = SUCCESS;
   return result;
+}
+
+
+static int compress_matrix(struct TreeHODLR *hodlr,
+                           struct HODLRInternalNode **queue,
+                           double *restrict matrix,
+                           int m,
+                           double *restrict s,
+                           double *restrict u,
+                           double *restrict vt,
+                           double svd_threshold,
+                           int *ierr) {
+  long n_parent_nodes = hodlr->len_work_queue;
+  int offset_matrix = 0, offset_s = 0, offset_u = 0;
+  int m_smaller = 0, m_larger = 0;
+  double *sub_matrix_pointer = NULL;
+  struct NodeOffDiagonal *node = NULL;
+  int result = 0, final_result = 0;
+
+  for (int _ = hodlr->height-1; _ > 0; _--) {
+    n_parent_nodes /= 2;
+    offset_matrix = 0;
+  
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      for (int child = 2 * parent; child < 2 * parent + 2; child++) {
+        m_smaller = queue[child]->m / 2;
+        m_larger = queue[child]->m - m_smaller;
+
+        sub_matrix_pointer = matrix + offset_matrix + m * (offset_matrix + m_larger);
+        node = &(queue[child]->children[1].leaf->data.off_diagonal);
+
+#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+        {
+          result = compress_off_diagonal(
+            node, 
+            m_larger, m_smaller, m_smaller, m, sub_matrix_pointer,
+            s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
+          ); // make sure ierr is not overwritten
+
+          if (*ierr != SUCCESS) {
+            //handle_error(ierr, result);
+            #pragma omp atomic write
+            final_result = result;
+
+            #pragma omp cancel taskgroup
+
+            #if !defined(_OPENMP)
+            return result;
+            #endif
+          }
+        }
+        offset_s += m_smaller; offset_u += m_larger * m_smaller;
+    
+        // Off-diagonal block in the bottom left corner
+        sub_matrix_pointer = matrix + m * offset_matrix + offset_matrix + m_larger;
+        node = &(queue[child]->children[2].leaf->data.off_diagonal);
+
+#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+        {
+          result = compress_off_diagonal(
+            node, 
+            m_smaller, m_larger, m_smaller, m, sub_matrix_pointer, 
+            s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
+          );
+          if (*ierr != SUCCESS) {
+            // error out
+            #pragma omp atomic write
+            final_result = result;
+            #pragma omp cancel taskgroup
+
+            #if !defined(_OPENMP)
+            return result;
+            #endif
+          }
+        }
+
+        offset_s += m_larger; offset_u += m_larger * m_smaller;
+
+        offset_matrix += m_larger + m_smaller;
+      }
+
+      queue[parent] = queue[2 * parent + 1]->parent;
+    }
+  }
+
+  m_smaller = queue[0]->m / 2;
+  m_larger = queue[0]->m - m_smaller;
+
+  sub_matrix_pointer = matrix + m * m_larger;
+  node = &(queue[0]->children[1].leaf->data.off_diagonal); 
+#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+  {
+    result = compress_off_diagonal(
+      node, 
+      m_larger, m_smaller, m_smaller, m, sub_matrix_pointer,
+      s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
+    );
+    if (*ierr != SUCCESS) {
+      //handle_error(ierr, result);  // 
+      #pragma omp atomic write
+      final_result = result;
+      #pragma omp cancel taskgroup
+            
+      #if !defined(_OPENMP)
+      return result;
+      #endif
+    }
+  } 
+  // Off-diagonal block in the bottom left corner
+  sub_matrix_pointer = matrix + m_larger;
+  node = &(queue[0]->children[2].leaf->data.off_diagonal);
+
+#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+  {
+    result = compress_off_diagonal(
+      node, 
+      m_smaller, m_larger, m_smaller, m, sub_matrix_pointer, 
+      s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
+    );
+    if (*ierr != SUCCESS) {
+      // error out
+      #pragma omp atomic write
+      final_result = result;
+      #pragma omp cancel taskgroup
+
+      #if !defined(_OPENMP)
+      return result;
+      #endif
+    }
+  }
+
+  return final_result;
 }
 
 
@@ -301,10 +435,11 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
   }
   int m_smaller = m / 2;
   int m_larger = m - m_smaller;
+  
+  *ierr = SUCCESS;
 
   // TODO: OPNEMP
-  int result = 0, offset_matrix = 0, n_singular_values=m_smaller;
-  double *sub_matrix_pointer = NULL;
+  int result = 0;
   // TODO: Standardise i and j indices
 
   double *s = malloc(4 * m_smaller * sizeof(double));
@@ -332,86 +467,21 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
     return 0;
   }
 
-  int offset_s = 0, offset_u = 0;
-
-  for (int _ = hodlr->height-1; _ > 0; _--) {
-    n_parent_nodes /= 2;
-    offset_matrix = 0;
-  
-    for (int parent = 0; parent < n_parent_nodes; parent++) {
-      for (int child = 2 * parent; child < 2 * parent + 2; child++) {
-        m_smaller = queue[child]->m / 2;
-        m_larger = queue[child]->m - m_smaller;
-
-        sub_matrix_pointer = matrix + offset_matrix + m * (offset_matrix + m_larger);
-        result = compress_off_diagonal(
-          &(queue[child]->children[1].leaf->data.off_diagonal), 
-          m_larger, m_smaller, m_smaller, m, sub_matrix_pointer,
-          s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
-        );
-        if (*ierr != SUCCESS) {
-          //handle_error(ierr, result);  // 
-          // error out
-          free(s); free(u);
-          return result;
-        }
-        offset_s += m_smaller; offset_u += m_larger * m_smaller;
-    
-        // Off-diagonal block in the bottom left corner
-        sub_matrix_pointer = matrix + m * offset_matrix + offset_matrix + m_larger;
-        result = compress_off_diagonal(
-          &(queue[child]->children[2].leaf->data.off_diagonal), 
-          m_smaller, m_larger, m_smaller, m, sub_matrix_pointer, 
-          s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
-        );
-        if (*ierr != SUCCESS) {
-          // error out
-          free(s); free(u);
-          return result;
-        }
-        offset_s += m_larger; offset_u += m_larger * m_smaller;
-
-        offset_matrix += m_larger + m_smaller;
+  #pragma omp parallel
+  {
+    #pragma omp single
+    {
+      #pragma omp taskgroup
+      {
+        result = compress_matrix(hodlr, queue, matrix, m, s, u, vt, 
+                                 svd_threshold, ierr);
       }
-
-      queue[parent] = queue[2 * parent + 1]->parent;
     }
   }
 
-  m_smaller = queue[0]->m / 2;
-  m_larger = queue[0]->m - m_smaller;
-
-  sub_matrix_pointer = matrix + m * m_larger;
-  result = compress_off_diagonal(
-    &(queue[0]->children[1].leaf->data.off_diagonal), 
-    m_larger, m_smaller, m_smaller, m, sub_matrix_pointer,
-    s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
-  );
-  if (*ierr != SUCCESS) {
-    //handle_error(ierr, result);  // 
-    // error out
-    free(s); free(u);
-    return result;
-  }
-  
-  // Off-diagonal block in the bottom left corner
-  sub_matrix_pointer = matrix + m_larger;
-  result = compress_off_diagonal(
-    &(queue[0]->children[2].leaf->data.off_diagonal), 
-    m_smaller, m_larger, m_smaller, m, sub_matrix_pointer, 
-    s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
-  );
-  if (*ierr != SUCCESS) {
-    // error out
-    free(s); free(u);
-    return result;
-  }
-
   free(s); free(u);
-
-  *ierr = SUCCESS;
   
-  return 0;
+  return result;
 }
 
 

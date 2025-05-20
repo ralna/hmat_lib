@@ -105,7 +105,7 @@ ParameterizedTestParameters(tree, test_compress) {
 
 ParameterizedTest(struct ParametersTestCompress *params, tree, test_compress) {
   struct NodeOffDiagonal result;
-  int ierr;
+  int ierr = SUCCESS;
   int n_singular_values = params->m < params->n ? params->m : params->n;
   
   double *s_work = malloc(n_singular_values * sizeof(double));

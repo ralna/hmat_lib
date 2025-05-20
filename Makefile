@@ -26,6 +26,7 @@ test: test.o constructors.o vector_algebra.o dense_algebra.o
 		-o ${OUT_DIR}/${EXE} \
 		-llapack -lm -lopenblas \
 		-Wall -Wextra \
+		-fopenmp \
 		${EXTRA_FLAGS}
 
 test.o: ${SRC_DIR}/test.c
@@ -35,7 +36,8 @@ constructors.o: ${SRC_DIR}/constructors.c lapack_wrapper.o
 	${COMPILER} \
 		-c ${SRC_DIR}/constructors.c \
 		-o ${BUILD_DIR}/constructors.o \
-		-I ${INCLUDE_DIR} -Wall -Wextra ${EXTRA_FLAGS}
+		-I ${INCLUDE_DIR} -Wall -Wextra ${EXTRA_FLAGS} \
+		-fopenmp
 
 vector_algebra.o: ${SRC_DIR}/vector_algebra.c
 	${COMPILER} \

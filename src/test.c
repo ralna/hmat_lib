@@ -149,6 +149,7 @@ int main() {
 
   //printf("diagonal=%d, off_diagonal=%d\n", DIAGONAL, OFFDIAGONAL);
   //printf("depth=%d   child.type=%d\n", hodlr.depth, hodlr.child->type);
+  
   print_tree_hodlr(hodlr);
 
   //print_matrix(m, m, matrix);
@@ -174,7 +175,7 @@ int main() {
   /* } */
 
   construct_laplacian_matrix(m, matrix);
- //printf("\n\n");
+  //printf("\n\n");
   printf("\n\nHODLR dense matrix multiplication:\n");
 
   result = multiply_hodlr_dense(hodlr, matrix, m, m, NULL, m);
