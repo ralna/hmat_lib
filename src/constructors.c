@@ -98,8 +98,8 @@ static void copy_diagonal_blocks(double *restrict matrix,
       return;
     }
     for (int j = 0; j < m_larger; j++) {
-      for (int k = 0; k < m_larger; k++) {
-        data[k + j * m_larger] = matrix[k + offset + (j + offset) * m];
+      for (int i = 0; i < m_larger; i++) {
+        data[i + j * m_larger] = matrix[i + offset + (j + offset) * m];
       }
     }
     queue[parent]->children[0].leaf->data.diagonal.data = data;
@@ -113,8 +113,8 @@ static void copy_diagonal_blocks(double *restrict matrix,
       return;
     }
     for (int j = 0; j < m_smaller; j++) {
-      for (int k = 0; k < m_smaller; k++) {
-        data[k + j * m_smaller] = matrix[k + offset + (j + offset) * m];
+      for (int i = 0; i < m_smaller; i++) {
+        data[i + j * m_smaller] = matrix[i + offset + (j + offset) * m];
       }
     }
     queue[parent]->children[3].leaf->data.diagonal.data = data;
@@ -238,14 +238,64 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
 }
 
 
-static int compress_matrix(struct TreeHODLR *hodlr,
-                           struct HODLRInternalNode **queue,
+/**
+ * Compresses a dense matrix into the HODLR format.
+ *
+ * Given a HODLR tree and a dense matrix, iteratively compresses the matrix 
+ * into the pre-allocated HODLR tree by looping bottom-up starting with the 
+ * bottom-most internal nodes in ``queue``.
+ *
+ * This function contains OpenMP pragmas that schedule tasks - it assumes that
+ * the function is being run from:
+ *
+ * .. literal::
+ * 
+ *    #pragma omp parallel
+ *    #pragma omp single
+ *    #pragma omp taskgroup
+ *
+ * :param hodlr: The tree HODLR to which to compress the ``matrix``. This tree
+ *               must be fully and correctly allocated, and the sizes of the
+ *               internal nodes (i.e. :c:member:`HODLRInternalNode.m`) must 
+ *               already be set.
+ * :param queue: An array of pointers to internal nodes. Must be fully filled
+ *               with all the lowest-level internal nodes of ``hodlr``.
+ * :param matrix: Pointer to the array holding the dense matrix from which to 
+ *                copy data. Must be an ``m`` x ``m`` square 2D column-major 
+ *                matrix. Must not be NULL; otherwise is undefined.
+ * :param m: The size the full ``matrix``.
+ * :param s: Workspace for the SVD singular values. Must be large enough to 
+ *           accomodate all the singular values for all HODLR compressions,
+ *           i.e. be at least of size ``4 * floor(m / 2)``. NULL leads to 
+ *           undefined behaviour.
+ * :param u: Workspace for the SVD U matrices. Must be large enough to 
+ *           accomodate all the U matrices for all HODLR compressions,
+ *           i.e. be at least of size ``4 * floor(m / 2) * ceil(m / 2)``. NULL
+ *           leads to undefined behaviour.
+ * :param vt: Workspace for the SVD V^T matrices. Must be large enoug to 
+ *            accomodate all the V^T matrices for all HODLR compressions, i.e.
+ *            be at least of size ``4 * floor(m / 2) * ceil(m / 2)``. NULL 
+ *            leads to undefined behaviour.
+ * :param svd_threshold: The threshold for discarding singular values. Any 
+ *                       singular values (and the corresponding column vectors 
+ *                       of the U and V matrices) that satisfy 
+ *                       :math:`s_i < t * s_0` will be discarded (:math:`s_i` 
+ *                       is i-th singular value, :math:`t` is the 
+ *                       ``svd_threshold``, and :math:`s_0` is the largest 
+ *                       singular value).
+ * :param ierr: Error code corresponding to :c:enum:`ErrorCode`. On any 
+ *              failure, a corresponding error code is written to the pointer,
+ *              but ``SUCCESS`` is not written here. NULL is undefined 
+ *              behaviour.
+ */
+static int compress_matrix(struct TreeHODLR *restrict hodlr,
+                           struct HODLRInternalNode **restrict queue,
                            double *restrict matrix,
-                           int m,
+                           const int m,
                            double *restrict s,
                            double *restrict u,
                            double *restrict vt,
-                           double svd_threshold,
+                           const double svd_threshold,
                            int *ierr) {
   long n_parent_nodes = hodlr->len_work_queue;
   int offset_matrix = 0, offset_s = 0, offset_u = 0;
@@ -376,43 +426,34 @@ static int compress_matrix(struct TreeHODLR *hodlr,
  * Requires a preallocated HODLR tree (e.g. from 
  * :c:func:`allocate_tree`), a matrix, and some settings.
  *
- * :param hodlr: A pointer to a HODLR tree. This *should*
- *               be an empty tree, with no data filled in,
- *               since any pointers to data will be 
- *               overwritten with newly allocated data and
- *               therefore lost, potentially causing memory 
- *               leaks.
- *               If ``NULL``, aborts immediately.
- *               Passing in a partially or incorrectly 
- *               allocated tree is an undefined behaviour.
+ * :param hodlr: A pointer to a HODLR tree. This *should* be an empty tree, 
+ *               with no data filled in, since any pointers to data will be 
+ *               overwritten with newly allocated data and therefore lost, 
+ *               potentially causing memory leaks.
+ *               If ``NULL``, aborts immediately. Passing in a partially or 
+ *               incorrectly allocated tree is an undefined behaviour.
  *
- * :param m: The size of the ``matrix`` matrix. I.e., the
- *           number of rows and columns.
+ * :param m: The size of the ``matrix`` matrix. I.e., the number of rows and 
+ *           columns.
  *
- * :param matrix: The dense matrix to compress. This must 
- *                be an column-major array holding an 
- *                ``m`` x ``m`` square 2D matrix.
- *                If ``NULL``, aborts immediately.
- *                *Some of the values may be overwritten
- *                during SVD compuration*
+ * :param matrix: The dense matrix to compress. This must be an column-major 
+ *                array holding an ``m`` x ``m`` square 2D matrix.
+ *                If ``NULL``, aborts immediately *Some of the values may be 
+ *                overwritten during SVD compuration*
  *
- * :param svd_threshold: The threshold for discarding 
- *                       singular values. Any singular 
- *                       values (and the corresponding 
- *                       column vectors of the U and V
- *                       matrices) that satisfy 
- *                       :math:`s_i < t * s_0` will be 
- *                       discarded (:math:`s_i` is i-th 
- *                       singular value, :math:`t` is the 
- *                       ``svd_threshold``, and :math:`s_0` 
- *                       is the largest singular value).
+ * :param svd_threshold: The threshold for discarding singular values. Any 
+ *                       singular values (and the corresponding column vectors 
+ *                       of the U and V matrices) that satisfy 
+ *                       :math:`s_i < t * s_0` will be discarded (:math:`s_i` 
+ *                       is i-th singular value, :math:`t` is the 
+ *                       ``svd_threshold``, and :math:`s_0` is the largest 
+ *                       singular value).
  *
- * :param ierr: Error code corresponding to :c:enum:`ErrorCode`. On 
- *              successful completion of the function, 
- *              :c:enum:`ErrorCode.SUCCESS` is returned. Otherwise,
- *              a corresponding error code is set.
- *              Must NOT be ``NULL`` pointer - passing in ``NULL``
- *              as ``ierr`` is undefined behaviour.
+ * :param ierr: Error code corresponding to :c:enum:`ErrorCode`. On successful 
+ *              completion of the function, :c:enum:`ErrorCode.SUCCESS` is 
+ *              returned. Otherwise, a corresponding error code is set.
+ *              Must NOT be ``NULL`` pointer - passing in ``NULL`` as ``ierr`` 
+ *              is undefined behaviour.
  *
  * :return: The error code from the SVD routine.
  *
