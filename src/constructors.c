@@ -879,7 +879,7 @@ void free_tree_hodlr(struct TreeHODLR **hodlr_ptr) {
 
       free(queue[idx]);
       queue[idx] = NULL;
-      queue[j] = queue[idx]->parent;
+      queue[j] = queue[idx+1]->parent;
 
       idx += 1;
       for (int leaf = 1; leaf < 3; leaf++) {
