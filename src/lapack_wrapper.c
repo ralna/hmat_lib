@@ -19,6 +19,7 @@ int svd_double(int m,
   int lwork = -1;
   int *iwork = malloc(8 * n_singular_values * sizeof(int));
   if (iwork == NULL) {
+    #pragma omp atomic write
     *ierr = SVD_ALLOCATION_FAILURE;
     return 0;
   }
@@ -30,6 +31,7 @@ int svd_double(int m,
           &n_singular_values, work, &lwork, iwork, &info);
   if (info < 0) {
     free(iwork);
+    #pragma omp atomic write
     *ierr = SVD_FAILURE;
     return info;
   }
@@ -39,6 +41,7 @@ int svd_double(int m,
   work = malloc(lwork * sizeof(double));
   if (work == NULL) {
     free(iwork);
+    #pragma omp atomic write
     *ierr = SVD_ALLOCATION_FAILURE;
     return info;
   }
@@ -46,11 +49,11 @@ int svd_double(int m,
   dgesdd_("S", &m, &n, matrix, &matrix_leading_dim, s, u, &m, vt, 
           &n_singular_values, work, &lwork, iwork, &info);
   if (info < 0) {
+    #pragma omp atomic write
     *ierr = SVD_FAILURE;
   }
   //printf("dgesdd completed=%d\n", info);
   free(work); free(iwork);
 
-  *ierr = SUCCESS;
   return info;
 }
