@@ -481,7 +481,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
 
   int result = 0;
 
-  double *s = malloc(4 * m_smaller * sizeof(double));
+  double *s = malloc(2 * m * sizeof(double));
   if (s == NULL) {
     *ierr = ALLOCATION_FAILURE;
     return 0;
