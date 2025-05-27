@@ -924,17 +924,16 @@ void construct_tree(const int height,
 
       for (int leaf = 1; leaf < 3; leaf++) {
         work_queue[qidx]->children[leaf].leaf = leaf_nodes + idx_leaf;
-        work_queue[qidx]->children[leaf].leaf->type = OFFDIAGONAL;
-        work_queue[qidx]->children[leaf].leaf->parent = work_queue[qidx];
-        work_queue[qidx]->children[leaf].leaf->data.off_diagonal.u = NULL;
-        work_queue[qidx]->children[leaf].leaf->data.off_diagonal.v = NULL;
+        initialise_leaf_offdiagonal(work_queue[qidx]->children[leaf].leaf, 
+                                    work_queue[qidx]);
         idx_leaf += 1;
       }
 
       for (int internal = 0; internal < 4; internal+=3) {
         work_queue[qidx]->children[internal].internal = 
           internal_nodes + idx_internal;
-        work_queue[qidx]->children[internal].internal->parent = work_queue[qidx];
+        initialise_internal(work_queue[qidx]->children[internal].internal,
+                            work_queue[qidx]);
         idx_internal += 1;
       }
 
@@ -948,18 +947,15 @@ void construct_tree(const int height,
   for (int i = 0; i < len_queue; i++) {
     for (int leaf = 1; leaf < 3; leaf++) {
       work_queue[i]->children[leaf].leaf = leaf_nodes + idx_leaf;
-      work_queue[i]->children[leaf].leaf->type = OFFDIAGONAL;
-      work_queue[i]->children[leaf].leaf->parent = work_queue[i];
-      work_queue[i]->children[leaf].leaf->data.off_diagonal.u = NULL;
-      work_queue[i]->children[leaf].leaf->data.off_diagonal.v = NULL;
+      initialise_leaf_offdiagonal(work_queue[i]->children[leaf].leaf, 
+                                  work_queue[i]);
       idx_leaf += 1;
     }
 
     for (int leaf = 0; leaf < 4; leaf+=3) {
       work_queue[i]->children[leaf].leaf = leaf_nodes + idx_leaf;
-      work_queue[i]->children[leaf].leaf->type = DIAGONAL;
-      work_queue[i]->children[leaf].leaf->parent = work_queue[i];
-      work_queue[i]->children[leaf].leaf->data.diagonal.data = NULL;
+      initialise_leaf_diagonal(work_queue[i]->children[leaf].leaf, 
+                               work_queue[i]);
       idx_leaf += 1;
     }
     hodlr->innermost_leaves[i * 2] = work_queue[i]->children[0].leaf;
