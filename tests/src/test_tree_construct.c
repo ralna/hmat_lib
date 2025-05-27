@@ -162,10 +162,43 @@ ParameterizedTest(struct ParametersArraySizes *params, tree,
   }
 
   expect_tree_consistent(hodlr, params->height, params->expected.len_work_queue);
+  cr_expect(ne(ptr, hodlr->memory_internal_ptr, NULL));
+  cr_expect(ne(ptr, hodlr->memory_leaf_ptr, NULL));
 
   cr_log_info("TreeHODLR check concluded, freeing...");
   free_tree_hodlr(&hodlr);
 }
+
+
+ParameterizedTestParameters(tree, test_allocate_tree) {
+  int n_params = 6;
+  struct ParametersArraySizes *params = generate_array_sizes_params(&n_params);
+  return cr_make_param_array(struct ParametersArraySizes, 
+                             params, n_params, free_params);
+}
+
+
+ParameterizedTest(struct ParametersArraySizes *params, tree, 
+                  test_allocate_tree) {
+  cr_log_info("height=%d", params->height);
+  int ierr = SUCCESS;
+
+  struct TreeHODLR *hodlr = allocate_tree(params->height, &ierr);
+
+  cr_expect(eq(i32, ierr, SUCCESS));
+  cr_expect(ne(ptr, hodlr, NULL));
+  if (ierr != SUCCESS) {
+    return;
+  }
+
+  expect_tree_consistent(hodlr, params->height, params->expected.len_work_queue);
+  cr_expect(eq(ptr, hodlr->memory_internal_ptr, NULL));
+  cr_expect(eq(ptr, hodlr->memory_leaf_ptr, NULL));
+
+  cr_log_info("TreeHODLR check concluded, freeing...");
+  free_tree_hodlr(&hodlr);
+}
+
 
 
 struct ParametersTestCompress {

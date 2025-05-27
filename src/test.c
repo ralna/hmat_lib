@@ -128,7 +128,7 @@ void construct_laplacian_matrix(int m, double *matrix) {
 int main() {
   int m = 10;
   double svd_threshold = 0.1;
-  int depth = 3, ierr;
+  int depth = 2, ierr;
 
   struct TreeHODLR *test = allocate_tree_monolithic(depth, &ierr);
   printf("TREE ALLOCATED\n");

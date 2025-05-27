@@ -600,6 +600,76 @@ static void free_partial_tree_hodlr(struct TreeHODLR *hodlr,
 
 
 /**
+ * Initialises an off-diagonal leaf node.
+ *
+ * Given a pointer to a leaf node and a pointer to its parent node, 
+ * initialises the leaf node assumings it's an off-diagonal node. Saves the 
+ * parent pointer, sets the appropriate enums,  and initialises the
+ * pointers to ``NULL`` and numbers to ``0``.
+ *
+ * :param leaf: A pointer to a leaf node to be initialised. ``NULL`` is 
+ *              undefined.
+ * :param parent: A pointer to ``leaf``'s parent node. Must not be ``NULL``.
+ */
+static inline void initialise_leaf_offdiagonal(
+  struct HODLRLeafNode *restrict leaf,
+  struct HODLRInternalNode *restrict parent
+) {
+  leaf->type = OFFDIAGONAL;
+  leaf->parent = parent;
+  leaf->data.off_diagonal.u = NULL;
+  leaf->data.off_diagonal.v = NULL;
+  leaf->data.off_diagonal.m = 0;
+  leaf->data.off_diagonal.s = 0;
+  leaf->data.off_diagonal.n = 0;
+}
+
+
+/**
+ * Initialises a diagonal leaf node.
+ *
+ * Given a pointer to a leaf node and a pointer to its parent node, 
+ * initialises the leaf node assuming it's a diagonal node. Saves the parent
+ * pointer, sets the appropriate enums, and initialises pointers to ``NULL``
+ * and numbers to ``0``.
+ *
+ * :param leaf: A pointer to a leaf node to be initialised. ``NULL`` is 
+ *              undefined.
+ * :param parent: A pointer to ``leaf``'s parent node. Must not be ``NULL``.
+ */
+static inline void initialise_leaf_diagonal(
+  struct HODLRLeafNode *restrict leaf,
+  struct HODLRInternalNode *restrict parent
+) {
+  leaf->type = DIAGONAL;
+  leaf->parent = parent;
+  leaf->data.diagonal.data = NULL;
+  leaf->data.diagonal.m = 0;
+}
+
+
+/**
+ * Initialises an internal node.
+ *
+ * Given a pointer to an internal node and a pointer to its parent node,
+ * initialises the internal node - saves the parent pointer and initialises
+ * all numbers to ``0``.
+ *
+ * :param node: A pointer to an internal node to be initialised. ``NULL`` is
+ *              undefined.
+ * :param parent: A pointer to the ``node``'s parent node. May be ``NULL`` 
+ *                only if ``node`` is the root node.
+ */
+static inline void initialise_internal(
+  struct HODLRInternalNode *restrict node,
+  struct HODLRInternalNode *restrict parent
+) {
+  node->parent = parent;
+  node->m = 0;
+}
+
+
+/**
  * Allocates the HODLR tree without allocating the data.
  *
  * Allocates all the structs composing the HODLR tree structure using
@@ -664,7 +734,7 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
   }
 
   hodlr->root = malloc(sizeof(struct HODLRInternalNode));
-  hodlr->root->parent = NULL;
+  initialise_internal(hodlr->root, NULL);
 
   struct HODLRInternalNode **queue = malloc(max_depth_n * sizeof(struct HODLRInternalNode *));
   if (queue == NULL) {
@@ -695,21 +765,21 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
           free(queue); free(next_level);
           return NULL;
         }
-        queue[j]->children[leaf].leaf->type = OFFDIAGONAL;
-        queue[j]->children[leaf].leaf->parent = queue[j];
+        initialise_leaf_offdiagonal(queue[j]->children[leaf].leaf, queue[j]);
       }
 
       // DIAGONAL (internal)
-      for (int leaf = 0; leaf < 4; leaf+=3) {
-        queue[j]->children[leaf].internal = malloc(sizeof(struct HODLRInternalNode));
-        if (queue[j]->children[leaf].internal == NULL) {
+      for (int internal = 0; internal < 4; internal+=3) {
+        queue[j]->children[internal].internal = 
+          malloc(sizeof(struct HODLRInternalNode));
+        
+        if (queue[j]->children[internal].internal == NULL) {
           *ierr = ALLOCATION_FAILURE;
           free_partial_tree_hodlr(hodlr, queue, next_level);
           free(queue); free(next_level);
           return NULL;
         }
-        //queue[j]->children[leaf].internal.type = DIAGONAL;
-        queue[j]->children[leaf].internal->parent = queue[j];
+        initialise_internal(queue[j]->children[internal].internal, queue[j]);
       }
 
       next_level[2 * j] = queue[j]->children[0].internal;
@@ -732,16 +802,14 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
         free(queue); free(next_level);
         return NULL;
       }
-      
-      queue[i]->children[leaf].leaf->parent = queue[i];
     }
     hodlr->innermost_leaves[i * 2] = queue[i]->children[0].leaf;
     hodlr->innermost_leaves[i * 2 + 1] = queue[i]->children[3].leaf;
     
-    queue[i]->children[0].leaf->type = DIAGONAL;
-    queue[i]->children[1].leaf->type = OFFDIAGONAL;
-    queue[i]->children[2].leaf->type = OFFDIAGONAL;
-    queue[i]->children[3].leaf->type = DIAGONAL;
+    initialise_leaf_diagonal(queue[i]->children[0].leaf, queue[i]);
+    initialise_leaf_offdiagonal(queue[i]->children[1].leaf, queue[i]);
+    initialise_leaf_offdiagonal(queue[i]->children[2].leaf, queue[i]);
+    initialise_leaf_diagonal(queue[i]->children[3].leaf, queue[i]);
   }
 
   free(next_level);
@@ -1000,6 +1068,7 @@ void free_tree_hodlr(struct TreeHODLR **hodlr_ptr) {
     free(hodlr->memory_internal_ptr);
     free(hodlr->work_queue);
     free(hodlr->innermost_leaves);
+    free(hodlr);
     *hodlr_ptr = NULL;
     return;
   }
