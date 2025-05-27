@@ -8,8 +8,9 @@ OUT_DIR := ../bin
 EXTRA_FLAGS := -g #-fsanitize=address
 
 
-unit_tests: test_tree_construct.o test_vector_algebra.o
+unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o lapack_wrapper.o utils.o common_data.o tree_stubs.o
 	gcc \
+		${BUILD_DIR}/test_allocators.o \
 		${BUILD_DIR}/test_vector_algebra.o \
 		${BUILD_DIR}/test_tree_construct.o \
 		${BUILD_DIR}/lapack_wrapper.o \
@@ -64,25 +65,44 @@ test_vector_algebra.o: ${TESTS_DIR}/test_vector_algebra.c lapack_wrapper.o utils
 		${EXTRA_FLAGS}
 
 
-test_tree_construct: test_tree_construct.o
+test_tree_construct: test_tree_construct.o allocators.o lapack_wrapper.o utils.o common_data.o tree_stubs.o
 	gcc \
 		${BUILD_DIR}/test_tree_construct.o \
+		${BUILD_DIR}/allocators.o \
 		${BUILD_DIR}/lapack_wrapper.o  \
 		${BUILD_DIR}/utils.o \
 		${BUILD_DIR}/common_data.o \
 		${BUILD_DIR}/tree_stubs.o \
 		-o ${OUT_DIR}/test_tree_construct \
-		-lopenblas -lm -lcriterion -lmimick \
+		-lopenblas -lm -lcriterion \
 		-Wall -Wextra \
 		${EXTRA_FLAGS}
 
-test_tree_construct.o: ${TESTS_DIR}/test_tree_construct.c lapack_wrapper.o utils.o common_data.o tree_stubs.o
+test_tree_construct.o: ${TESTS_DIR}/test_tree_construct.c
 	gcc \
 		-c ${TESTS_DIR}/test_tree_construct.c \
 		-o ${BUILD_DIR}/test_tree_construct.o \
 		-lopenblas \
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${EXTRA_FLAGS}
+
+
+test_allocators: test_allocators.o utils.o
+	gcc \
+		${BUILD_DIR}/test_allocators.o \
+		${BUILD_DIR}/utils.o \
+		-o ${OUT_DIR}/test_tree_construct \
+		-lopenblas -lm -lcriterion \
+		-Wall -Wextra \
+		${EXTRA_FLAGS}
+
+test_allocators.o: ${TESTS_DIR}/test_allocators.c
+	gcc \
+		-c ${TESTS_DIR}/test_allocators.c \
+		-o ${BUILD_DIR}/test_allocators.o \
+		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
+		${EXTRA_FLAGS}
+
 
 
 tree_stubs.o: ${TESTS_DIR}/tree_stubs.c lapack_wrapper.o
@@ -97,6 +117,12 @@ tree_stubs.o: ${TESTS_DIR}/tree_stubs.c lapack_wrapper.o
 
 tree.o: ${SRC_DIR}/tree.c lapack_wrapper.o
 	gcc -c ${SRC_DIR}/tree.c -o ${BUILD_DIR}/tree.o -I ${INCLUDE_DIR} -lm -Wall -Wextra -g
+
+allocators.o: ${SRC_DIR}/allocators.c
+	${COMPILER} \
+		-c ${SRC_DIR}/allocators.c \
+		-o ${BUILD_DIR}/allocators.o \
+		-I ${INCLUDE_DIR} ${WARNINGS} ${EXTRA_FLAGS} \
 
 lapack_wrapper.o: ${SRC_DIR}/lapack_wrapper.c
 	gcc \
