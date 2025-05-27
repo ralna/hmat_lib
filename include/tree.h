@@ -1,3 +1,6 @@
+#include <stddef.h>
+
+
 #ifndef TREE_H
 #define TREE_H
 
@@ -257,6 +260,9 @@ struct TreeHODLR {
    *     ``static``, since it is used as an internal workspace.
    */
   struct HODLRInternalNode **work_queue;
+
+  struct HODLRInternalNode *memory_internal_ptr;
+  struct HODLRLeafNode *memory_leaf_ptr;
 };
 
 
@@ -280,5 +286,22 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
                               const int matrix_ld,
                               double *out,
                               const int out_ld);
+
+void compute_construct_tree_array_sizes(const int height,
+                                        size_t *size_internal_nodes,
+                                        size_t *size_leaf_nodes,
+                                        size_t *size_work_queue,
+                                        size_t *size_innermost_leaves);
+
+void construct_tree(const int height,
+                    struct TreeHODLR *hodlr,
+                    struct HODLRInternalNode *internal_nodes,
+                    struct HODLRLeafNode *leaf_nodes,
+                    struct HODLRInternalNode **work_queue,
+                    struct HODLRLeafNode **innermost_leaves,
+                    int *ierr);
+ 
+struct TreeHODLR * allocate_tree_monolithic(const int height, int *ierr);
+
 #endif
 

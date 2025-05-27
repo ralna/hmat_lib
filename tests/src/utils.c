@@ -7,9 +7,157 @@
 #include <criterion/new/assert.h>
 
 #include "../include/utils.h"
+#include "../../include/tree.h"
 
 static double DELTA = 1e-10;
 
+
+int expect_tree_consistent(struct TreeHODLR *hodlr, 
+                           int height,
+                           const long max_depth_n) {
+  int len_queue = 1;
+
+  cr_expect(eq(hodlr->height, height));
+  cr_expect(eq(hodlr->len_work_queue, max_depth_n));
+
+  cr_expect(ne(hodlr->work_queue, NULL));
+  cr_expect(eq(hodlr->root->parent, NULL));
+
+  struct HODLRInternalNode **queue = malloc(max_depth_n * sizeof(void *));
+  struct HODLRInternalNode **next_level = malloc(max_depth_n * sizeof(void *));
+  struct HODLRInternalNode **temp_pointer;
+  queue[0] = hodlr->root;
+
+  for (int i = 1; i < height; i++) {
+    for (int j = 0; j < len_queue; j++) {
+      cr_expect(eq(ptr, queue[j]->children[1].leaf->parent, queue[j]));
+      cr_expect(eq(ptr, queue[j]->children[2].leaf->parent, queue[j]));
+
+      next_level[2 * j] = queue[j]->children[0].internal;
+      next_level[2 * j + 1] = queue[j]->children[3].internal;
+
+    }
+    temp_pointer = queue;
+    queue = next_level;
+    next_level = temp_pointer;
+
+    len_queue = len_queue * 2;
+  }
+
+  for (int i = 0; i < len_queue; i++) {
+    for (int j = 0; j < 4; j ++) {
+      cr_expect(eq(ptr, queue[i]->children[j].leaf->parent, queue[i]));
+    }
+
+    cr_expect(eq(ptr, hodlr->innermost_leaves[2 * i], queue[i]->children[0].leaf));
+    cr_expect(eq(ptr, hodlr->innermost_leaves[2 * i + 1], queue[i]->children[3].leaf));
+  }
+
+  free(queue); free(next_level);
+  return 0;
+}
+
+
+int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
+  cr_expect(eq(actual->height, expected->height));
+  if (actual->height != expected->height) {
+    return 1;
+  }
+
+  const int max_depth_n = (int)pow(2, expected->height - 1);
+  int len_queue = 1, err = 0;
+
+  union HODLRData *exp, *act;
+
+  struct HODLRInternalNode **queue_a = malloc(max_depth_n * sizeof(void *));
+  struct HODLRInternalNode **next_level_a = malloc(max_depth_n * sizeof(void *));
+  struct HODLRInternalNode **queue_e = malloc(max_depth_n * sizeof(void *));
+  struct HODLRInternalNode **next_level_e = malloc(max_depth_n * sizeof(void *));
+  struct HODLRInternalNode **temp_pointer;
+  queue_a[0] = actual->root;
+  queue_e[0] = expected->root;
+
+  for (int i = 1; i < expected->height; i++) {
+    for (int j = 0; j < len_queue; j++) {
+      for (int k = 1; k < 3; k++) {
+        act = &(queue_a[j]->children[k].leaf->data);
+        exp = &(queue_e[j]->children[k].leaf->data);
+
+        err += expect_matrix_double_eq_safe(act->off_diagonal.u, exp->off_diagonal.u,
+                                         act->off_diagonal.m, act->off_diagonal.s,
+                                         exp->off_diagonal.m, exp->off_diagonal.s,
+                                         act->off_diagonal.m, exp->off_diagonal.m,
+                                         'U');
+        
+        err += expect_matrix_double_eq_safe(act->off_diagonal.v, exp->off_diagonal.v,
+                                         act->off_diagonal.n, exp->off_diagonal.s,
+                                         exp->off_diagonal.n, exp->off_diagonal.s,
+                                         act->off_diagonal.n, exp->off_diagonal.n,
+                                         'V');
+      }
+
+      cr_expect(eq(queue_a[j]->children[0].internal->m, queue_e[j]->children[3].internal->m));
+
+      next_level_a[2 * j] = queue_a[j]->children[0].internal;
+      next_level_a[2 * j + 1] = queue_a[j]->children[3].internal;
+
+      next_level_e[2 * j] = queue_e[j]->children[0].internal;
+      next_level_e[2 * j + 1] = queue_e[j]->children[3].internal;
+
+    }
+    temp_pointer = queue_a;
+    queue_a = next_level_a;
+    next_level_a = temp_pointer;
+
+    temp_pointer = queue_e;
+    queue_e = next_level_e;
+    next_level_e = temp_pointer;
+
+    len_queue = len_queue * 2;
+  }
+
+  for (int i = 0; i < len_queue; i++) {
+    for (int j = 1; j < 3; j ++) {
+      cr_log_info("Lowest level: i=%d j=%d", i, j);
+      act = &(queue_a[i]->children[j].leaf->data);
+      exp = &(queue_e[i]->children[j].leaf->data);
+      err += expect_matrix_double_eq_safe(act->off_diagonal.u, exp->off_diagonal.u,
+                                       act->off_diagonal.m, act->off_diagonal.s,
+                                       exp->off_diagonal.m, exp->off_diagonal.s,
+                                       act->off_diagonal.m, exp->off_diagonal.m,
+                                       'U');
+      err += expect_matrix_double_eq_safe(act->off_diagonal.v, exp->off_diagonal.v,
+                                       act->off_diagonal.n, exp->off_diagonal.s,
+                                       exp->off_diagonal.n, exp->off_diagonal.s,
+                                       act->off_diagonal.n, exp->off_diagonal.n,
+                                       'V');
+    }
+    act = &(queue_a[i]->children[0].leaf->data);
+    exp = &(queue_e[i]->children[0].leaf->data);
+
+    cr_expect(eq(act->diagonal.m, exp->diagonal.m));
+
+    if (act->diagonal.m == exp->diagonal.m) {
+      expect_matrix_double_eq(act->diagonal.data, exp->diagonal.data, 
+                           exp->diagonal.m, exp->diagonal.m, 
+                           act->diagonal.m, exp->diagonal.m, 'M');
+    }
+
+    act = &(queue_a[i]->children[3].leaf->data);
+    exp = &(queue_e[i]->children[3].leaf->data);
+
+    cr_expect(eq(act->diagonal.m, exp->diagonal.m));
+
+    if (act->diagonal.m == exp->diagonal.m) {
+      expect_matrix_double_eq(act->diagonal.data, exp->diagonal.data, 
+                           exp->diagonal.m, exp->diagonal.m, 
+                           act->diagonal.m, exp->diagonal.m, 'M');
+    } 
+  }
+
+  free(queue_a); free(next_level_a); free(queue_e); free(next_level_e);
+  return err;
+}
 
 
 

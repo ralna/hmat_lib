@@ -1,4 +1,13 @@
+#include "../../include/tree.h"
 
+
+int expect_tree_consistent(struct TreeHODLR *hodlr, 
+                           int height,
+                           const long max_depth_n);
+
+
+int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected);
+  
 void log_matrix(const double *matrix, const int m, const int n, const int lda);
 
 void expect_matrix_double_eq(const double *actual, 

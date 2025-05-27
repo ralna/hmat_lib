@@ -60,7 +60,7 @@ static void compute_block_sizes(struct TreeHODLR *restrict hodlr,
         queue[idx]->children[3].internal;
       queue[2 * idx] = queue[idx]->children[0].internal;
     }
-    len_queue = len_queue * 2;
+    len_queue *= 2;
   }
 }
 
@@ -648,6 +648,9 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
     *ierr = ALLOCATION_FAILURE;
     return NULL;
   }
+
+  hodlr->memory_internal_ptr = NULL;
+  hodlr->memory_leaf_ptr = NULL;
   //struct HODLRInternalNode *node = (HODLRInternalNode *)malloc(sizeof(HODLRInternalNode));
 
   hodlr->height = height;
@@ -717,7 +720,7 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
     queue = next_level;
     next_level = temp_pointer;
     
-    len_queue = len_queue * 2;
+    len_queue *= 2;
   }
 
   for (int i = 0; i < len_queue; i++) {
@@ -747,6 +750,153 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
 
   *ierr = SUCCESS;
   return hodlr;
+}
+
+
+struct TreeHODLR * allocate_tree_monolithic(const int height, int *ierr) {
+  size_t size_internal_nodes, size_leaf_nodes;
+  size_t size_work_queue, size_innermost_leaves;
+  *ierr = SUCCESS;
+
+  compute_construct_tree_array_sizes(
+    height, &size_internal_nodes, &size_leaf_nodes,
+    &size_work_queue, &size_innermost_leaves
+  );
+  
+  struct TreeHODLR *hodlr = malloc(sizeof(struct TreeHODLR));
+  if (hodlr == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    return NULL;
+  }
+  struct HODLRInternalNode *internal_nodes = malloc(size_internal_nodes);
+  if (internal_nodes == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(hodlr);
+    return NULL;
+  }
+  struct HODLRLeafNode *leaf_nodes = malloc(size_leaf_nodes);
+  if (leaf_nodes == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(hodlr); free(internal_nodes);
+    return NULL;
+  }
+  struct HODLRInternalNode **work_queue = malloc(size_work_queue);
+  if (work_queue == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(hodlr); free(internal_nodes); free(leaf_nodes);
+    return NULL;
+  }
+  struct HODLRLeafNode **innermost_leaves = malloc(size_innermost_leaves);
+  if (innermost_leaves == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(hodlr); free(internal_nodes); free(leaf_nodes); free(work_queue);
+    return NULL;
+  }
+  
+  construct_tree(height, hodlr, internal_nodes, leaf_nodes, work_queue, 
+                 innermost_leaves, ierr);
+
+  if (*ierr != SUCCESS) {
+    free(hodlr); free(internal_nodes); free(leaf_nodes); free(work_queue); 
+    free(innermost_leaves);
+    return NULL;
+  }
+
+  return hodlr;
+}
+
+
+void compute_construct_tree_array_sizes(const int height,
+                                        size_t *size_internal_nodes,
+                                        size_t *size_leaf_nodes,
+                                        size_t *size_work_queue,
+                                        size_t *size_innermost_leaves) {
+  const size_t n = (size_t)(pow(2, height - 1));
+  *size_work_queue = n * sizeof(struct HODLRInternalNode *);
+  *size_internal_nodes = (2 * n - 1) * sizeof(struct HODLRInternalNode);
+
+  *size_innermost_leaves = 2 * n * sizeof(struct HODLRLeafNode *);
+  *size_leaf_nodes = (6 * n - 2) * sizeof(struct HODLRLeafNode);
+}
+
+
+void construct_tree(const int height,
+                    struct TreeHODLR *hodlr,
+                    struct HODLRInternalNode *internal_nodes,
+                    struct HODLRLeafNode *leaf_nodes,
+                    struct HODLRInternalNode **work_queue,
+                    struct HODLRLeafNode **innermost_leaves,
+                    int *ierr) {
+  if (height < 1) {
+    *ierr = INPUT_ERROR;
+    return;
+  }
+  *ierr = SUCCESS;
+
+  int len_queue = 1, idx_internal = 1, idx_leaf = 0, qidx = 0;
+  const long max_depth_n = (long)pow(2, height - 1);
+  long n_parent_nodes = max_depth_n;
+
+  hodlr->memory_internal_ptr = internal_nodes;
+  hodlr->memory_leaf_ptr = leaf_nodes;
+
+  hodlr->height = height;
+  hodlr->len_work_queue = max_depth_n;
+  hodlr->work_queue = work_queue;
+  hodlr->innermost_leaves = innermost_leaves;
+
+  hodlr->root = &internal_nodes[0];
+  hodlr->root->parent = NULL;
+  work_queue[0] = hodlr->root;
+
+  for (int _ = 1; _ < hodlr->height; _++) {
+    n_parent_nodes /= 2;
+    for (int parent = 0; parent < len_queue; parent++) {
+      qidx = 2 * parent * n_parent_nodes;
+
+      for (int leaf = 1; leaf < 3; leaf++) {
+        work_queue[qidx]->children[leaf].leaf = leaf_nodes + idx_leaf;
+        work_queue[qidx]->children[leaf].leaf->type = OFFDIAGONAL;
+        work_queue[qidx]->children[leaf].leaf->parent = work_queue[qidx];
+        work_queue[qidx]->children[leaf].leaf->data.off_diagonal.u = NULL;
+        work_queue[qidx]->children[leaf].leaf->data.off_diagonal.v = NULL;
+        idx_leaf += 1;
+      }
+
+      for (int internal = 0; internal < 4; internal+=3) {
+        work_queue[qidx]->children[internal].internal = 
+          internal_nodes + idx_internal;
+        work_queue[qidx]->children[internal].internal->parent = work_queue[qidx];
+        idx_internal += 1;
+      }
+
+      work_queue[(2 * parent + 1) * n_parent_nodes] = 
+        work_queue[qidx]->children[3].internal;
+      work_queue[qidx] = work_queue[qidx]->children[0].internal;
+    }
+    len_queue *= 2;
+  }
+
+  for (int i = 0; i < len_queue; i++) {
+    for (int leaf = 1; leaf < 3; leaf++) {
+      work_queue[i]->children[leaf].leaf = leaf_nodes + idx_leaf;
+      work_queue[i]->children[leaf].leaf->type = OFFDIAGONAL;
+      work_queue[i]->children[leaf].leaf->parent = work_queue[i];
+      work_queue[i]->children[leaf].leaf->data.off_diagonal.u = NULL;
+      work_queue[i]->children[leaf].leaf->data.off_diagonal.v = NULL;
+      idx_leaf += 1;
+    }
+
+    for (int leaf = 0; leaf < 4; leaf+=3) {
+      work_queue[i]->children[leaf].leaf = leaf_nodes + idx_leaf;
+      work_queue[i]->children[leaf].leaf->type = DIAGONAL;
+      work_queue[i]->children[leaf].leaf->parent = work_queue[i];
+      work_queue[i]->children[leaf].leaf->data.diagonal.data = NULL;
+      idx_leaf += 1;
+    }
+    hodlr->innermost_leaves[i * 2] = work_queue[i]->children[0].leaf;
+    hodlr->innermost_leaves[i * 2 + 1] = work_queue[i]->children[3].leaf;
+  }
 }
 
 
@@ -843,6 +993,17 @@ void free_tree_hodlr(struct TreeHODLR **hodlr_ptr) {
   if (hodlr == NULL) {
     return;
   }
+
+  if (hodlr->memory_leaf_ptr != NULL) {
+    free_tree_data(hodlr);
+    free(hodlr->memory_leaf_ptr);
+    free(hodlr->memory_internal_ptr);
+    free(hodlr->work_queue);
+    free(hodlr->innermost_leaves);
+    *hodlr_ptr = NULL;
+    return;
+  }
+
   long n_parent_nodes = hodlr->len_work_queue;
 
   struct HODLRInternalNode **queue = hodlr->work_queue;
