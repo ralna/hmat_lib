@@ -915,6 +915,7 @@ void construct_tree(const int height,
 
   hodlr->root = &internal_nodes[0];
   hodlr->root->parent = NULL;
+  hodlr->root->m = 0;
   work_queue[0] = hodlr->root;
 
   for (int _ = 1; _ < hodlr->height; _++) {

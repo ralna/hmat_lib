@@ -12,16 +12,45 @@
 static double DELTA = 1e-10;
 
 
+static inline void expect_leaf_offdiagonal(struct HODLRLeafNode *leaf,
+                                           struct HODLRInternalNode *parent) {
+  cr_expect(eq(ptr, leaf->parent, parent));
+  cr_expect(eq(int, leaf->type, OFFDIAGONAL));
+  cr_expect(eq(ptr, leaf->data.off_diagonal.u, NULL));
+  cr_expect(eq(ptr, leaf->data.off_diagonal.v, NULL));
+  cr_expect(eq(int, leaf->data.off_diagonal.m, 0));
+  cr_expect(eq(int, leaf->data.off_diagonal.s, 0));
+  cr_expect(eq(int, leaf->data.off_diagonal.n, 0));
+}
+
+
+static inline void expect_leaf_diagonal(struct HODLRLeafNode *leaf,
+                                        struct HODLRInternalNode *parent) {
+  cr_expect(eq(ptr, leaf->parent, parent));
+  cr_expect(eq(int, leaf->type, DIAGONAL));
+  cr_expect(eq(ptr, leaf->data.diagonal.data, NULL));
+  cr_expect(eq(int, leaf->data.diagonal.m, 0));
+}
+
+
+static inline void expect_internal(struct HODLRInternalNode *node,
+                                   struct HODLRInternalNode *parent) {
+  cr_expect(eq(ptr, node->parent, parent));
+  cr_expect(eq(int, node->m, 0));
+}
+
+
 int expect_tree_consistent(struct TreeHODLR *hodlr, 
                            int height,
                            const long max_depth_n) {
   int len_queue = 1;
 
-  cr_expect(eq(hodlr->height, height));
+  cr_expect(eq(i32, hodlr->height, height));
   cr_expect(eq(hodlr->len_work_queue, max_depth_n));
+  cr_expect(ne(ptr, hodlr->work_queue, NULL));
 
-  cr_expect(ne(hodlr->work_queue, NULL));
-  cr_expect(eq(hodlr->root->parent, NULL));
+  cr_expect(eq(ptr, hodlr->root->parent, NULL));
+  cr_expect(eq(int, hodlr->root->m, 0));
 
   struct HODLRInternalNode **queue = malloc(max_depth_n * sizeof(void *));
   struct HODLRInternalNode **next_level = malloc(max_depth_n * sizeof(void *));
@@ -30,8 +59,10 @@ int expect_tree_consistent(struct TreeHODLR *hodlr,
 
   for (int i = 1; i < height; i++) {
     for (int j = 0; j < len_queue; j++) {
-      cr_expect(eq(ptr, queue[j]->children[1].leaf->parent, queue[j]));
-      cr_expect(eq(ptr, queue[j]->children[2].leaf->parent, queue[j]));
+      expect_internal(queue[j]->children[0].internal, queue[j]);
+      expect_leaf_offdiagonal(queue[j]->children[1].leaf, queue[j]);
+      expect_leaf_offdiagonal(queue[j]->children[2].leaf, queue[j]);
+      expect_internal(queue[j]->children[3].internal, queue[j]);
 
       next_level[2 * j] = queue[j]->children[0].internal;
       next_level[2 * j + 1] = queue[j]->children[3].internal;
@@ -45,9 +76,10 @@ int expect_tree_consistent(struct TreeHODLR *hodlr,
   }
 
   for (int i = 0; i < len_queue; i++) {
-    for (int j = 0; j < 4; j ++) {
-      cr_expect(eq(ptr, queue[i]->children[j].leaf->parent, queue[i]));
-    }
+    expect_leaf_diagonal(queue[i]->children[0].leaf, queue[i]);
+    expect_leaf_offdiagonal(queue[i]->children[1].leaf, queue[i]);
+    expect_leaf_offdiagonal(queue[i]->children[2].leaf, queue[i]);
+    expect_leaf_diagonal(queue[i]->children[3].leaf, queue[i]);
 
     cr_expect(eq(ptr, hodlr->innermost_leaves[2 * i], queue[i]->children[0].leaf));
     cr_expect(eq(ptr, hodlr->innermost_leaves[2 * i + 1], queue[i]->children[3].leaf));
