@@ -1,6 +1,15 @@
 #include "../../include/tree.h"
 
+void expect_leaf_offdiagonal(struct HODLRLeafNode *leaf,
+                            struct HODLRInternalNode *parent);
 
+void expect_leaf_diagonal(struct HODLRLeafNode *leaf,
+                          struct HODLRInternalNode *parent);
+ 
+void expect_internal(struct HODLRInternalNode *node,
+                     struct HODLRInternalNode *parent);
+ 
+ 
 int expect_tree_consistent(struct TreeHODLR *hodlr, 
                            int height,
                            const long max_depth_n);

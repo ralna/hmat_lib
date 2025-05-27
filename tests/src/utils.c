@@ -12,8 +12,8 @@
 static double DELTA = 1e-10;
 
 
-static inline void expect_leaf_offdiagonal(struct HODLRLeafNode *leaf,
-                                           struct HODLRInternalNode *parent) {
+inline void expect_leaf_offdiagonal(struct HODLRLeafNode *leaf,
+                                    struct HODLRInternalNode *parent) {
   cr_expect(eq(ptr, leaf->parent, parent));
   cr_expect(eq(int, leaf->type, OFFDIAGONAL));
   cr_expect(eq(ptr, leaf->data.off_diagonal.u, NULL));
@@ -24,8 +24,8 @@ static inline void expect_leaf_offdiagonal(struct HODLRLeafNode *leaf,
 }
 
 
-static inline void expect_leaf_diagonal(struct HODLRLeafNode *leaf,
-                                        struct HODLRInternalNode *parent) {
+inline void expect_leaf_diagonal(struct HODLRLeafNode *leaf,
+                                 struct HODLRInternalNode *parent) {
   cr_expect(eq(ptr, leaf->parent, parent));
   cr_expect(eq(int, leaf->type, DIAGONAL));
   cr_expect(eq(ptr, leaf->data.diagonal.data, NULL));
@@ -33,8 +33,8 @@ static inline void expect_leaf_diagonal(struct HODLRLeafNode *leaf,
 }
 
 
-static inline void expect_internal(struct HODLRInternalNode *node,
-                                   struct HODLRInternalNode *parent) {
+inline void expect_internal(struct HODLRInternalNode *node,
+                            struct HODLRInternalNode *parent) {
   cr_expect(eq(ptr, node->parent, parent));
   cr_expect(eq(int, node->m, 0));
 }

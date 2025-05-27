@@ -12,6 +12,33 @@
 #include "../../include/blas_wrapper.h"
 
 
+Test(allocators, initialise_leaf_offdiagonal) {
+  struct HODLRLeafNode leaf;
+  struct HODLRInternalNode parent;
+
+  initialise_leaf_offdiagonal(&leaf, &parent);
+  expect_leaf_offdiagonal(&leaf, &parent);
+}
+
+
+Test(allocators, initialise_leaf_diagonal) {
+  struct HODLRLeafNode leaf;
+  struct HODLRInternalNode parent;
+
+  initialise_leaf_diagonal(&leaf, &parent);
+  expect_leaf_diagonal(&leaf, &parent);
+}
+
+
+Test(allocators, initialise_internal) {
+  struct HODLRInternalNode node;
+  struct HODLRInternalNode parent;
+
+  initialise_internal(&node, &parent);
+  expect_internal(&node, &parent);
+}
+
+
 struct ParametersArraySizes {
   int height;
 
@@ -58,7 +85,7 @@ struct ParametersArraySizes * generate_array_sizes_params(int *n_params) {
 }
 
 
-ParameterizedTestParameters(tree, test_array_sizes) {
+ParameterizedTestParameters(allocators, test_array_sizes) {
   int n_params = 6;
   struct ParametersArraySizes *params = generate_array_sizes_params(&n_params);
   return cr_make_param_array(struct ParametersArraySizes, 
@@ -66,7 +93,8 @@ ParameterizedTestParameters(tree, test_array_sizes) {
 }
 
 
-ParameterizedTest(struct ParametersArraySizes *params, tree, test_array_sizes) {
+ParameterizedTest(struct ParametersArraySizes *params, allocators, 
+                  test_array_sizes) {
   size_t size_work_queue = 0, size_internal_nodes = 0;
   size_t size_innermost_leaves = 0, size_leaf_nodes = 0, expected_size = 0;
 
@@ -99,7 +127,7 @@ ParameterizedTest(struct ParametersArraySizes *params, tree, test_array_sizes) {
 }
 
 
-ParameterizedTestParameters(tree, test_construct_tree) {
+ParameterizedTestParameters(allocators, test_construct_tree) {
   int n_params = 6;
   struct ParametersArraySizes *params = generate_array_sizes_params(&n_params);
   return cr_make_param_array(struct ParametersArraySizes, 
@@ -107,7 +135,8 @@ ParameterizedTestParameters(tree, test_construct_tree) {
 }
 
 
-ParameterizedTest(struct ParametersArraySizes *params, tree, test_construct_tree) {
+ParameterizedTest(struct ParametersArraySizes *params, allocators, 
+                  test_construct_tree) {
   cr_log_info("height=%d", params->height);
   int ierr = SUCCESS;
 
@@ -138,7 +167,7 @@ ParameterizedTest(struct ParametersArraySizes *params, tree, test_construct_tree
 }
 
 
-ParameterizedTestParameters(tree, test_allocate_tree_monolithic) {
+ParameterizedTestParameters(allocators, test_allocate_tree_monolithic) {
   int n_params = 6;
   struct ParametersArraySizes *params = generate_array_sizes_params(&n_params);
   return cr_make_param_array(struct ParametersArraySizes, 
@@ -146,7 +175,7 @@ ParameterizedTestParameters(tree, test_allocate_tree_monolithic) {
 }
 
 
-ParameterizedTest(struct ParametersArraySizes *params, tree, 
+ParameterizedTest(struct ParametersArraySizes *params, allocators, 
                   test_allocate_tree_monolithic) {
   cr_log_info("height=%d", params->height);
   int ierr = SUCCESS;
@@ -168,7 +197,7 @@ ParameterizedTest(struct ParametersArraySizes *params, tree,
 }
 
 
-ParameterizedTestParameters(tree, test_allocate_tree) {
+ParameterizedTestParameters(allocators, test_allocate_tree) {
   int n_params = 6;
   struct ParametersArraySizes *params = generate_array_sizes_params(&n_params);
   return cr_make_param_array(struct ParametersArraySizes, 
@@ -176,7 +205,7 @@ ParameterizedTestParameters(tree, test_allocate_tree) {
 }
 
 
-ParameterizedTest(struct ParametersArraySizes *params, tree, 
+ParameterizedTest(struct ParametersArraySizes *params, allocators, 
                   test_allocate_tree) {
   cr_log_info("height=%d", params->height);
   int ierr = SUCCESS;
@@ -196,6 +225,4 @@ ParameterizedTest(struct ParametersArraySizes *params, tree,
   cr_log_info("TreeHODLR check concluded, freeing...");
   free_tree_hodlr(&hodlr);
 }
-
-
 
