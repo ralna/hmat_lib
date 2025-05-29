@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
 #include "../include/lapack_wrapper.h"
 #include "../include/tree.h"
@@ -38,17 +37,18 @@ static void print_matrix(int m, int n, double *matrix, int lda) {
  */
 static void compute_block_sizes(struct TreeHODLR *restrict hodlr,
                                 struct HODLRInternalNode **restrict queue,
-                                int m) {
-  long len_queue = 1, n_parent_nodes = hodlr->len_work_queue;
+                                const int m) {
+  long len_queue = 1, q_next_node_density = hodlr->len_work_queue;
+  long q_current_node_density = q_next_node_density;
   int m_smaller = 0, m_larger = 0, idx = 0;
   
   hodlr->root->m = m;
   queue[0] = hodlr->root;
 
   for (int _ = 1; _ < hodlr->height; _++) {
-    n_parent_nodes /= 2;
+    q_next_node_density /= 2;
     for (int parent = 0; parent < len_queue; parent++) {
-      idx = parent * n_parent_nodes;
+      idx = parent * q_current_node_density;
       
       m_smaller = queue[idx]->m / 2;
       m_larger = queue[idx]->m - m_smaller;
@@ -56,11 +56,12 @@ static void compute_block_sizes(struct TreeHODLR *restrict hodlr,
       queue[idx]->children[0].internal->m = m_larger;
       queue[idx]->children[3].internal->m = m_smaller;
 
-      queue[(2 * parent + 1) * n_parent_nodes] = 
+      queue[(2 * parent + 1) * q_next_node_density] = 
         queue[idx]->children[3].internal;
-      queue[2 * idx] = queue[idx]->children[0].internal;
+      queue[idx] = queue[idx]->children[0].internal;
     }
     len_queue *= 2;
+    q_current_node_density = q_next_node_density;
   }
 }
 

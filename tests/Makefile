@@ -7,6 +7,8 @@ OUT_DIR := ../bin
 
 EXTRA_FLAGS := -g #-fsanitize=address
 
+WARNINGS := -Wall -Wextra -Wno-unknown-pragmas
+
 
 unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o lapack_wrapper.o utils.o common_data.o tree_stubs.o
 	gcc \
@@ -84,6 +86,7 @@ test_tree_construct.o: ${TESTS_DIR}/test_tree_construct.c
 		-o ${BUILD_DIR}/test_tree_construct.o \
 		-lopenblas \
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
+		${WARNINGS} \
 		${EXTRA_FLAGS}
 
 
@@ -91,7 +94,7 @@ test_allocators: test_allocators.o utils.o
 	gcc \
 		${BUILD_DIR}/test_allocators.o \
 		${BUILD_DIR}/utils.o \
-		-o ${OUT_DIR}/test_tree_construct \
+		-o ${OUT_DIR}/test_allocators \
 		-lopenblas -lm -lcriterion \
 		-Wall -Wextra \
 		${EXTRA_FLAGS}

@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include <criterion/criterion.h>
 #include <criterion/parameterized.h>
 #include <criterion/new/assert.h>
@@ -10,6 +12,177 @@
 #include "../../src/constructors.c"
 #include "../../include/error.h"
 #include "../../include/blas_wrapper.h"
+
+
+struct ParametersBlockSizes {
+  int height;
+  int m;
+  int len;
+  int *expected;
+};
+
+
+void arrcpy(int *dest, int src[], int len) {
+  for (int i = 0; i < len; i++) {
+    dest[i] = src[i];
+  }
+}
+
+
+void free_block_params(struct criterion_test_params *params) {
+  for (int i = 0; i < params->length; i++) {
+    struct ParametersBlockSizes *param = params->params + i;
+    cr_free(param->expected);
+  }
+  cr_free(params->params);
+}
+
+
+ParameterizedTestParameters(constructors, block_sizes) {
+  int n_params = 8+18, idx = 0, n = 0;
+  struct ParametersBlockSizes *params = 
+    cr_malloc(n_params * sizeof(struct ParametersBlockSizes));
+
+  int len_heights = 2;
+  int heights[] = {1, 2};
+
+  int len_ms = 4;
+  int ms[] = {8, 9, 11, 13};
+
+  for (int height_idx = 0; height_idx < len_heights; height_idx++) {
+    for (int m_idx = 0; m_idx < len_ms; m_idx++) {
+      params[idx].height = heights[height_idx];
+      params[idx].m = ms[m_idx];
+
+      n = (int)pow(2, heights[height_idx]) - 1;
+      params[idx].len = n;
+      params[idx].expected = cr_malloc(n * sizeof(int));
+      idx++;
+    }
+  }
+
+  len_heights = 6;
+  int heights2[] = {1, 2, 3, 4, 5, 6};
+
+  len_ms = 3;
+  int ms2[] = {139, 597, 2048};
+
+  for (int height_idx = 0; height_idx < len_heights; height_idx++) {
+    for (int m_idx = 0; m_idx < len_ms; m_idx++) {
+      params[idx].height = heights2[height_idx];
+      params[idx].m = ms2[m_idx];
+
+      n = (int)pow(2, heights2[height_idx]) - 1;
+      params[idx].expected = cr_malloc(n * sizeof(int));
+      idx++;
+    }
+  }
+
+  params[0].expected[0] = 8;
+  params[1].expected[0] = 9;
+  params[2].expected[0] = 11;
+  params[3].expected[0] = 13;
+  arrcpy(params[4].expected, (int[]){8, 4, 4}, 3);
+  arrcpy(params[5].expected, (int[]){9, 5, 4}, 3);
+  arrcpy(params[6].expected, (int[]){11, 6, 5}, 3);
+  arrcpy(params[7].expected, (int[]){13, 7, 6}, 3);
+
+  params[8].expected[0] = 139;
+  params[9].expected[0] = 597;
+  params[10].expected[0] = 2048;
+  arrcpy(params[11].expected, (int[]){139, 70, 69}, 3);
+  arrcpy(params[12].expected, (int[]){597, 299, 298}, 3);
+  arrcpy(params[13].expected, (int[]){2048, 1024, 1024}, 3);
+  arrcpy(params[14].expected, (int[]){139, 70, 69, 35, 35, 35, 34}, 7);
+  arrcpy(params[15].expected, (int[]){597, 299, 298, 150, 149, 149, 149}, 7);
+  arrcpy(params[16].expected, (int[]){2048, 1024, 1024, 512, 512, 512, 512}, 7);
+  arrcpy(params[17].expected, 
+         (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17}, 
+         15);
+  arrcpy(params[18].expected, 
+         (int[]){597, 299, 298, 150, 149, 149, 149, 85, 85, 85, 84, 85, 84, 85, 84}, 
+         15);
+  arrcpy(params[19].expected, 
+         (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+                  256, 256, 256, 256, 256, 256, 256, 256}, 15);
+  arrcpy(params[20].expected, 
+         (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17,
+                  9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8}, 31);
+  arrcpy(params[21].expected, 
+         (int[]){597, 299, 298, 150, 149, 149, 149, 
+                  85, 85, 85, 84, 85, 84, 85, 84,
+                  43, 42, 43, 42, 43, 42, 42, 42, 43, 42, 42, 42, 43, 42, 42, 42}, 
+         31);
+  arrcpy(params[22].expected, 
+         (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+                  256, 256, 256, 256, 256, 256, 256, 256,
+                  128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+                  128, 128, 128, 128}, 31);
+  arrcpy(params[23].expected, 
+         (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17,
+                  9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8,
+                  5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 5, 4,
+                  5, 4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4}, 
+         63);
+  arrcpy(params[24].expected, 
+         (int[]){597, 299, 298, 150, 149, 149, 149, 
+                  85, 85, 85, 84, 85, 84, 85, 84,
+                  43, 42, 43, 42, 43, 42, 42, 42, 43, 42, 42, 42, 43, 42, 42, 42,
+                  22, 21, 21, 21, 22, 21, 21, 21, 22, 21, 21, 21, 21, 21, 21, 21,
+                  22, 21, 21, 21, 21, 21, 21, 21, 22, 21, 21, 21, 21, 21, 21, 21},
+         63);
+  arrcpy(params[25].expected, 
+         (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+                  256, 256, 256, 256, 256, 256, 256, 256,
+                  128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+                  128, 128, 128, 128,
+                  64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+                  64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+                  64, 64}, 63);
+
+  return cr_make_param_array(struct ParametersBlockSizes, params, n_params, 
+                             free_block_params);
+}
+
+
+ParameterizedTest(struct ParametersBlockSizes *params, constructors,
+                  block_sizes) {
+  cr_log_info("height=%d, m=%d", params->height, params->m);
+
+  int ierr = SUCCESS;
+  
+  struct TreeHODLR *hodlr = allocate_tree_monolithic(params->height, &ierr);
+  if (hodlr == NULL) {
+    cr_fail("Allocation failed");
+    return;
+  }
+
+  struct HODLRInternalNode **queue = hodlr->work_queue;
+
+  compute_block_sizes(hodlr, queue, params->m);
+
+  long q_next_node_density = hodlr->len_work_queue;
+  long q_current_node_density = q_next_node_density;
+  int qidx = 0, eidx = 0, len_queue = 1;
+
+  for (int height = 0; height > params->height; height++) {
+    q_next_node_density /= 2;
+    for (int parent = 0; parent < len_queue; parent++) {
+      qidx = parent * q_current_node_density;
+      cr_expect(eq(int, queue[qidx]->m, params->expected[eidx]),
+                "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
+      eidx++;
+
+      queue[qidx] = queue[qidx]->children[0].internal;
+      queue[(2 * parent + 1) * q_next_node_density] = 
+        queue[qidx]->children[3].internal;
+    }
+    len_queue *= 2;
+    q_current_node_density = q_next_node_density;
+  }
+
+  free_tree_hodlr(&hodlr);
+}
 
 
 struct ParametersTestCompress {
