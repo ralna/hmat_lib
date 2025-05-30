@@ -22,7 +22,7 @@ struct ParametersBlockSizes {
 };
 
 
-void arrcpy(int *dest, int src[], int len) {
+static inline void arrcpy(int *dest, int src[], int len) {
   for (int i = 0; i < len; i++) {
     dest[i] = src[i];
   }
@@ -101,7 +101,7 @@ ParameterizedTestParameters(constructors, block_sizes) {
          15);
   arrcpy(params[18].expected, 
          (int[]){597, 299, 298, 150, 149, 149, 149, 85, 85, 85, 84, 85, 84, 85, 84}, 
-         15);
+     15);
   arrcpy(params[19].expected, 
          (int[]){2048, 1024, 1024, 512, 512, 512, 512,
                   256, 256, 256, 256, 256, 256, 256, 256}, 15);
@@ -182,6 +182,160 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
   }
 
   free_tree_hodlr(&hodlr);
+}
+
+
+struct ParametersCopyDiag {
+  int m;
+  double *matrix;
+  long len;
+  double **expected_data;
+  int *expected_m;
+};
+
+
+void free_copy_diag_params(struct criterion_test_params *params) {
+  for (int i = 0; i < params->length; i++) {
+    struct ParametersCopyDiag *param = 
+        (struct ParametersCopyDiag *)params->params + i;
+    cr_free(param->matrix);
+    for (int j = 0; j < param->len; j++) {
+      cr_free(param->expected_data[j]);
+    }
+    cr_free(param->expected_data);
+    cr_free(param->expected_m);
+  }
+  cr_free(params->params);
+}
+
+
+static int fill_copy_diagonal(struct ParametersCopyDiag *params,
+                              double *(*func)(int)) {
+  const int len_ms = 3;
+  const int ms[] = {21, 33, 64};
+
+  const int len_lens = 3;
+  const int lens[] = {2, 4, 8};
+
+  int idx = 0, m = 0, len = 0, m_smaller = 0, first_two = 0;
+  for (int midx = 0; midx < len_ms; midx++) {
+    for (int lidx = 0; lidx < len_lens; lidx++) {
+      m = ms[midx];
+      len = lens[lidx];
+
+      params[idx].m = m;
+      params[idx].len = len;
+      params[idx].matrix = func(m);
+
+      m_smaller = m / len;
+      params[idx].expected_m = cr_malloc(len * sizeof(int));
+      first_two = 2 * m_smaller + (m - len * m_smaller);
+      params[idx].expected_m[1] = first_two / 2;
+      params[idx].expected_m[0] = first_two - params[idx].expected_m[1];
+      for (int i = 2; i < len; i++) {
+        params[idx].expected_m[i] = m_smaller;
+      }
+
+      params[idx].expected_data = cr_malloc(len * sizeof(double *));
+      for (int i = 0; i < len; i++) {
+        params[idx].expected_data[i] = func(params[idx].expected_m[i]);
+      }
+      idx++;
+    }
+  }
+  return len_ms * len_lens;
+}
+
+
+ParameterizedTestParameters(constructors, copy_diagonal) {
+  int n_params = 9, actual_n_params = 0;
+  struct ParametersCopyDiag *params = 
+    cr_malloc(n_params * sizeof(struct ParametersCopyDiag));
+
+  actual_n_params += fill_copy_diagonal(params, &construct_laplacian_matrix);
+
+  return cr_make_param_array(struct ParametersCopyDiag, params, n_params, 
+                             free_copy_diag_params);
+}
+
+
+ParameterizedTest(struct ParametersCopyDiag *params, constructors, 
+                  copy_diagonal) {
+  cr_log_info("m=%d, len=%ld", params->m, params->len);
+
+  // Set up input parameters
+  long n_parent_nodes = params->len / 2;
+  struct HODLRInternalNode **queue = 
+    malloc(n_parent_nodes * sizeof(struct HODLRInternalNode *));
+
+  for (int i = 0; i < n_parent_nodes; i++) {
+    queue[i] = malloc(sizeof(struct HODLRInternalNode));
+    queue[i]->children[0].leaf = malloc(sizeof(struct HODLRLeafNode));
+    queue[i]->children[3].leaf = malloc(sizeof(struct HODLRLeafNode));
+    queue[i]->m = params->expected_m[2 * i] + params->expected_m[2 * i + 1];
+  }
+
+  int ierr = SUCCESS, idx = 0;
+  copy_diagonal_blocks(params->matrix, params->m, queue, n_parent_nodes, &ierr);
+
+  cr_expect(eq(int, ierr, SUCCESS));
+  
+  for (int i = 0; i < n_parent_nodes; i++) {
+    if (queue[i]->children[0].leaf->data.diagonal.data == NULL) {
+      cr_fail("Data matrix for node %d (parent=%d, leaf=0) is NULL", idx, i);
+      break;
+    }
+    
+    if (queue[i]->children[0].leaf->data.diagonal.m != params->expected_m[idx]) {
+      cr_fail("Node %d (parent=%d, leaf=0) has different dimensions - "
+              "expected=%d, actual=%d", idx, i, 
+              queue[i]->children[0].leaf->data.diagonal.m, 
+              params->expected_m[idx]);
+    } else {
+      expect_matrix_double_eq(
+        queue[i]->children[0].leaf->data.diagonal.data,
+        params->expected_data[idx],
+        queue[i]->children[0].leaf->data.diagonal.m,
+        queue[i]->children[0].leaf->data.diagonal.m,
+        queue[i]->children[0].leaf->data.diagonal.m,
+        params->expected_m[idx],
+        idx
+      );
+    }
+    idx++;
+
+    if (queue[i]->children[3].leaf->data.diagonal.data == NULL) {
+      cr_fail("Data matrix for node %d (parent=%d, leaf=3) is NULL", idx, i);
+      break;
+    }
+    if (queue[i]->children[3].leaf->data.diagonal.m != params->expected_m[idx]) {
+      cr_fail("Node %d (parent=%d, leaf=0) has different dimensions - "
+              "expected=%d, actual=%d", idx, i, 
+              queue[i]->children[3].leaf->data.diagonal.m, 
+              params->expected_m[idx]);
+    } else {
+      expect_matrix_double_eq(
+        queue[i]->children[3].leaf->data.diagonal.data,
+        params->expected_data[idx],
+        queue[i]->children[3].leaf->data.diagonal.m,
+        queue[i]->children[3].leaf->data.diagonal.m,
+        queue[i]->children[3].leaf->data.diagonal.m,
+        params->expected_m[idx],
+        idx
+      );
+    }
+    idx++;
+  }
+
+  // Free 
+  for (int i = 0; i < n_parent_nodes; i++) {
+    for (int leaf = 0; leaf < 4; leaf+=3) {
+      free(queue[i]->children[leaf].leaf->data.diagonal.data);
+      free(queue[i]->children[leaf].leaf);
+    }
+    free(queue[i]);
+  }
+  free(queue);
 }
 
 
