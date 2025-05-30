@@ -30,7 +30,7 @@ static inline void arrcpy(int *dest, int src[], int len) {
 
 
 void free_block_params(struct criterion_test_params *params) {
-  for (int i = 0; i < params->length; i++) {
+  for (size_t i = 0; i < params->length; i++) {
     struct ParametersBlockSizes *param = params->params + i;
     cr_free(param->expected);
   }
@@ -195,7 +195,7 @@ struct ParametersCopyDiag {
 
 
 void free_copy_diag_params(struct criterion_test_params *params) {
-  for (int i = 0; i < params->length; i++) {
+  for (size_t i = 0; i < params->length; i++) {
     struct ParametersCopyDiag *param = 
         (struct ParametersCopyDiag *)params->params + i;
     cr_free(param->matrix);
@@ -209,8 +209,27 @@ void free_copy_diag_params(struct criterion_test_params *params) {
 }
 
 
-static int fill_copy_diagonal(struct ParametersCopyDiag *params,
-                              double *(*func)(int)) {
+static double * construct_diagonal_increasing(const int m, double start) {
+  int idx;
+  double *matrix = cr_malloc(m * m * sizeof(double));
+  for (int i = 0; i < m; i++) {
+    for (int j = 0; j < m; j++) {
+      idx = j + i * m;
+      if (i == j) {
+        matrix[idx] = start;
+        start++;
+      } else {
+        matrix[idx] = 0;
+      }
+    }
+  }
+
+  return matrix;
+}
+
+
+static int fill_copy_diagonal_const(struct ParametersCopyDiag *params,
+                                    double *(*func)(int)) {
   const int len_ms = 3;
   const int ms[] = {21, 33, 64};
 
@@ -247,13 +266,60 @@ static int fill_copy_diagonal(struct ParametersCopyDiag *params,
 }
 
 
+static int fill_copy_diagonal_var(struct ParametersCopyDiag *params,
+                                  double *(*func)(int, double)) {
+  const int len_ms = 3;
+  const int ms[] = {21, 33, 64};
+
+  const int len_lens = 3;
+  const int lens[] = {2, 4, 8};
+
+  int idx = 0, m = 0, len = 0, m_smaller = 0, first_two = 0;
+  double start = 0.0;
+
+  for (int midx = 0; midx < len_ms; midx++) {
+    for (int lidx = 0; lidx < len_lens; lidx++) {
+      start = 0.0;
+      m = ms[midx];
+      len = lens[lidx];
+
+      params[idx].m = m;
+      params[idx].len = len;
+      params[idx].matrix = func(m, 0.0);
+
+      m_smaller = m / len;
+      params[idx].expected_m = cr_malloc(len * sizeof(int));
+      first_two = 2 * m_smaller + (m - len * m_smaller);
+      params[idx].expected_m[1] = first_two / 2;
+      params[idx].expected_m[0] = first_two - params[idx].expected_m[1];
+      for (int i = 2; i < len; i++) {
+        params[idx].expected_m[i] = m_smaller;
+      }
+
+      params[idx].expected_data = cr_malloc(len * sizeof(double *));
+      for (int i = 0; i < len; i++) {
+        params[idx].expected_data[i] = func(params[idx].expected_m[i], start);
+        start += params[idx].expected_m[i];
+      }
+      idx++;
+    }
+  }
+  return len_ms * len_lens;
+}
+
+
+
 ParameterizedTestParameters(constructors, copy_diagonal) {
-  int n_params = 9, actual_n_params = 0;
+  const int n_params = 2*9; int actual_n_params = 0;
   struct ParametersCopyDiag *params = 
     cr_malloc(n_params * sizeof(struct ParametersCopyDiag));
 
-  actual_n_params += fill_copy_diagonal(params, &construct_laplacian_matrix);
+  actual_n_params += fill_copy_diagonal_const(params, &construct_laplacian_matrix);
+  actual_n_params += fill_copy_diagonal_var(params, &construct_diagonal_increasing);
 
+  if (n_params != actual_n_params) {
+    printf("PARAMETER SETUP FAILED\n");
+  }
   return cr_make_param_array(struct ParametersCopyDiag, params, n_params, 
                              free_copy_diag_params);
 }
@@ -353,7 +419,7 @@ struct ParametersTestCompress {
 
 
 void free_compress_params(struct criterion_test_params *params) {
-  for (int i = 0; i < params->length; i++) {
+  for (size_t i = 0; i < params->length; i++) {
     struct ParametersTestCompress *param = params->params + i;
     cr_free(param->full_matrix);
     cr_free(param->u_expected);
@@ -530,7 +596,7 @@ struct ParametersTestDense {
 
 
 void free_dense_params(struct criterion_test_params *params) {
-  for (int i = 0; i < params->length; i++) {
+  for (size_t i = 0; i < params->length; i++) {
     struct ParametersTestDense *param = params->params + i;
     cr_free(param->matrix);
     free_tree_hodlr_cr(&param->expected);
