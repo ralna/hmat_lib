@@ -1,3 +1,7 @@
+#ifndef _TEST_HODLR
+#define _TEST_HODLR 1
+#endif
+
 #include <math.h>
 
 #include <criterion/criterion.h>
@@ -7,11 +11,11 @@
 
 #include "../include/utils.h"
 #include "../include/common_data.h"
-#include "../include/tree_stubs.h"
 
 #include "../../src/constructors.c"
 #include "../../include/error.h"
 #include "../../include/blas_wrapper.h"
+#include "../../include/tree.h"
 
 
 struct ParametersBlockSizes {
@@ -151,7 +155,8 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
 
   int ierr = SUCCESS;
   
-  struct TreeHODLR *hodlr = allocate_tree_monolithic(params->height, &ierr);
+  struct TreeHODLR *hodlr = 
+    allocate_tree_monolithic(params->height, &ierr, &malloc, &free);
   if (hodlr == NULL) {
     cr_fail("Allocation failed");
     return;
@@ -181,7 +186,7 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
     q_current_node_density = q_next_node_density;
   }
 
-  free_tree_hodlr(&hodlr);
+  free_tree_hodlr(&hodlr, &free);
 }
 
 
@@ -342,7 +347,8 @@ ParameterizedTest(struct ParametersCopyDiag *params, constructors,
   }
 
   int ierr = SUCCESS, idx = 0;
-  copy_diagonal_blocks(params->matrix, params->m, queue, n_parent_nodes, &ierr);
+  copy_diagonal_blocks(params->matrix, params->m, queue, n_parent_nodes, &ierr,
+                       &malloc);
 
   cr_expect(eq(int, ierr, SUCCESS));
   
@@ -505,7 +511,8 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, test_compress) {
 
   int result_code = compress_off_diagonal(
       &result, params->m, params->n, n_singular_values, params->m_full, 
-      params->matrix, s_work, u_work, vt_work, params->svd_threshold, &ierr
+      params->matrix, s_work, u_work, vt_work, params->svd_threshold, &ierr,
+      &malloc
   );
 
   free(s_work); free(u_work); free(vt_work);
@@ -552,7 +559,7 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, recompress) {
   int result_code = compress_off_diagonal(
       &node, params->m, params->n, n_singular_values, params->m_full, 
       params->matrix, s_work, u_work, vt_work, params->svd_threshold,
-      &ierr
+      &ierr, &malloc
   );
   
   free(s_work); free(u_work); free(vt_work);
@@ -599,14 +606,14 @@ void free_dense_params(struct criterion_test_params *params) {
   for (size_t i = 0; i < params->length; i++) {
     struct ParametersTestDense *param = params->params + i;
     cr_free(param->matrix);
-    free_tree_hodlr_cr(&param->expected);
+    free_tree_hodlr(&param->expected, &cr_free);
   }
   cr_free(params->params);
 }
 
 
 struct ParametersTestDense * generate_dense_params(int * len) {
-  int n_params = 1;
+  int n_params = 1, ierr = SUCCESS;
   *len = n_params;
   struct ParametersTestDense *params = cr_malloc(n_params * sizeof(struct ParametersTestDense));
 
@@ -616,7 +623,7 @@ struct ParametersTestDense * generate_dense_params(int * len) {
   params[0].matrix = construct_laplacian_matrix(params[0].m);
   params[0].matrix[params[0].m - 1] = 0.5;
   params[0].matrix[params[0].m * (params[0].m - 1)] = 0.5;
-
+  
   // Set up HODLR
   params[0].svd_threshold = 0.1;
   params[0].expected = cr_malloc(sizeof(struct TreeHODLR));
@@ -675,17 +682,19 @@ struct ParametersTestDense * generate_dense_params(int * len) {
 }
 
 
-ParameterizedTestParameters(tree, dense_to_tree) {
+ParameterizedTestParameters(constructors, dense_to_tree) {
   int n_params;
   struct ParametersTestDense *params = generate_dense_params(&n_params);
   return cr_make_param_array(struct ParametersTestDense, params, n_params, free_dense_params);
 }
 
 
-ParameterizedTest(struct ParametersTestDense *params, tree, dense_to_tree) {
+ParameterizedTest(struct ParametersTestDense *params, 
+                  constructors, dense_to_tree) {
   int ierr;
 
-  struct TreeHODLR *result = allocate_tree(params->height, &ierr);
+  struct TreeHODLR *result = allocate_tree_monolithic(params->height, &ierr,
+                                                      &malloc, &free);
   cr_expect(eq(ierr, SUCCESS));
   cr_expect(ne(result, NULL));
   if (ierr != SUCCESS) {
@@ -694,15 +703,17 @@ ParameterizedTest(struct ParametersTestDense *params, tree, dense_to_tree) {
 
   expect_tree_consistent(result, params->height, params->expected->len_work_queue);
   
-  int svd = dense_to_tree_hodlr(result, params->m, params->matrix, params->svd_threshold, &ierr);
+  int svd = dense_to_tree_hodlr(
+    result, params->m, params->matrix, params->svd_threshold, &ierr, &malloc, &free
+  );
   
   cr_expect(eq(ierr, SUCCESS));
   cr_expect(zero(svd));
   if (ierr != SUCCESS) {
-    free_tree_hodlr(&result);
+    free_tree_hodlr(&result, &free);
     cr_fatal();
   }
 
   expect_tree_hodlr(result, params->expected);
-  free_tree_hodlr(&result);
+  free_tree_hodlr(&result, &free);
 }

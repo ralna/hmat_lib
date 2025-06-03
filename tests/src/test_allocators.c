@@ -1,3 +1,7 @@
+#ifndef _TEST_HODLR
+#define _TEST_HODLR 1
+#endif
+
 #include <stdlib.h>
 
 #include <criterion/criterion.h>
@@ -163,7 +167,7 @@ ParameterizedTest(struct ParametersArraySizes *params, allocators,
   expect_tree_consistent(hodlr, params->height, params->expected.len_work_queue);
 
   cr_log_info("TreeHODLR check concluded, freeing...");
-  free_tree_hodlr(&hodlr);
+  free_tree_hodlr(&hodlr, &free);
 }
 
 
@@ -180,7 +184,8 @@ ParameterizedTest(struct ParametersArraySizes *params, allocators,
   cr_log_info("height=%d", params->height);
   int ierr = SUCCESS;
 
-  struct TreeHODLR *hodlr = allocate_tree_monolithic(params->height, &ierr);
+  struct TreeHODLR *hodlr = allocate_tree_monolithic(params->height, &ierr,
+                                                     &malloc, &free);
 
   cr_expect(eq(i32, ierr, SUCCESS));
   cr_expect(ne(ptr, hodlr, NULL));
@@ -193,7 +198,7 @@ ParameterizedTest(struct ParametersArraySizes *params, allocators,
   cr_expect(ne(ptr, hodlr->memory_leaf_ptr, NULL));
 
   cr_log_info("TreeHODLR check concluded, freeing...");
-  free_tree_hodlr(&hodlr);
+  free_tree_hodlr(&hodlr, &free);
 }
 
 
@@ -223,6 +228,6 @@ ParameterizedTest(struct ParametersArraySizes *params, allocators,
   cr_expect(eq(ptr, hodlr->memory_leaf_ptr, NULL));
 
   cr_log_info("TreeHODLR check concluded, freeing...");
-  free_tree_hodlr(&hodlr);
+  free_tree_hodlr(&hodlr, &free);
 }
 

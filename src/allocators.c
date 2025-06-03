@@ -303,7 +303,13 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
 }
 
 
+#ifndef _TEST_HODLR
 struct TreeHODLR * allocate_tree_monolithic(const int height, int *ierr) {
+#else
+struct TreeHODLR * allocate_tree_monolithic(const int height, int *ierr,
+                                            void *(*malloc)(size_t size),
+                                            void(*free)(void *ptr)) {
+#endif
   size_t size_internal_nodes, size_leaf_nodes;
   size_t size_work_queue, size_innermost_leaves;
   *ierr = SUCCESS;
@@ -447,6 +453,7 @@ void construct_tree(const int height,
 }
 
 
+#ifndef _TEST_HODLR
 /**
  * Frees the allocated data in a HODLR tree.
  *
@@ -465,6 +472,9 @@ void construct_tree(const int height,
  * :return: Nothing
  */
 void free_tree_data(struct TreeHODLR *hodlr) {
+#else
+void free_tree_data(struct TreeHODLR *hodlr, void(*free)(void *ptr)) {
+#endif
   if (hodlr == NULL) {
     return;
   }
@@ -512,6 +522,7 @@ void free_tree_data(struct TreeHODLR *hodlr) {
 }
 
 
+#ifndef _TEST_HODLR
 /**
  * Frees the entire HOLDR tree.
  *
@@ -532,6 +543,10 @@ void free_tree_data(struct TreeHODLR *hodlr) {
  * :return: Nothing
  */
 void free_tree_hodlr(struct TreeHODLR **hodlr_ptr) {
+#else
+void free_tree_hodlr(struct TreeHODLR **hodlr_ptr,
+                     void(*free)(void *ptr)) {
+#endif
   if (hodlr_ptr == NULL) {
     return;
   }
@@ -542,7 +557,11 @@ void free_tree_hodlr(struct TreeHODLR **hodlr_ptr) {
   }
 
   if (hodlr->memory_leaf_ptr != NULL) {
+#ifndef _TEST_HODLR
     free_tree_data(hodlr);
+#else
+    free_tree_data(hodlr, free);
+#endif
     free(hodlr->memory_leaf_ptr);
     free(hodlr->memory_internal_ptr);
     free(hodlr->work_queue);

@@ -272,11 +272,25 @@ int dense_to_tree_hodlr(struct TreeHODLR *hodlr,
                         const int m,
                         double *matrix,
                         const double svd_threshold,
-                        int *ierr);
+                        int *ierr
+#ifdef _TEST_HODLR
+                        , void *(*permanent_allocator)(size_t size),
+                        void(*free)(void *ptr)
+#endif
+                        );
 
+#ifndef _TEST_HODLR
 void free_tree_hodlr(struct TreeHODLR **hodlr_ptr);
+#else
+void free_tree_hodlr(struct TreeHODLR **hodlr_ptr,
+                     void(*free)(void *ptr));
+#endif
 
+#ifndef _TEST_HODLR
 void free_tree_data(struct TreeHODLR *hodlr);
+#else
+void free_tree_data(struct TreeHODLR *hodlr, void(*free)(void *ptr));
+#endif
 
 double * multiply_vector(const struct TreeHODLR *hodlr, const double *vector, double *out);
 
@@ -308,7 +322,13 @@ void construct_tree(const int height,
                     struct HODLRLeafNode **innermost_leaves,
                     int *ierr);
  
+#ifndef _TEST_HODLR
 struct TreeHODLR * allocate_tree_monolithic(const int height, int *ierr);
+#else
+struct TreeHODLR * allocate_tree_monolithic(const int height, int *ierr,
+                                            void *(*malloc)(size_t size),
+                                            void(*free)(void *ptr));
+#endif
 
 #endif
 

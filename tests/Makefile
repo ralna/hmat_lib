@@ -9,32 +9,33 @@ EXTRA_FLAGS := -g #-fsanitize=address
 
 WARNINGS := -Wall -Wextra -Wno-unknown-pragmas
 
+COMPILER := gcc
 
-unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o lapack_wrapper.o utils.o common_data.o tree_stubs.o
+
+unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_dense_algebra.o lapack_wrapper.o utils.o common_data.o tree_stubs.o
 	gcc \
 		${BUILD_DIR}/test_allocators.o \
 		${BUILD_DIR}/test_vector_algebra.o \
 		${BUILD_DIR}/test_tree_construct.o \
+		${BUILD_DIR}/test_dense_algebra.o \
 		${BUILD_DIR}/lapack_wrapper.o \
 		${BUILD_DIR}/utils.o \
 		${BUILD_DIR}/common_data.o \
-		${BUILD_DIR}/tree_stubs.o \
 		-o ${OUT_DIR}/unit_test \
 		-lopenblas -lm -lcriterion \
-		-Wall -Wextra \
 		${EXTRA_FLAGS}
 
 
-test_dense_algebra: test_dense_algebra.o
+test_dense_algebra: test_dense_algebra.o allocators.o constructors.o
 	gcc \
 		${BUILD_DIR}/test_dense_algebra.o \
 		${BUILD_DIR}/lapack_wrapper.o \
 		${BUILD_DIR}/utils.o \
 		${BUILD_DIR}/common_data.o \
-		${BUILD_DIR}/tree_stubs.o \
+		${BUILD_DIR}/allocators.o \
+		${BUILD_DIR}/constructors.o \
 		-o ${OUT_DIR}/test_dense_algebra \
 		-lopenblas -lm -lcriterion \
-		-Wall -Wextra \
 		${EXTRA_FLAGS}
 
 test_dense_algebra.o: ${TESTS_DIR}/test_hodlr_dense_algebra.c lapack_wrapper.o utils.o common_data.o tree_stubs.o
@@ -43,6 +44,7 @@ test_dense_algebra.o: ${TESTS_DIR}/test_hodlr_dense_algebra.c lapack_wrapper.o u
 		-o ${BUILD_DIR}/test_dense_algebra.o \
 		-lopenblas -lm -lcriterion \
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
+		${WARNINGS} \
 		${EXTRA_FLAGS}
 
 
@@ -125,7 +127,13 @@ allocators.o: ${SRC_DIR}/allocators.c
 	${COMPILER} \
 		-c ${SRC_DIR}/allocators.c \
 		-o ${BUILD_DIR}/allocators.o \
-		-I ${INCLUDE_DIR} ${WARNINGS} ${EXTRA_FLAGS} \
+		-I ${INCLUDE_DIR} ${WARNINGS} ${EXTRA_FLAGS}
+
+constructors.o: ${SRC_DIR}/constructors.c
+	${COMPILER} \
+		-c ${SRC_DIR}/constructors.c \
+		-o ${BUILD_DIR}/constructors.o \
+		-I ${INCLUDE_DIR} ${WARNINGS} ${EXTRA_FLAGS} 
 
 lapack_wrapper.o: ${SRC_DIR}/lapack_wrapper.c
 	gcc \

@@ -85,7 +85,11 @@ static void copy_diagonal_blocks(double *restrict matrix,
                                  int m,
                                  struct HODLRInternalNode **restrict queue,
                                  long n_parent_nodes,
-                                 int *restrict ierr) {
+                                 int *restrict ierr
+#ifdef _TEST_HODLR
+                                 , void *(*malloc)(size_t size)
+#endif
+                                 ) {
   int m_larger = 0, m_smaller = 0, offset = 0;
   double *data = NULL;
 
@@ -182,7 +186,11 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
                                  double *restrict u,
                                  double *restrict vt,
                                  const double svd_threshold,
-                                 int *restrict ierr) {
+                                 int *restrict ierr
+#ifdef _TEST_HODLR
+                                 , void *(*malloc)(size_t size)
+#endif
+                                 ) {
   //printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
   //print_matrix(matrix_leading_dim, matrix_leading_dim, lapack_matrix - 5);
   int result = svd_double(m, n, n_singular_values, matrix_leading_dim, 
@@ -297,7 +305,11 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
                            double *restrict u,
                            double *restrict vt,
                            const double svd_threshold,
-                           int *ierr) {
+                           int *ierr
+#ifdef _TEST_HODLR
+                           , void *(*malloc)(size_t size)
+#endif
+                           ) {
   long n_parent_nodes = hodlr->len_work_queue;
   int offset_matrix = 0, offset_s = 0, offset_u = 0;
   int m_smaller = 0, m_larger = 0;
@@ -323,7 +335,10 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
             node, 
             m_larger, m_smaller, m_smaller, m, sub_matrix_pointer,
             s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
-          ); // make sure ierr is not overwritten
+#ifdef _TEST_HODLR
+            , malloc
+#endif
+          );
 
           if (*ierr != SUCCESS) {
             //handle_error(ierr, result);
@@ -349,6 +364,9 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
             node, 
             m_smaller, m_larger, m_smaller, m, sub_matrix_pointer, 
             s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
+#ifdef _TEST_HODLR
+            , malloc
+#endif
           );
           if (*ierr != SUCCESS) {
             // error out
@@ -382,6 +400,9 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
       node, 
       m_larger, m_smaller, m_smaller, m, sub_matrix_pointer,
       s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
+#ifdef _TEST_HODLR
+      , malloc
+#endif
     );
     if (*ierr != SUCCESS) {
       //handle_error(ierr, result);  // 
@@ -404,6 +425,9 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
       node, 
       m_smaller, m_larger, m_smaller, m, sub_matrix_pointer, 
       s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
+#ifdef _TEST_HODLR
+      , malloc
+#endif
     );
     if (*ierr != SUCCESS) {
       // error out
@@ -470,7 +494,12 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
                         const int m,
                         double *restrict matrix, 
                         const double svd_threshold,
-                        int *ierr) {
+                        int *ierr
+#ifdef _TEST_HODLR
+                        , void *(*malloc)(size_t size),
+                        void(*free)(void *ptr)
+#endif
+                        ) {
   if (hodlr == NULL || matrix == NULL) {
     *ierr = INPUT_ERROR;
     return 0;
@@ -501,7 +530,12 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
 
   compute_block_sizes(hodlr, queue, m);
 
+#ifndef _TEST_HODLR
   copy_diagonal_blocks(matrix, m, queue, n_parent_nodes, ierr);
+#else
+  copy_diagonal_blocks(matrix, m, queue, n_parent_nodes, ierr, malloc);
+#endif
+
   if (*ierr != SUCCESS) {
     free(s); free(u);
     return 0;
@@ -513,8 +547,12 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
     {
       #pragma omp taskgroup
       {
-        result = compress_matrix(hodlr, queue, matrix, m, s, u, vt, 
-                                 svd_threshold, ierr);
+        result = compress_matrix(
+          hodlr, queue, matrix, m, s, u, vt, svd_threshold, ierr
+#ifdef _TEST_HODLR
+          , malloc
+#endif
+        );
       }
     }
   }

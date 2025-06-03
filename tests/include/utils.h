@@ -1,3 +1,7 @@
+#ifndef _TEST_HODLR
+#define _TEST_HODLR 1
+#endif
+
 #include "../../include/tree.h"
 
 void expect_leaf_offdiagonal(struct HODLRLeafNode *leaf,
