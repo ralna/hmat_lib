@@ -186,6 +186,10 @@ int main() {
   print_matrix(m, m, result);
   free(result);
 
+  result = multiply_dense_hodlr(hodlr, matrix, m, m, NULL, m);
+  print_matrix(m, m, result);
+  free(result);
+
   free_tree_hodlr(&hodlr);
   free(matrix);
   free(vector);
