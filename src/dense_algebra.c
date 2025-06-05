@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "../include/lapack_wrapper.h"
 #include "../include/tree.h"
@@ -46,7 +47,7 @@ void compute_multiply_hodlr_dense_workspace(
   const int matrix_a,
   int *restrict workspace_sizes
 ) {
-  int idx = 0, s = 0;
+  int s = 0, idx = 0;
   long n_parent_nodes = hodlr->len_work_queue;
 
   struct HODLRInternalNode **queue = hodlr->work_queue;
@@ -60,20 +61,23 @@ void compute_multiply_hodlr_dense_workspace(
   }
 
   for (int _ = hodlr->height-1; _ > 0; _--) {
-    n_parent_nodes /= 2;
-    for (int j = 0; j < n_parent_nodes; j++) {
-      idx = 2 * j;
-      for (int k = 0; k < 2; k++) {
-        s = queue[idx + k]->children[1].leaf->data.off_diagonal.s;
-        if (s > workspace_sizes[0]) {
-          workspace_sizes[0] = s;
-        }
+    n_parent_nodes /= 2; idx = 0;
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      for (int child = 0; child < 2; child++) {
+        for (int leaf = 1; leaf < 3; leaf++) {
+          s = queue[idx]->children[leaf].leaf->data.off_diagonal.s;
+          if (s > workspace_sizes[0]) {
+            workspace_sizes[0] = s;
+          }
 
-        s = queue[idx + k]->children[2].leaf->data.off_diagonal.s;
-        if (s > workspace_sizes[0]) {
-          workspace_sizes[0] = s;
+          s = queue[idx]->children[leaf].leaf->data.off_diagonal.s;
+          if (s > workspace_sizes[0]) {
+            workspace_sizes[0] = s;
+          }
         }
+        idx++;
       }
+      queue[parent] = queue[idx-1]->parent;
     } 
   }
 
@@ -88,6 +92,48 @@ void compute_multiply_hodlr_dense_workspace(
   }
 
   workspace_sizes[0] *= matrix_a;
+}
+
+
+/**
+ * Multiplies a low-rank matrix and a dense matrix.
+ *
+ * Given an off-diagonal node (which represents a low-rank matrix) and a 
+ * dense matrix, computies the product of the two as a dense matrix.
+ *
+ * :param node: A pointer to the off-diagonal node to multiply. It must not be
+ *              ``NULL`` and must point to a valid node with correctly 
+ *              allocated and set values, anything else is undefined.
+ * :param matrix: A pointer to an array containing the dense matrix to be used
+ *                for the multiplication. Must not be ``NULL``.
+ * :param matrix_n: The number of columns of ``matrix``.
+ * :param matrix_ld: The leading dimension of ``matrix``.
+ * :param alpha: The value of ``alpha`` to use for ``dgesdd``.
+ * :param beta: The value of ``beta`` to use for ``dgesdd``.
+ * :param workspace: A pointer to a workspace array to be used. Must be large
+ *                   enough to accomodate a ``s`` x ``matrix_n`` matrix where
+ *                   ``s`` is the number of stored singular values on ``node``.
+ * :param out: A pointer to an array to which to store the result. Must be 
+ *             large enough to accomodate a ``m`` x ``matrix_n`` matrix, where
+ *             ``m`` is the number of rows of ``node``.
+ * :param out_ld: The leading dimension of ``out``.
+ */
+static inline void multiply_low_rank_dense(
+  const struct NodeOffDiagonal *restrict node,
+  const double *restrict matrix,
+  const int matrix_n,
+  const int matrix_ld,
+  const double alpha,
+  const double beta,
+  double *workspace,
+  double *out,
+  const int out_ld
+) {
+  dgemm_("T", "N", &node->s, &matrix_n, &node->n, &alpha, node->v, &node->n, 
+         matrix, &matrix_ld, &beta, workspace, &node->s);
+
+  dgemm_("N", "N", &node->m, &matrix_n, &node->s, &alpha, node->u, &node->m, 
+         workspace, &node->s, &beta, out, &out_ld);
 }
 
 
@@ -156,49 +202,31 @@ static inline void multiply_off_diagonal_dense(
   const double beta,
   int *restrict offset_ptr
 ) {
-  int i = 0, j = 0;
   int m = parent->children[1].leaf->data.off_diagonal.m;
   int n = parent->children[1].leaf->data.off_diagonal.n;
-  int s = parent->children[1].leaf->data.off_diagonal.s;
   
   int offset2 = *offset_ptr;
   *offset_ptr += m;
   int offset = *offset_ptr;
 
-  //print_matrix(m, s, parent->children[1].leaf->data.off_diagonal.u, m);
-  dgemm_("T", "N", &s, &matrix_n, &n, &alpha, 
-         parent->children[1].leaf->data.off_diagonal.v, 
-         &n, matrix + offset, &matrix_ld, 
-         &beta, workspace, &s);
-  //print_matrix(s, matrix_n, workspace, s);
+  multiply_low_rank_dense(
+    &parent->children[1].leaf->data.off_diagonal, matrix + offset, matrix_n,
+    matrix_ld, alpha, beta, workspace, workspace2, m
+  );
 
-  dgemm_("N", "N", &m, &matrix_n, &s, &alpha, 
-         parent->children[1].leaf->data.off_diagonal.u, 
-         &m, workspace, &s,
-         &beta, workspace2, &m);
-  //print_matrix(m, matrix_n, workspace2, m);
-
-  for (j = 0; j < matrix_n; j++) {
-    for (i = 0; i < m; i++) {
+  for (int j = 0; j < matrix_n; j++) {
+    for (int i = 0; i < m; i++) {
       out[offset2 + i + j * out_ld] += workspace2[i + j * m];
     }
   }
-  
-  s = parent->children[2].leaf->data.off_diagonal.s;
-  dgemm_("T", "N", &s, &matrix_n, &m, &alpha, 
-         parent->children[2].leaf->data.off_diagonal.v, 
-         &m, matrix + offset2, &matrix_ld, 
-         &beta, workspace, &s);
-  //print_matrix(s, matrix_n, workspace, m);
 
-  dgemm_("N", "N", &n, &matrix_n, &s, &alpha, 
-         parent->children[2].leaf->data.off_diagonal.u, 
-         &n, workspace, &s,
-         &beta, workspace2, &n);
-  //print_matrix(n, matrix_n, workspace2, n);
+  multiply_low_rank_dense(
+    &parent->children[2].leaf->data.off_diagonal, matrix + offset2, matrix_n,
+    matrix_ld, alpha, beta, workspace, workspace2, n
+  );
 
-  for (j = 0; j < matrix_n; j++) {
-    for (i = 0; i < n; i++) {
+  for (int j = 0; j < matrix_n; j++) {
+    for (int i = 0; i < n; i++) {
       out[offset + i + j * out_ld] += workspace2[i + j * n];
     }
   }
@@ -319,6 +347,114 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
   free(workspace);
         
   return out;
+}
+
+
+/**
+ * Multiplies a HODLR matrix represented by an internal nodes and a dense 
+ * matrix.
+ *
+ * Given an internal node and its height, and a dense matrix, computes their
+ * product as a dense matrix.
+ *
+ * :param internal: A pointer to the internal node representing a HODLR matrix
+ *                  to multiply. Must not be NULL and must be correctly 
+ *                  allocated and fully constructed - anything else is 
+ *                  undefined.
+ * :param height: The height of the HODLR matrix represented by ``internal``.
+ *                This must correspond with the number of internal nodes 
+ *                starting from ``internal`` (including) all the way to the 
+ *                bottom of the tree.
+ * :param matrix: A pointer to access an array containing the matrix to 
+ *                multiply. Must not be ``NULL`` and must be large enough to 
+ *                store the ``matrix_ld`` x ``matrix_n`` matrix.
+ * :param matrix_n: The number of columns of ``matrix``.
+ * :param matrix_ld: The leading dimension of ``matrix``.
+ * :param queue: A pointer to access an array of pointers to internal nodes.
+ *               This is a workspace array used to loop over the tree. Must 
+ *               not be ``NULL``.
+ * :param workspace: A pointer to access an array containing enough space 
+ *                   to store an ``s`` x ``matrix_n`` matrix, where ``s`` is 
+ *                   the largest number of singular values kept on any leaf 
+ *                   node of the ``internal`` tree. Must not be ``NULL``.
+ * :param workspace2: A pointer to access an array containing enough space to
+ *                    store an ``m`` x ``matrix_n`` matrix, where ``m`` is the
+ *                    number of rows of the largest block of the ``internal``
+ *                    tree. Must not be ``NULL``.
+ * :param out: A pointer to access an array to be used to save the results.
+ *             Must be large enough to store a ``out_ld`` x ``matrix_n`` 
+ *             matrix. Must not be ``NULL``.
+ * :param out_ld: The leading dimension of ``out``.
+ */
+void multiply_internal_node_dense(
+  const struct HODLRInternalNode *restrict internal,
+  const int height,
+  const double *restrict matrix,
+  const int matrix_n,
+  const int matrix_ld,
+  const struct HODLRInternalNode **restrict queue,
+  double *restrict workspace,
+  double *restrict workspace2,
+  double *restrict out,
+  const int out_ld
+) {
+  int len_queue = 1, q_next_node_density = (int)pow(2, height-1);
+  int q_current_node_density = q_next_node_density;
+  int m_smaller = 0, m_larger = 0, idx = 0, offset = 0;
+  const double alpha = 1.0, beta = 0.0;
+
+  int m = internal->children[1].leaf->data.off_diagonal.m;
+
+  multiply_low_rank_dense(&internal->children[1].leaf->data.off_diagonal,
+                          matrix + m, matrix_n, matrix_ld, alpha, beta,
+                          workspace, out, out_ld);
+
+  multiply_low_rank_dense(&internal->children[2].leaf->data.off_diagonal,
+                          matrix, matrix_n, matrix_ld, alpha, beta,
+                          workspace, out + m, out_ld);
+
+  queue[0] = internal;
+  for (int _ = 1; _ < height; _++) {
+    q_next_node_density /= 2;
+    offset = 0;
+
+    for (int parent = 0; parent < len_queue; parent++) {
+      idx = parent * q_current_node_density;
+      for (int child = 0; child < 4; child += 3) {
+        multiply_off_diagonal_dense(
+          queue[idx]->children[child].internal,
+          matrix, matrix_n, matrix_ld, 
+          out, out_ld, workspace, workspace2, 
+          alpha, beta, &offset
+        );
+      }
+
+      queue[(2 * parent + 1) * q_next_node_density] = 
+        queue[idx]->children[3].internal;
+      queue[idx] = queue[idx]->children[0].internal;
+    }
+    len_queue *= 2;
+    q_current_node_density = q_next_node_density;
+  }
+
+  offset = 0;
+  for (int node = 0; node < len_queue; node++) {
+    for (int child = 0; child < 4; child+=3) {
+      m = queue[node]->children[child].leaf->data.diagonal.m;
+      dgemm_("N", "N", &m, &matrix_n, &m, &alpha, 
+              queue[node]->children[child].leaf->data.diagonal.data, 
+              &m, matrix + offset, &matrix_ld,
+              &beta, workspace2, &m);
+
+      for (int j = 0; j < matrix_n; j++) {
+        for (int i = 0; i < m; i++) {
+          out[i + offset + j * out_ld] += workspace2[i + j * m];
+        }
+      }
+      
+      offset += m;
+    }
+  }
 }
 
 

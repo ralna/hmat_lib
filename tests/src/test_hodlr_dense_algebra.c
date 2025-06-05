@@ -154,13 +154,13 @@ void free_hd_params(struct criterion_test_params *params) {
 }
 
 
-static void laplacian_matrix(struct ParametersTestHxD *params,
-                      int start) {
+static void laplacian_matrix(struct ParametersTestHxD *params) {
   int i = 0, ierr = 0, n_cases = 3;
   double svd_threshold = 0.1;
+  double *matrix = NULL;
 
   for (int height = 1; height < 4; height++) {
-    i = n_cases * (height - 1) + start;
+    i = n_cases * (height - 1);
 
     for (int j = i; j < i+n_cases; j++) {
       params[j].m = 21;
@@ -171,14 +171,15 @@ static void laplacian_matrix(struct ParametersTestHxD *params,
     }
 
     // LAPLACIAN MATRIX
+    matrix = construct_laplacian_matrix(params[i+1].m);
     strncat(params[i].hodlr_name, "L", STR_LEN);
-    dense_to_tree_hodlr(params[i].hodlr, params[i].m, 
-                        construct_laplacian_matrix(params[i].m), 
+    dense_to_tree_hodlr(params[i].hodlr, params[i].m, matrix, 
                         svd_threshold, &ierr, &cr_malloc, &cr_free);
+    cr_free(matrix);
 
     // LAPLACIAN MATRIX with 0.5 in corners
     strncat(params[i+1].hodlr_name, "L0.5S", STR_LEN);
-    double *matrix = construct_laplacian_matrix(params[i+1].m);
+    matrix = construct_laplacian_matrix(params[i+1].m);
     matrix[params[i+1].m - 1] = 0.5;
     matrix[params[i+1].m * (params[i+1].m - 1)] = 0.5;
     dense_to_tree_hodlr(params[i+1].hodlr, params[i+1].m,
@@ -220,6 +221,7 @@ static void identity_matrix(struct ParametersTestHxD *params,
                      int start) {
   int i = 0, idx = 0, ierr = 0, n_cases = 3;
   double svd_threshold = 0.1;
+  double *matrix;
 
   for (int height = 1; height < 4; height++) {
     idx = n_cases * (height - 1) + start;
@@ -232,9 +234,10 @@ static void identity_matrix(struct ParametersTestHxD *params,
 
       params[i].hodlr = allocate_tree_monolithic(height, &ierr,
                                                  &cr_malloc, &cr_free);
-      dense_to_tree_hodlr(params[i].hodlr, params[i].m, 
-                          construct_identity_matrix(params[i].m), 
+      matrix = construct_identity_matrix(params[i].m);
+      dense_to_tree_hodlr(params[i].hodlr, params[i].m, matrix, 
                           svd_threshold, &ierr, &cr_malloc, &cr_free);
+      cr_free(matrix);
     }
 
     strncat(params[idx].dense_name, "I", STR_LEN);
@@ -257,7 +260,7 @@ struct ParametersTestHxD * generate_hodlr_dense_params(int * len) {
   *len = n_params;
   struct ParametersTestHxD *params = cr_malloc(n_params * sizeof(struct ParametersTestHxD));
 
-  laplacian_matrix(params, 0);
+  laplacian_matrix(params);
   identity_matrix(params, 9);
   return params;
 }
@@ -286,5 +289,42 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, test_hodlr_de
                                m, params->dense_n, m, m, 'M');
 
   free(result);
+}
+
+
+ParameterizedTestParameters(dense_algebra, test_internal_dense) {
+  int n_params;
+  struct ParametersTestHxD *params = generate_hodlr_dense_params(&n_params);
+
+  return cr_make_param_array(struct ParametersTestHxD, params, n_params, free_hd_params);
+}
+
+
+ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, 
+                  test_internal_dense) {
+  int ierr = 0;
+  int m = params->hodlr->root->m;
+
+  cr_log_info("%.10s (height=%d) x %.10s (%dx%d, lda=%d)",
+              params->hodlr_name, params->hodlr->height, params->dense_name, 
+              params->m, params->dense_n, params->dense_ld);
+
+  int *sizes = malloc(2 * sizeof(int));
+  compute_multiply_hodlr_dense_workspace(params->hodlr, params->dense_n, sizes);
+
+  double *workspace = malloc(sizes[0] * sizeof(double));
+  double *workspace2 = malloc(sizes[1] * sizeof(double));
+
+  double * result = malloc(params->dense_ld * m * sizeof(double));
+  multiply_internal_node_dense(
+    params->hodlr->root, params->hodlr->height, params->dense, 
+    params->dense_n, params->dense_ld, params->hodlr->work_queue, 
+    workspace, workspace2, result, m
+  );
+
+  expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
+                               m, params->dense_n, m, m, 'M');
+
+  free(result); free(sizes); free(workspace2); free(workspace);
 }
 
