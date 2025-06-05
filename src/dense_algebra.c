@@ -354,7 +354,7 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
 
 
 /**
- * Multiplies a HODLR matrix represented by an internal nodes and a dense 
+ * Multiplies a HODLR matrix represented by an internal node and a dense 
  * matrix.
  *
  * Given an internal node and its height, and a dense matrix, computes their
@@ -574,7 +574,6 @@ static inline void multiply_dense_off_diagonal(
   int i = 0, j = 0;
   int m = parent->children[1].leaf->data.off_diagonal.m;
   int n = parent->children[1].leaf->data.off_diagonal.n;
-  int s = parent->children[1].leaf->data.off_diagonal.s;
   
   int offset = *offset_ptr * matrix_m;
   *offset_ptr += m;
@@ -606,9 +605,9 @@ static inline void multiply_dense_off_diagonal(
 
 
 /**
- * Multiplies a tree HODLR matrix by a dense matrix as a dense matrix.
+ * Multiplies a dense matrix by a tree HODLR matrix as a dense matrix.
  *
- * Given a HODLR tree and a dense matrix array, computes the matrix-matrix 
+ * Given a dense matrix and a HODLR tree, computes the matrix-matrix 
  * multiplication and returns the result as a dense matrix.
  *
  * :param hodlr: Pointer to the HODLR tree to multiply. This must be a 
@@ -625,7 +624,7 @@ static inline void multiply_dense_off_diagonal(
  *                Must not overlap with ``out`` and must be occupied with 
  *                values - either will lead to undefined behaviour.
  *                If ``NULL``, the function will immediately abort.
- * :param matrix_n: The number of columns of ``matrix``.
+ * :param matrix_m: The number of rows of ``matrix`` to multiply.
  * :param matrix_ld: The leading dimension of ``matrix``, i.e. the number of 
  *                   rows of the full array. Must be greater than or equal to 
  *                   the number of rows of ``hodlr``.
@@ -717,6 +716,114 @@ double * multiply_dense_hodlr(const struct TreeHODLR *hodlr,
   free(workspace);
         
   return out;
+}
+
+
+/**
+ * Multiplies a dense matryx by a HODLR matrix represented by an internal 
+ * node.
+ *
+ * Given a dense matrix, and an internal node and its height, computes their
+ * product as a dense matrix.
+ *
+ * :param internal: A pointer to the internal node representing a HODLR matrix
+ *                  to multiply. Must not be NULL and must be correctly 
+ *                  allocated and fully constructed - anything else is 
+ *                  undefined.
+ * :param height: The height of the HODLR matrix represented by ``internal``.
+ *                This must correspond with the number of internal nodes 
+ *                starting from ``internal`` (including) all the way to the 
+ *                bottom of the tree.
+ * :param matrix: A pointer to access an array containing the matrix to 
+ *                multiply. Must not be ``NULL`` and must be large enough to 
+ *                store the ``matrix_ld`` x ``matrix_n`` matrix.
+ * :param matrix_m: The number of rows of ``matrix`` to multiply.
+ * :param matrix_ld: The leading dimension of ``matrix``.
+ * :param queue: A pointer to access an array of pointers to internal nodes.
+ *               This is a workspace array used to loop over the tree. Must 
+ *               not be ``NULL``.
+ * :param workspace: A pointer to access an array containing enough space 
+ *                   to store an ``s`` x ``matrix_n`` matrix, where ``s`` is 
+ *                   the largest number of singular values kept on any leaf 
+ *                   node of the ``internal`` tree. Must not be ``NULL``.
+ * :param workspace2: A pointer to access an array containing enough space to
+ *                    store an ``m`` x ``matrix_n`` matrix, where ``m`` is the
+ *                    number of rows of the largest block of the ``internal``
+ *                    tree. Must not be ``NULL``.
+ * :param out: A pointer to access an array to be used to save the results.
+ *             Must be large enough to store a ``out_ld`` x ``matrix_n`` 
+ *             matrix. Must not be ``NULL``.
+ * :param out_ld: The leading dimension of ``out``.
+ */
+void multiply_dense_internal_node(
+  const struct HODLRInternalNode *restrict internal,
+  const int height,
+  const double *restrict matrix,
+  const int matrix_m,
+  const int matrix_ld,
+  const struct HODLRInternalNode **restrict queue,
+  double *restrict workspace,
+  double *restrict workspace2,
+  double *restrict out,
+  const int out_ld
+) {
+  int len_queue = 1, q_next_node_density = (int)pow(2, height-1);
+  int q_current_node_density = q_next_node_density;
+  int m_smaller = 0, m_larger = 0, idx = 0, offset = 0;
+  const double alpha = 1.0, beta = 0.0;
+
+  int m = internal->children[1].leaf->data.off_diagonal.m;
+
+  multiply_dense_low_rank(&internal->children[1].leaf->data.off_diagonal,
+                          matrix, matrix_m, matrix_ld, alpha, beta,
+                          workspace, out + m * out_ld, out_ld);
+
+  multiply_dense_low_rank(&internal->children[2].leaf->data.off_diagonal,
+                          matrix + m * out_ld, matrix_m, matrix_ld, alpha, beta,
+                          workspace, out, out_ld);
+
+  queue[0] = internal;
+  for (int _ = 1; _ < height; _++) {
+    q_next_node_density /= 2;
+    offset = 0;
+
+    for (int parent = 0; parent < len_queue; parent++) {
+      idx = parent * q_current_node_density;
+      for (int child = 0; child < 4; child += 3) {
+        multiply_dense_off_diagonal(
+          queue[idx]->children[child].internal,
+          matrix, matrix_m, matrix_ld, 
+          out, out_ld, workspace, workspace2, 
+          alpha, beta, &offset
+        );
+      }
+
+      queue[(2 * parent + 1) * q_next_node_density] = 
+        queue[idx]->children[3].internal;
+      queue[idx] = queue[idx]->children[0].internal;
+    }
+    len_queue *= 2;
+    q_current_node_density = q_next_node_density;
+  }
+
+  offset = 0;
+  for (int node = 0; node < len_queue; node++) {
+    for (int child = 0; child < 4; child+=3) {
+      m = queue[node]->children[child].leaf->data.diagonal.m;
+      dgemm_("N", "N", &matrix_m, &m, &m, &alpha, 
+             matrix + offset * matrix_ld, &matrix_ld,
+             queue[node]->children[child].leaf->data.diagonal.data, &m,
+             &beta, workspace2, &matrix_m);
+
+      for (int j = 0; j < m; j++) {
+        for (int i = 0; i < matrix_m; i++) {
+          out[i + (j + offset) * out_ld] += workspace2[i + j * matrix_m];
+        }
+      }
+      
+      offset += m;
+    }
+  }
 }
 
 

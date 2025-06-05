@@ -402,3 +402,40 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, dense_hodlr) 
 }
 
 
+ParameterizedTestParameters(dense_algebra, dense_internal) {
+  int n_params;
+  struct ParametersTestHxD *params = generate_dense_hodlr_params(&n_params);
+
+  return cr_make_param_array(struct ParametersTestHxD, params, n_params, free_hd_params);
+}
+
+
+ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, 
+                  dense_internal) {
+  int ierr = 0;
+  int m = params->hodlr->root->m;
+
+  cr_log_info("%.10s (height=%d) x %.10s (%dx%d, lda=%d)",
+              params->hodlr_name, params->hodlr->height, params->dense_name, 
+              params->m, params->dense_n, params->dense_ld);
+
+  int *sizes = malloc(2 * sizeof(int));
+  compute_multiply_hodlr_dense_workspace(params->hodlr, params->dense_n, sizes);
+
+  double *workspace = malloc(sizes[0] * sizeof(double));
+  double *workspace2 = malloc(sizes[1] * sizeof(double));
+
+  double * result = malloc(params->dense_ld * m * sizeof(double));
+  multiply_dense_internal_node(
+    params->hodlr->root, params->hodlr->height, params->dense, 
+    params->dense_n, params->dense_ld, params->hodlr->work_queue, 
+    workspace, workspace2, result, params->dense_n
+  );
+
+  expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
+                               m, params->dense_n, m, m, 'M');
+
+  free(result); free(sizes); free(workspace2); free(workspace);
+}
+
+
