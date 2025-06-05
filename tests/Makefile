@@ -12,7 +12,7 @@ WARNINGS := -Wall -Wextra -Wno-unknown-pragmas
 COMPILER := gcc
 
 
-unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_dense_algebra.o lapack_wrapper.o utils.o common_data.o tree_stubs.o
+unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_dense_algebra.o lapack_wrapper.o utils.o common_data.o
 	gcc \
 		${BUILD_DIR}/test_allocators.o \
 		${BUILD_DIR}/test_vector_algebra.o \
@@ -38,7 +38,7 @@ test_dense_algebra: test_dense_algebra.o allocators.o constructors.o
 		-lopenblas -lm -lcriterion \
 		${EXTRA_FLAGS}
 
-test_dense_algebra.o: ${TESTS_DIR}/test_hodlr_dense_algebra.c lapack_wrapper.o utils.o common_data.o tree_stubs.o
+test_dense_algebra.o: ${TESTS_DIR}/test_hodlr_dense_algebra.c lapack_wrapper.o utils.o common_data.o
 	gcc \
 		-c ${TESTS_DIR}/test_hodlr_dense_algebra.c \
 		-o ${BUILD_DIR}/test_dense_algebra.o \
@@ -54,13 +54,12 @@ test_vector_algebra: test_vector_algebra.o
 		${BUILD_DIR}/lapack_wrapper.o \
 		${BUILD_DIR}/utils.o \
 		${BUILD_DIR}/common_data.o \
-		${BUILD_DIR}/tree_stubs.o \
 		-o ${OUT_DIR}/test_vector_algebra \
 		-lopenblas -lm -lcriterion \
 		-Wall -Wextra \
 		${EXTRA_FLAGS}
 
-test_vector_algebra.o: ${TESTS_DIR}/test_vector_algebra.c lapack_wrapper.o utils.o common_data.o tree_stubs.o
+test_vector_algebra.o: ${TESTS_DIR}/test_vector_algebra.c lapack_wrapper.o utils.o common_data.o 
 	gcc \
 		-c ${TESTS_DIR}/test_vector_algebra.c \
 		-o ${BUILD_DIR}/test_vector_algebra.o \
@@ -69,14 +68,13 @@ test_vector_algebra.o: ${TESTS_DIR}/test_vector_algebra.c lapack_wrapper.o utils
 		${EXTRA_FLAGS}
 
 
-test_tree_construct: test_tree_construct.o allocators.o lapack_wrapper.o utils.o common_data.o tree_stubs.o
+test_tree_construct: test_tree_construct.o allocators.o lapack_wrapper.o utils.o common_data.o 
 	gcc \
 		${BUILD_DIR}/test_tree_construct.o \
 		${BUILD_DIR}/allocators.o \
 		${BUILD_DIR}/lapack_wrapper.o  \
 		${BUILD_DIR}/utils.o \
 		${BUILD_DIR}/common_data.o \
-		${BUILD_DIR}/tree_stubs.o \
 		-o ${OUT_DIR}/test_tree_construct \
 		-lopenblas -lm -lcriterion \
 		-Wall -Wextra \
@@ -105,16 +103,6 @@ test_allocators.o: ${TESTS_DIR}/test_allocators.c
 	gcc \
 		-c ${TESTS_DIR}/test_allocators.c \
 		-o ${BUILD_DIR}/test_allocators.o \
-		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
-		${EXTRA_FLAGS}
-
-
-
-tree_stubs.o: ${TESTS_DIR}/tree_stubs.c lapack_wrapper.o
-	gcc \
-		-c ${TESTS_DIR}/tree_stubs.c \
-		-o ${BUILD_DIR}/tree_stubs.o \
-		-lopenblas -lcriterion \
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${EXTRA_FLAGS}
 

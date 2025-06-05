@@ -323,3 +323,60 @@ int expect_vector_double_eq_safe(
   return errors;
 }
 
+
+void fill_leaf_node_ints(struct TreeHODLR *hodlr, const int m, int *ss) {
+  struct HODLRInternalNode ** queue = hodlr->work_queue;
+
+  long len_queue = 1, q_next_node_density = hodlr->len_work_queue;
+  long q_current_node_density = q_next_node_density;
+  int m_smaller = m / 2, idx = 0, sidx = 0;
+  int m_larger = m - m_smaller;
+
+  hodlr->root->m = m;
+  queue[0] = hodlr->root;
+
+  for (int _ = 1; _ < hodlr->height; _++) {
+    q_next_node_density /= 2;
+    for (int parent = 0; parent < len_queue; parent++) {
+      idx = parent * q_current_node_density;
+      
+      m_smaller = queue[idx]->m / 2;
+      m_larger = queue[idx]->m - m_smaller;
+
+      queue[idx]->children[0].internal->m = m_larger;
+      queue[idx]->children[3].internal->m = m_smaller;
+
+      queue[idx]->children[1].leaf->data.off_diagonal.m = m_larger;
+      queue[idx]->children[1].leaf->data.off_diagonal.s = ss[sidx];
+      queue[idx]->children[1].leaf->data.off_diagonal.n = m_smaller;
+      sidx++;
+
+      queue[idx]->children[2].leaf->data.off_diagonal.m = m_smaller;
+      queue[idx]->children[2].leaf->data.off_diagonal.s = ss[sidx];
+      queue[idx]->children[2].leaf->data.off_diagonal.n = m_larger;
+      sidx++;
+      
+      queue[(2 * parent + 1) * q_next_node_density] = 
+        queue[idx]->children[3].internal;
+      queue[idx] = queue[idx]->children[0].internal;
+    }
+    len_queue *= 2;
+    q_current_node_density = q_next_node_density;
+  }
+
+  for (int parent = 0; parent < len_queue; parent++) {
+    m_smaller = queue[parent]->m / 2;
+    m_larger = queue[parent]->m - m_smaller;
+
+    queue[parent]->children[1].leaf->data.off_diagonal.m = m_larger;
+    queue[parent]->children[1].leaf->data.off_diagonal.s = ss[sidx];
+    queue[parent]->children[1].leaf->data.off_diagonal.n = m_smaller;
+    sidx++;
+
+    queue[parent]->children[2].leaf->data.off_diagonal.m = m_smaller;
+    queue[parent]->children[2].leaf->data.off_diagonal.s = ss[sidx];
+    queue[parent]->children[2].leaf->data.off_diagonal.n = m_larger;
+    sidx++;
+  }
+}
+

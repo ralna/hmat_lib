@@ -51,3 +51,5 @@ int expect_vector_double_eq_safe(
   const char name
 );
 
+void fill_leaf_node_ints(struct TreeHODLR *hodlr, const int m, int *ss);
+

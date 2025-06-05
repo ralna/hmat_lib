@@ -19,6 +19,105 @@
 #define STR_LEN 10
 
 
+static inline void arrset(int *arr, const int len, const int val) {
+  for (int i = 0; i < len; i++) {
+    arr[i] = val;
+  }
+}
+
+
+struct ParametersWorkspaceSize {
+  struct TreeHODLR *hodlr;
+  int matrix_a;
+  int *expected;
+  int expected_s;
+};
+
+
+void free_workspace_size_params(struct criterion_test_params *params) {
+  for (size_t i = 0; i < params->length; i++) {
+    struct ParametersWorkspaceSize *param = 
+      (struct ParametersWorkspaceSize *) params->params + i;
+    
+    free_tree_hodlr(&(param->hodlr), &cr_free);
+    cr_free(param->expected);
+  }
+  cr_free(params->params);
+}
+
+
+ParameterizedTestParameters(dense_algebra, compute_workspace_size) {
+  const int max_height = 4;
+  const size_t ss_len = (size_t)(pow(2, max_height + 1)) - 2;
+  const size_t ss_size = ss_len * sizeof(int);
+  int *ss = cr_malloc(ss_size);
+  
+  const int n_params = 2 * max_height;
+
+  struct ParametersWorkspaceSize *params = 
+    cr_malloc(n_params * sizeof(struct ParametersWorkspaceSize));
+  
+  int idx = 0, ierr = SUCCESS, m = 0;
+  for (int height = 1; height < max_height+1; height++) {
+    arrset(ss, ss_len, height);
+    params[idx].expected_s = height;
+
+    params[idx].matrix_a = 2048;
+    params[idx].hodlr = allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
+    fill_leaf_node_ints(params[idx].hodlr, 42, ss);
+
+    params[idx].expected = cr_malloc(2 * sizeof(int));
+    params[idx].expected[0] = ss[0] * params[idx].matrix_a;
+    m = params[idx].hodlr->root->m;
+    params[idx].expected[1] = (m - m / 2) * params[idx].matrix_a;
+    idx++;
+  }
+
+  int highest_s = 0;
+  arrset(ss, ss_len, 1);
+  ss[0] = max_height + 1;
+  for (int height = 1; height < max_height+1; height++) {
+    highest_s = max_height + height;
+    params[idx].expected_s = highest_s;
+
+    ss[2 * height] = highest_s;
+    params[idx].matrix_a = 42;
+    params[idx].hodlr = allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
+    fill_leaf_node_ints(params[idx].hodlr, 2048, ss);
+
+    params[idx].expected = cr_malloc(2 * sizeof(int));
+    params[idx].expected[0] = highest_s * params[idx].matrix_a;
+    m = params[idx].hodlr->root->m;
+    params[idx].expected[1] = (m - m / 2) * params[idx].matrix_a;
+    idx++;
+  }
+
+  if (idx != n_params) {
+    printf("INCORRECT PARAMATER SETUP: allocated %d parameters but constructed %d\n",
+           n_params, idx);
+  }
+
+  cr_free(ss);
+
+  return cr_make_param_array(struct ParametersWorkspaceSize, params, n_params,
+                             free_workspace_size_params);
+}
+
+
+ParameterizedTest(struct ParametersWorkspaceSize *params, dense_algebra, 
+                  compute_workspace_size) {
+  cr_log_info("height=%d, s=%d", params->hodlr->height, params->expected_s);
+
+  int *result = malloc(2 * sizeof(int));
+  compute_multiply_hodlr_dense_workspace(params->hodlr, params->matrix_a, result);
+
+  cr_expect(eq(int, result[0], params->expected[0]));
+  cr_expect(eq(int, result[1], params->expected[1]));
+
+  free(result);
+}
+
+
 inline static void fill_matrix_row(double *matrix, 
                             const int row,
                             const int lda,
