@@ -119,12 +119,23 @@ ParameterizedTest(struct ParametersWorkspaceSize *params, dense_algebra,
 
 
 inline static void fill_matrix_row(double *matrix, 
-                            const int row,
-                            const int lda,
-                            const int n_cols,
-                            const double val) {
+                                   const int row,
+                                   const int lda,
+                                   const int n_cols,
+                                   const double val) {
   for (int j = 0; j < n_cols; j++) {
     matrix[row + j * lda] = val;
+  }
+}
+
+
+static inline void fill_matrix_column(double *matrix,
+                                      const int col,
+                                      const int lda,
+                                      const int n_rows,
+                                      const double val) {
+  for (int i = 0; i < n_rows; i++) {
+    matrix[i + col * lda] = val;
   }
 }
 
@@ -154,12 +165,14 @@ void free_hd_params(struct criterion_test_params *params) {
 }
 
 
-static void laplacian_matrix(struct ParametersTestHxD *params) {
-  int i = 0, ierr = 0, n_cases = 3;
+static int laplacian_matrix(struct ParametersTestHxD *params,
+                            void(*fill)(double*, int, int, int, double)) {
+  const int n_cases = 3, max_height = 3;
+  int i = 0, ierr = 0;
   double svd_threshold = 0.1;
   double *matrix = NULL;
 
-  for (int height = 1; height < 4; height++) {
+  for (int height = 1; height < max_height + 1; height++) {
     i = n_cases * (height - 1);
 
     for (int j = i; j < i+n_cases; j++) {
@@ -201,30 +214,32 @@ static void laplacian_matrix(struct ParametersTestHxD *params) {
     }
 
     // LAPLACIAN MATRIX
-    fill_matrix_row(params[i].expected, 0, params[i].m, params[i].dense_ld, 10.0);
-    fill_matrix_row(params[i].expected, params[i].m-1, params[i].m, params[i].dense_ld, 10.0);
+    fill(params[i].expected, 0, params[i].m, params[i].dense_ld, 10.0);
+    fill(params[i].expected, params[i].m-1, params[i].m, params[i].dense_ld, 10.0);
 
     // LAPLACIAN MATRIX with 0.5 in corners
     i += 1;
-    fill_matrix_row(params[i].expected, 0, params[i].m, params[i].dense_ld, 15.0);
-    fill_matrix_row(params[i].expected, params[i].m-1, params[i].m, params[i].dense_ld, 15.0);
+    fill(params[i].expected, 0, params[i].m, params[i].dense_ld, 15.0);
+    fill(params[i].expected, params[i].m-1, params[i].m, params[i].dense_ld, 15.0);
 
     // LAPLACIAN MATRIX with 0.5 in bottom corner
     i += 1;
-    fill_matrix_row(params[i].expected, 0, params[i].m, params[i].dense_ld, 10.0);
-    fill_matrix_row(params[i].expected, params[i].m-1, params[i].m, params[i].dense_ld, 15.0);
+    fill(params[i].expected, 0, params[i].m, params[i].dense_ld, 10.0);
+    fill(params[i].expected, params[i].m-1, params[i].m, params[i].dense_ld, 15.0);
   }
+
+  return n_cases * max_height;
 }
 
 
-static void identity_matrix(struct ParametersTestHxD *params,
-                     int start) {
-  int i = 0, idx = 0, ierr = 0, n_cases = 3;
+static int identity_matrix(struct ParametersTestHxD *params) {
+  const int n_cases = 3, max_height = 3;
+  int i = 0, idx = 0, ierr = 0;
   double svd_threshold = 0.1;
   double *matrix;
 
-  for (int height = 1; height < 4; height++) {
-    idx = n_cases * (height - 1) + start;
+  for (int height = 1; height < max_height + 1; height++) {
+    idx = n_cases * (height - 1);
 
     for (i = idx; i < idx+n_cases; i++) {
       params[i].m = 21;
@@ -252,16 +267,25 @@ static void identity_matrix(struct ParametersTestHxD *params,
     params[idx+2].dense = construct_laplacian_matrix(params[idx].m);
     params[idx+2].expected = construct_laplacian_matrix(params[idx].m);
   }
+
+  return n_cases * max_height;
 }
 
 
 struct ParametersTestHxD * generate_hodlr_dense_params(int * len) {
-  int n_params = 9+9;
+  const int n_params = 9+9;
+  int actual = 0;
   *len = n_params;
   struct ParametersTestHxD *params = cr_malloc(n_params * sizeof(struct ParametersTestHxD));
 
-  laplacian_matrix(params);
-  identity_matrix(params, 9);
+  actual += laplacian_matrix(params, &fill_matrix_row);
+  actual += identity_matrix(params + actual);
+
+  if (actual != n_params) {
+    printf("PARAMETER SET-UP FAILED - allocated %d parameters but set %d\n",
+           n_params, actual);
+  }
+
   return params;
 }
 
@@ -327,4 +351,54 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra,
 
   free(result); free(sizes); free(workspace2); free(workspace);
 }
+
+
+struct ParametersTestHxD * generate_dense_hodlr_params(int * len) {
+  const int n_params = 9+9;
+  int actual = 0;
+  *len = n_params;
+  struct ParametersTestHxD *params = cr_malloc(n_params * sizeof(struct ParametersTestHxD));
+
+  actual += laplacian_matrix(params, &fill_matrix_column);
+  for (int i = 2; i < actual; i += 3) {
+    fill_matrix_column(params[i].expected, 0, params[i].m, params[i].dense_ld, 15.0);
+    fill_matrix_column(params[i].expected, params[i].m-1, params[i].m, params[i].dense_ld, 10.0);
+  }
+
+  actual += identity_matrix(params + actual);
+
+  if (actual != n_params) {
+    printf("PARAMETER SET-UP FAILED - allocated %d parameters but set %d\n",
+           n_params, actual);
+  }
+
+  return params;
+}
+
+
+ParameterizedTestParameters(dense_algebra, dense_hodlr) {
+  int n_params;
+  struct ParametersTestHxD *params = generate_dense_hodlr_params(&n_params);
+
+  return cr_make_param_array(struct ParametersTestHxD, params, n_params, free_hd_params);
+}
+
+
+ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, dense_hodlr) {
+  int ierr = 0;
+  int m = params->hodlr->root->m;
+
+  cr_log_info("%.10s (height=%d) x %.10s (%dx%d, lda=%d)",
+              params->hodlr_name, params->hodlr->height, params->dense_name, 
+              params->m, params->dense_n, params->dense_ld);
+
+  double * result = multiply_dense_hodlr(params->hodlr, params->dense, params->dense_n, 
+                                         params->dense_ld, NULL, m);
+
+  expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
+                               m, params->dense_n, m, m, 'M');
+
+  free(result);
+}
+
 
