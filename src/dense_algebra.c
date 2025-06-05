@@ -105,17 +105,20 @@ void compute_multiply_hodlr_dense_workspace(
  *              ``NULL`` and must point to a valid node with correctly 
  *              allocated and set values, anything else is undefined.
  * :param matrix: A pointer to an array containing the dense matrix to be used
- *                for the multiplication. Must not be ``NULL``.
+ *                for the multiplication. Must not be ``NULL``. Must not 
+ *                overlap with any other pointers.
  * :param matrix_n: The number of columns of ``matrix``.
  * :param matrix_ld: The leading dimension of ``matrix``.
  * :param alpha: The value of ``alpha`` to use for ``dgesdd``.
  * :param beta: The value of ``beta`` to use for ``dgesdd``.
  * :param workspace: A pointer to a workspace array to be used. Must be large
  *                   enough to accomodate a ``s`` x ``matrix_n`` matrix where
- *                   ``s`` is the number of stored singular values on ``node``.
+ *                   ``s`` is the number of stored singular values on 
+ *                   ``node``. Must not overlap with any other pointers.
  * :param out: A pointer to an array to which to store the result. Must be 
  *             large enough to accomodate a ``m`` x ``matrix_n`` matrix, where
- *             ``m`` is the number of rows of ``node``.
+ *             ``m`` is the number of rows of ``node``. Must not overlap with
+ *             any other pointers.
  * :param out_ld: The leading dimension of ``out``.
  */
 static inline void multiply_low_rank_dense(
@@ -459,10 +462,55 @@ void multiply_internal_node_dense(
 
 
 /**
- * Multiplies two off-diagonal blocks with a dense matrix.
+ * Multiplies a dense matrix and a low-rank matrix.
  *
- * Computes the matrix-matrix multiplication of the two off-diagonal blocks 
- * of a tree HODLR matrix internal node with a dense matrix, and adds the 
+ * Given a dense matrix and an off-diagonal node (which represents a low-rank 
+ * matrix), computies the product of the two as a dense matrix.
+ *
+ * :param node: A pointer to the off-diagonal node to multiply. It must not be
+ *              ``NULL`` and must point to a valid node with correctly 
+ *              allocated and set values, anything else is undefined.
+ * :param matrix: A pointer to an array containing the dense matrix to be used
+ *                for the multiplication. Must not be ``NULL``. Must not 
+ *                overlap with any other pointers.
+ * :param matrix_m: The number of rows of ``matrix`` to multiply.
+ * :param matrix_ld: The leading dimension of ``matrix``.
+ * :param alpha: The value of ``alpha`` to use for ``dgesdd``.
+ * :param beta: The value of ``beta`` to use for ``dgesdd``.
+ * :param workspace: A pointer to a workspace array to be used. Must be large
+ *                   enough to accomodate a ``s`` x ``matrix_n`` matrix where
+ *                   ``s`` is the number of stored singular values on 
+ *                   ``node``. Must not overlap with any other pointers.
+ * :param out: A pointer to an array to which to store the result. Must be 
+ *             large enough to accomodate a ``m`` x ``matrix_n`` matrix, where
+ *             ``m`` is the number of rows of ``node``. Must not overlap with
+ *             any other pointers.
+ * :param out_ld: The leading dimension of ``out``.
+ */
+static inline void multiply_dense_low_rank(
+  const struct NodeOffDiagonal *restrict const node,
+  const double *restrict const matrix,
+  const int matrix_m,
+  const int matrix_ld,
+  const double alpha,
+  const double beta,
+  double *restrict workspace,
+  double *restrict out,
+  const int out_ld
+) {
+  dgemm_("N", "N", &matrix_m, &node->s, &node->m, &alpha, matrix, &matrix_ld, 
+         node->u, &node->m, &beta, workspace, &matrix_m);
+
+  dgemm_("N", "T", &matrix_m, &node->n, &node->s, &alpha, workspace, 
+         &matrix_m, node->v,&node->n, &beta, out, &matrix_m);
+}
+
+
+/**
+ * Multiplies a dense matrix with two off-diagonal blocks.
+ *
+ * Computes the matrix-matrix multiplication of a dense matrix with two 
+ * off-diagonal blocks of a tree HODLR matrix internal node, and adds the 
  * results to the ``out`` matrix.
  *
  * :param parent: Pointer to an internal node holding the off-diagonal nodes
@@ -473,7 +521,7 @@ void multiply_internal_node_dense(
  *                matrix and the HODLR blocks. Must be in column-major order.
  *                Must not overlap with any of the other pointers - doing so
  *                is an undefined behaviour.
- * :param matrix_m: The number of rows of ``matrix``.
+ * :param matrix_m: The number of rows of ``matrix`` to multiply.
  * :param matrix_ld: The leading dimension of ``matrix``, i.e. the number of
  *                   rows of the full array. Must be greater or equal to the
  *                   number of rows of the full HODLR matrix.
@@ -532,32 +580,21 @@ static inline void multiply_dense_off_diagonal(
   *offset_ptr += m;
   int offset2 = *offset_ptr * matrix_m;
 
-  dgemm_("N", "N", &matrix_m, &s, &m, &alpha,
-         matrix + offset, &matrix_ld,
-         parent->children[1].leaf->data.off_diagonal.u, 
-         &m, &beta, workspace, &matrix_m);
-
-  dgemm_("N", "T", &matrix_m, &n, &s, &alpha, 
-         workspace, &matrix_m,
-         parent->children[1].leaf->data.off_diagonal.v, 
-         &n, &beta, workspace2, &matrix_m);
+  multiply_dense_low_rank(
+    &parent->children[1].leaf->data.off_diagonal, matrix + offset, matrix_m,
+    matrix_ld, alpha, beta, workspace, workspace2, matrix_m
+  );
 
   for (j = 0; j < n; j++) {
     for (i = 0; i < matrix_m; i++) {
       out[offset2 + i + j * out_ld] += workspace2[i + j * matrix_m];
     }
   }
-  
-  s = parent->children[2].leaf->data.off_diagonal.s;
-  dgemm_("N", "N", &matrix_m, &s, &n, &alpha,
-         matrix + offset2, &matrix_ld,
-         parent->children[2].leaf->data.off_diagonal.u, 
-         &n, &beta, workspace, &matrix_m);
 
-  dgemm_("N", "T", &matrix_m, &m, &s, &alpha,
-         workspace, &matrix_m,
-         parent->children[2].leaf->data.off_diagonal.v, 
-         &m, &beta, workspace2, &matrix_m);
+  multiply_dense_low_rank(
+    &parent->children[2].leaf->data.off_diagonal, matrix + offset2, matrix_m,
+    matrix_ld, alpha, beta, workspace, workspace2, matrix_m
+  );
 
   for (j = 0; j < m; j++) {
     for (i = 0; i < matrix_m; i++) {
