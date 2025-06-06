@@ -18,15 +18,14 @@ jobs:
         run: |
           sudo apt update
           sudo apt upgrade
-          sudo apt-get install -y libcriterion-dev
-          sudo apt-get install -y libopenblas-dev liblapack-dev
+          sudo apt-get install -y libcriterion-dev libopenblas-dev liblapack-dev
 
       - name: Run tests
         run: |
           mkdir bin
           mkdir build
           cd tests
-          mkdid build
+          mkdir build
           make
           ../bin/unit_test -j1 --verbose=0
           make clean
