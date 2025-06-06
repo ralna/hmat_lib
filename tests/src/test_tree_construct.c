@@ -189,13 +189,12 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
   long q_current_node_density = q_next_node_density;
   int qidx = 0, eidx = 0, len_queue = 1;
 
-  for (int height = 0; height > params->height; height++) {
+  for (int height = 0; height < params->height; height++) {
     q_next_node_density /= 2;
     for (int parent = 0; parent < len_queue; parent++) {
       qidx = parent * q_current_node_density;
       cr_expect(eq(int, queue[qidx]->m, params->expected[eidx]),
                 "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
-      printf("%d %d\n", queue[qidx]->m, params->expected[eidx]);
       eidx++;
 
       queue[qidx] = queue[qidx]->children[0].internal;
@@ -313,7 +312,7 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
   long q_current_node_density = q_next_node_density;
   int qidx = 0, eidx = 0, len_queue = 1;
 
-  for (int height = 0; height > params->height; height++) {
+  for (int height = 0; height < params->height; height++) {
     q_next_node_density /= 2;
     for (int parent = 0; parent < len_queue; parent++) {
       qidx = parent * q_current_node_density;
