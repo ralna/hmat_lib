@@ -50,18 +50,18 @@ void laplacian_matrix(struct ParametersTestHxV *params,
     }
 
     fill_laplacian_matrix(len, matrix);
-    dense_to_tree_hodlr(params[i].hodlr, params[i].len, 
+    dense_to_tree_hodlr(params[i].hodlr, params[i].len, NULL, 
                         matrix, svd_threshold, &ierr, &cr_malloc, &cr_free);
 
     fill_laplacian_matrix(len, matrix);
     matrix[params[i+1].len - 1] = 0.5;
     matrix[params[i+1].len * (params[i+1].len - 1)] = 0.5;
-    dense_to_tree_hodlr(params[i+1].hodlr, params[i+1].len,
+    dense_to_tree_hodlr(params[i+1].hodlr, params[i+1].len, NULL,
                         matrix, svd_threshold, &ierr, &cr_malloc, &cr_free);
 
     fill_laplacian_matrix(len, matrix);
     matrix[params[i+2].len - 1] = 0.5;
-    dense_to_tree_hodlr(params[i+2].hodlr, params[i+2].len,
+    dense_to_tree_hodlr(params[i+2].hodlr, params[i+2].len, NULL,
                         matrix, svd_threshold, &ierr, &cr_malloc, &cr_free);
 
     for (int j = 0; j < n_cases; j++) {
@@ -97,7 +97,7 @@ void identity_matrix(struct ParametersTestHxV *params) {
                                                  &cr_malloc, &cr_free);
 
       fill_identity_matrix(len, matrix);
-      dense_to_tree_hodlr(params[i].hodlr, len,
+      dense_to_tree_hodlr(params[i].hodlr, len, NULL,
                           matrix, svd_threshold, &ierr, &cr_malloc, &cr_free);
       params[i].vector = cr_calloc(params[i].len, sizeof(double));
       params[i].expected = cr_calloc(params[i].len, sizeof(double));
@@ -146,8 +146,6 @@ ParameterizedTestParameters(tree, test_hodlr_vector) {
 
 
 ParameterizedTest(struct ParametersTestHxV *params, tree, test_hodlr_vector) {
-  int ierr = 0;
-
   double * result = multiply_vector(params->hodlr, params->vector, NULL);
 
   expect_vector_double_eq_safe(result, params->expected, params->len, params->len, 'V');
