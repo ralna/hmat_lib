@@ -108,7 +108,7 @@ static struct HODLRInternalNode ** compute_block_sizes_custom(
     for (int parent = 0; parent < n_parent_nodes; parent++) {
       queue[2 * parent]->parent->m = queue[2 * parent]->m 
                                    + queue[2 * parent + 1]->m;
-      queue[parent] = queue[parent]->parent;
+      queue[parent] = queue[2 * parent]->parent;
     }
   }
 
