@@ -519,6 +519,11 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
  *            of the dense diagonal blocks. This allows the HODLR tree to be 
  *            split in a customised fashion. If ``NULL``, this parameter is 
  *            ignored and the HODLR is split in halves.
+ *            If provided, this must be an array of length :math:`2^h` where
+ *            ``h`` is the height of ``hodlr`` (shorter array leads to 
+ *            undefined behaviour). Each entry in the array must specify the 
+ *            size of a dense diagonal block, starting with the one in the 
+ *            top left corner (i.e. ``matrix[0]``).
  *
  * :param matrix: The dense matrix to compress. This must be an column-major 
  *                array holding an ``m`` x ``m`` square 2D matrix.
