@@ -187,19 +187,28 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
 
   long q_next_node_density = hodlr->len_work_queue;
   long q_current_node_density = q_next_node_density;
-  int qidx = 0, eidx = 0, len_queue = 1;
+  int qidx = 0, eidx = 1, len_queue = 1;
 
-  for (int height = 0; height < params->height; height++) {
+  queue[0] = hodlr->root;
+  cr_expect(eq(int, queue[0]->m, params->expected[0]),
+            "@depth=%d & node=%d (idx=%d)", 0, 0, 0);
+
+  for (int height = 1; height < params->height; height++) {
     q_next_node_density /= 2;
     for (int parent = 0; parent < len_queue; parent++) {
       qidx = parent * q_current_node_density;
-      cr_expect(eq(int, queue[qidx]->m, params->expected[eidx]),
+      cr_expect(eq(int, queue[qidx]->children[0].internal->m, 
+                   params->expected[eidx]),
+                "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
+      eidx++;
+      cr_expect(eq(int, queue[qidx]->children[3].internal->m, 
+                   params->expected[eidx]),
                 "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
       eidx++;
 
-      queue[qidx] = queue[qidx]->children[0].internal;
       queue[(2 * parent + 1) * q_next_node_density] = 
         queue[qidx]->children[3].internal;
+      queue[qidx] = queue[qidx]->children[0].internal;
     }
     len_queue *= 2;
     q_current_node_density = q_next_node_density;
@@ -310,19 +319,28 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
 
   long q_next_node_density = hodlr->len_work_queue;
   long q_current_node_density = q_next_node_density;
-  int qidx = 0, eidx = 0, len_queue = 1;
+  int qidx = 0, eidx = 1, len_queue = 1;
 
-  for (int height = 0; height < params->height; height++) {
+  queue[0] = hodlr->root;
+  cr_expect(eq(int, queue[0]->m, params->expected[0]),
+            "@depth=%d & node=%d (idx=%d)", 0, 0, 0);
+
+  for (int height = 1; height < params->height; height++) {
     q_next_node_density /= 2;
     for (int parent = 0; parent < len_queue; parent++) {
       qidx = parent * q_current_node_density;
-      cr_expect(eq(int, queue[qidx]->m, params->expected[eidx]),
+      cr_expect(eq(int, queue[qidx]->children[0].internal->m, 
+                   params->expected[eidx]),
+                "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
+      eidx++;
+      cr_expect(eq(int, queue[qidx]->children[3].internal->m, 
+                   params->expected[eidx]),
                 "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
       eidx++;
 
-      queue[qidx] = queue[qidx]->children[0].internal;
       queue[(2 * parent + 1) * q_next_node_density] = 
         queue[qidx]->children[3].internal;
+      queue[qidx] = queue[qidx]->children[0].internal;
     }
     len_queue *= 2;
     q_current_node_density = q_next_node_density;
