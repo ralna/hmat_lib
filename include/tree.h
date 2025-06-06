@@ -270,6 +270,7 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr);
 
 int dense_to_tree_hodlr(struct TreeHODLR *hodlr,
                         const int m,
+                        const int *ms,
                         double *matrix,
                         const double svd_threshold,
                         int *ierr

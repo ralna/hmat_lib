@@ -186,7 +186,7 @@ static int laplacian_matrix(struct ParametersTestHxD *params,
     // LAPLACIAN MATRIX
     matrix = construct_laplacian_matrix(params[i+1].m);
     strncat(params[i].hodlr_name, "L", STR_LEN);
-    dense_to_tree_hodlr(params[i].hodlr, params[i].m, matrix, 
+    dense_to_tree_hodlr(params[i].hodlr, params[i].m, NULL, matrix, 
                         svd_threshold, &ierr, &cr_malloc, &cr_free);
     cr_free(matrix);
 
@@ -195,7 +195,7 @@ static int laplacian_matrix(struct ParametersTestHxD *params,
     matrix = construct_laplacian_matrix(params[i+1].m);
     matrix[params[i+1].m - 1] = 0.5;
     matrix[params[i+1].m * (params[i+1].m - 1)] = 0.5;
-    dense_to_tree_hodlr(params[i+1].hodlr, params[i+1].m,
+    dense_to_tree_hodlr(params[i+1].hodlr, params[i+1].m, NULL,
                         matrix, svd_threshold, &ierr, &cr_malloc, &cr_free);
     cr_free(matrix);
 
@@ -203,7 +203,7 @@ static int laplacian_matrix(struct ParametersTestHxD *params,
     strncat(params[i+2].hodlr_name, "L0.5A", STR_LEN);
     matrix = construct_laplacian_matrix(params[i+2].m);
     matrix[params[i+2].m - 1] = 0.5;
-    dense_to_tree_hodlr(params[i+2].hodlr, params[i+2].m,
+    dense_to_tree_hodlr(params[i+2].hodlr, params[i+2].m, NULL,
                         matrix, svd_threshold, &ierr, &cr_malloc, &cr_free);
     cr_free(matrix);
 
@@ -250,7 +250,7 @@ static int identity_matrix(struct ParametersTestHxD *params) {
       params[i].hodlr = allocate_tree_monolithic(height, &ierr,
                                                  &cr_malloc, &cr_free);
       matrix = construct_identity_matrix(params[i].m);
-      dense_to_tree_hodlr(params[i].hodlr, params[i].m, matrix, 
+      dense_to_tree_hodlr(params[i].hodlr, params[i].m, NULL, matrix, 
                           svd_threshold, &ierr, &cr_malloc, &cr_free);
       cr_free(matrix);
     }

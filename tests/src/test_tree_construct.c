@@ -21,6 +21,7 @@
 struct ParametersBlockSizes {
   int height;
   int m;
+  int *ms;
   int len;
   int *expected;
 };
@@ -37,16 +38,16 @@ void free_block_params(struct criterion_test_params *params) {
   for (size_t i = 0; i < params->length; i++) {
     struct ParametersBlockSizes *param = params->params + i;
     cr_free(param->expected);
+    cr_free(param->ms);
   }
   cr_free(params->params);
 }
 
 
-ParameterizedTestParameters(constructors, block_sizes) {
-  int n_params = 8+18, idx = 0, n = 0;
-  struct ParametersBlockSizes *params = 
-    cr_malloc(n_params * sizeof(struct ParametersBlockSizes));
+static int generate_block_size_params(struct ParametersBlockSizes *params) {
+  const int n_params = 8+18;
 
+  int idx = 0, n = 0, tidx;
   int len_heights = 2;
   int heights[] = {1, 2};
 
@@ -75,6 +76,7 @@ ParameterizedTestParameters(constructors, block_sizes) {
     for (int m_idx = 0; m_idx < len_ms; m_idx++) {
       params[idx].height = heights2[height_idx];
       params[idx].m = ms2[m_idx];
+      params[idx].ms = NULL;
 
       n = (int)pow(2, heights2[height_idx]) - 1;
       params[idx].expected = cr_malloc(n * sizeof(int));
@@ -98,45 +100,49 @@ ParameterizedTestParameters(constructors, block_sizes) {
   arrcpy(params[12].expected, (int[]){597, 299, 298}, 3);
   arrcpy(params[13].expected, (int[]){2048, 1024, 1024}, 3);
   arrcpy(params[14].expected, (int[]){139, 70, 69, 35, 35, 35, 34}, 7);
-  arrcpy(params[15].expected, (int[]){597, 299, 298, 150, 149, 149, 149}, 7);
-  arrcpy(params[16].expected, (int[]){2048, 1024, 1024, 512, 512, 512, 512}, 7);
+  arrcpy(params[15].expected, 
+         (int[]){597, 299, 298, 150, 149, 149, 149}, 7);
+  arrcpy(params[16].expected, 
+         (int[]){2048, 1024, 1024, 512, 512, 512, 512}, 7);
   arrcpy(params[17].expected, 
          (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17}, 
          15);
   arrcpy(params[18].expected, 
-         (int[]){597, 299, 298, 150, 149, 149, 149, 85, 85, 85, 84, 85, 84, 85, 84}, 
-     15);
+         (int[]){597, 299, 298, 150, 149, 149, 149, 
+                 75, 75, 75, 74, 75, 74, 75, 74}, 15);
   arrcpy(params[19].expected, 
          (int[]){2048, 1024, 1024, 512, 512, 512, 512,
-                  256, 256, 256, 256, 256, 256, 256, 256}, 15);
+                 256, 256, 256, 256, 256, 256, 256, 256}, 15);
   arrcpy(params[20].expected, 
-         (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17,
+        (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17,
                   9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8}, 31);
   arrcpy(params[21].expected, 
-         (int[]){597, 299, 298, 150, 149, 149, 149, 
-                  85, 85, 85, 84, 85, 84, 85, 84,
-                  43, 42, 43, 42, 43, 42, 42, 42, 43, 42, 42, 42, 43, 42, 42, 42}, 
-         31);
+        (int[]){597, 299, 298, 150, 149, 149, 149, 
+                75, 75, 75, 74, 75, 74, 75, 74,
+                38, 37, 38, 37, 38, 37, 37, 37, 
+                38, 37, 37, 37, 38, 37, 37, 37}, 31);
   arrcpy(params[22].expected, 
-         (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+        (int[]){2048, 1024, 1024, 512, 512, 512, 512,
                   256, 256, 256, 256, 256, 256, 256, 256,
                   128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
                   128, 128, 128, 128}, 31);
   arrcpy(params[23].expected, 
-         (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17,
+        (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17,
                   9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8,
                   5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 5, 4,
                   5, 4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4}, 
-         63);
+        63);
   arrcpy(params[24].expected, 
-         (int[]){597, 299, 298, 150, 149, 149, 149, 
-                  85, 85, 85, 84, 85, 84, 85, 84,
-                  43, 42, 43, 42, 43, 42, 42, 42, 43, 42, 42, 42, 43, 42, 42, 42,
-                  22, 21, 21, 21, 22, 21, 21, 21, 22, 21, 21, 21, 21, 21, 21, 21,
-                  22, 21, 21, 21, 21, 21, 21, 21, 22, 21, 21, 21, 21, 21, 21, 21},
-         63);
+        (int[]){597, 299, 298, 150, 149, 149, 149, 
+                75, 75, 75, 74, 75, 74, 75, 74,
+                38, 37, 38, 37, 38, 37, 37, 37, 
+                38, 37, 37, 37, 38, 37, 37, 37,
+                19, 19, 19, 18, 19, 19, 19, 18,
+                19, 19, 19, 18, 19, 18, 19, 18,
+                19, 19, 19, 18, 19, 18, 19, 18,
+                19, 19, 19, 18, 19, 18, 19, 18}, 63);
   arrcpy(params[25].expected, 
-         (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+        (int[]){2048, 1024, 1024, 512, 512, 512, 512,
                   256, 256, 256, 256, 256, 256, 256, 256,
                   128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
                   128, 128, 128, 128,
@@ -144,13 +150,29 @@ ParameterizedTestParameters(constructors, block_sizes) {
                   64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
                   64, 64}, 63);
 
+  return n_params;
+}
+
+
+ParameterizedTestParameters(constructors, block_sizes_halves) {
+  static int n_params = 26; 
+  struct ParametersBlockSizes *params = 
+    cr_malloc(n_params * sizeof(struct ParametersBlockSizes));
+
+  int actual = generate_block_size_params(params);
+
+  if (actual != n_params) {
+    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d",
+           n_params, actual);
+  }
+
   return cr_make_param_array(struct ParametersBlockSizes, params, n_params, 
                              free_block_params);
 }
 
 
 ParameterizedTest(struct ParametersBlockSizes *params, constructors,
-                  block_sizes) {
+                  block_sizes_halves) {
   cr_log_info("height=%d, m=%d", params->height, params->m);
 
   int ierr = SUCCESS;
@@ -162,25 +184,165 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
     return;
   }
 
-  struct HODLRInternalNode **queue = hodlr->work_queue;
-
-  compute_block_sizes(hodlr, queue, params->m);
+  struct HODLRInternalNode **queue = 
+    compute_block_sizes_halves(hodlr, params->m);
 
   long q_next_node_density = hodlr->len_work_queue;
   long q_current_node_density = q_next_node_density;
-  int qidx = 0, eidx = 0, len_queue = 1;
+  int qidx = 0, eidx = 1, len_queue = 1;
 
-  for (int height = 0; height > params->height; height++) {
+  queue[0] = hodlr->root;
+  cr_expect(eq(int, queue[0]->m, params->expected[0]),
+            "@depth=%d & node=%d (idx=%d)", 0, 0, 0);
+
+  for (int height = 1; height < params->height; height++) {
     q_next_node_density /= 2;
     for (int parent = 0; parent < len_queue; parent++) {
       qidx = parent * q_current_node_density;
-      cr_expect(eq(int, queue[qidx]->m, params->expected[eidx]),
+      cr_expect(eq(int, queue[qidx]->children[0].internal->m, 
+                   params->expected[eidx]),
+                "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
+      eidx++;
+      cr_expect(eq(int, queue[qidx]->children[3].internal->m, 
+                   params->expected[eidx]),
                 "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
       eidx++;
 
-      queue[qidx] = queue[qidx]->children[0].internal;
       queue[(2 * parent + 1) * q_next_node_density] = 
         queue[qidx]->children[3].internal;
+      queue[qidx] = queue[qidx]->children[0].internal;
+    }
+    len_queue *= 2;
+    q_current_node_density = q_next_node_density;
+  }
+
+  free_tree_hodlr(&hodlr, &free);
+}
+
+
+ParameterizedTestParameters(constructors, block_sizes_custom) {
+  static int n_params = 26; 
+  struct ParametersBlockSizes *params = 
+    cr_malloc(n_params * sizeof(struct ParametersBlockSizes));
+
+  int actual = generate_block_size_params(params);
+  
+  for (int i = 0; i < n_params; i++) {
+    params[i].ms = cr_malloc((int)pow(2, params[i].height) * sizeof(int));
+  }
+  arrcpy(params[0].ms, (int[]){4, 4}, 2);
+  arrcpy(params[1].ms, (int[]){5, 4}, 2);
+  arrcpy(params[2].ms, (int[]){6, 5}, 2);
+  arrcpy(params[3].ms, (int[]){7, 6}, 2);
+  arrcpy(params[4].ms, (int[]){2, 2, 2, 2}, 4);
+  arrcpy(params[5].ms, (int[]){3, 2, 2, 2}, 4);
+  arrcpy(params[6].ms, (int[]){3, 3, 3, 2}, 4);
+  arrcpy(params[7].ms, (int[]){4, 3, 3, 3}, 4);
+
+  arrcpy(params[8].ms, (int[]){70, 69}, 2);
+  arrcpy(params[9].ms, (int[]){299, 298}, 2);
+  arrcpy(params[10].ms, (int[]){1024, 1024}, 2);
+  arrcpy(params[11].ms, (int[]){35, 35, 35, 34}, 4);
+  arrcpy(params[12].ms, (int[]){150, 149, 149, 149}, 4);
+  arrcpy(params[13].ms, (int[]){512, 512, 512, 512}, 4);
+  arrcpy(params[14].ms, (int[]){18, 17, 18, 17, 18, 17, 17, 17}, 8);
+  arrcpy(params[15].ms, (int[]){75, 75, 75, 74, 75, 74, 75, 74}, 8);
+  arrcpy(params[16].ms, 
+         (int[]){256, 256, 256, 256, 256, 256, 256, 256}, 8);
+  arrcpy(params[17].ms, 
+         (int[]){9, 9, 9, 8, 
+                 9, 9, 9, 8, 
+                 9, 9, 9, 8, 
+                 9, 8, 9, 8}, 16);
+  arrcpy(params[18].ms, 
+         (int[]){38, 37, 38, 37, 
+                 38, 37, 37, 37, 
+                 38, 37, 37, 37, 
+                 38, 37, 37, 37}, 16);
+  arrcpy(params[19].ms, 
+         (int[]){128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 
+                 128, 128, 128, 128}, 16);
+  arrcpy(params[20].ms, 
+         (int[]){5, 4, 5, 4, 5, 4, 4, 4, 
+                 5, 4, 5, 4, 5, 4, 4, 4, 
+                 5, 4, 5, 4, 5, 4, 4, 4, 
+                 5, 4, 4, 4, 5, 4, 4, 4}, 32);
+  arrcpy(params[21].ms, 
+         (int[]){19, 19, 19, 18, 19, 19, 19, 18,
+                 19, 19, 19, 18, 19, 18, 19, 18,
+                 19, 19, 19, 18, 19, 18, 19, 18,
+                 19, 19, 19, 18, 19, 18, 19, 18}, 32);
+  arrcpy(params[22].ms, 
+         (int[]){64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+                 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+                 64, 64}, 32);
+  arrcpy(params[23].ms, 
+         (int[]){3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 
+                 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 
+                 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
+                 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2}, 64);
+  arrcpy(params[24].ms, 
+         (int[]){10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 10, 9, 10, 9, 9, 9,
+                 10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9,
+                 10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9,
+                 10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9}, 64);
+  arrcpy(params[25].ms, 
+         (int[]){32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+                 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+                 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+                 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32},
+         64);
+
+  if (actual != n_params) {
+    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d",
+           n_params, actual);
+  }
+
+  return cr_make_param_array(struct ParametersBlockSizes, params, n_params, 
+                             free_block_params);
+}
+
+
+ParameterizedTest(struct ParametersBlockSizes *params, constructors,
+                  block_sizes_custom) {
+  cr_log_info("height=%d, m=%d", params->height, params->m);
+
+  int ierr = SUCCESS;
+  
+  struct TreeHODLR *hodlr = 
+    allocate_tree_monolithic(params->height, &ierr, &malloc, &free);
+  if (hodlr == NULL) {
+    cr_fail("Allocation failed");
+    return;
+  }
+
+  struct HODLRInternalNode **queue = 
+    compute_block_sizes_custom(hodlr, params->ms);
+
+  long q_next_node_density = hodlr->len_work_queue;
+  long q_current_node_density = q_next_node_density;
+  int qidx = 0, eidx = 1, len_queue = 1;
+
+  queue[0] = hodlr->root;
+  cr_expect(eq(int, queue[0]->m, params->expected[0]),
+            "@depth=%d & node=%d (idx=%d)", 0, 0, 0);
+
+  for (int height = 1; height < params->height; height++) {
+    q_next_node_density /= 2;
+    for (int parent = 0; parent < len_queue; parent++) {
+      qidx = parent * q_current_node_density;
+      cr_expect(eq(int, queue[qidx]->children[0].internal->m, 
+                   params->expected[eidx]),
+                "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
+      eidx++;
+      cr_expect(eq(int, queue[qidx]->children[3].internal->m, 
+                   params->expected[eidx]),
+                "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
+      eidx++;
+
+      queue[(2 * parent + 1) * q_next_node_density] = 
+        queue[qidx]->children[3].internal;
+      queue[qidx] = queue[qidx]->children[0].internal;
     }
     len_queue *= 2;
     q_current_node_density = q_next_node_density;
@@ -704,7 +866,8 @@ ParameterizedTest(struct ParametersTestDense *params,
   expect_tree_consistent(result, params->height, params->expected->len_work_queue);
   
   int svd = dense_to_tree_hodlr(
-    result, params->m, params->matrix, params->svd_threshold, &ierr, &malloc, &free
+    result, params->m, NULL, params->matrix, params->svd_threshold, &ierr, 
+    &malloc, &free
   );
   
   cr_expect(eq(ierr, SUCCESS));

@@ -18,7 +18,8 @@ static void print_matrix(int m, int n, double *matrix, int lda) {
 
 
 /**
- * Computes and sets the sizes of all HODLR internal nodes.
+ * Computes and sets the sizes of all HODLR internal nodes from the matrix 
+ * size.
  *
  * Given a HODLR tree and the size of the matrix (number of rows), iterates 
  * over the entire tree and computes the size of each diagonal HODLR block
@@ -29,15 +30,16 @@ static void print_matrix(int m, int n, double *matrix, int lda) {
  *               correctly allocated tree and should be empty - any data on 
  *               the tree may be overwritten. Must not be NULL; otherwise is
  *               undefined.
- * :param queue: An empty array of pointers to internal nodes. Does not have 
- *               to be empty, but its contents will be overwritten. Must of 
- *               size at least :c:member:`TreeHODLR.len_work_queue`.
- *               Must not be NULL; otherwise is undefined.
  * :param m: The number of rows of the full HODLR matrix.
+ *
+ * :return: A pointer to access an array of internal nodes which contains 
+ *          the innermost internal nodes on ``hodlr``.
  */
-static void compute_block_sizes(struct TreeHODLR *restrict hodlr,
-                                struct HODLRInternalNode **restrict queue,
-                                const int m) {
+static struct HODLRInternalNode ** compute_block_sizes_halves(
+  struct TreeHODLR *restrict hodlr,
+  const int m
+) {
+  struct HODLRInternalNode **queue = hodlr->work_queue;
   long len_queue = 1, q_next_node_density = hodlr->len_work_queue;
   long q_current_node_density = q_next_node_density;
   int m_smaller = 0, m_larger = 0, idx = 0;
@@ -63,6 +65,58 @@ static void compute_block_sizes(struct TreeHODLR *restrict hodlr,
     len_queue *= 2;
     q_current_node_density = q_next_node_density;
   }
+
+  return queue;
+}
+
+
+/**
+ * Computes and sets the sizes of all HODLR internal nodes given the sizes of 
+ * dense blocks.
+ *
+ * Given a HODLR tree and the size (number of rows) of each dense block of the
+ * matrix (the innermost diagonal blocks, i.e. 
+ * :c:param:`TreeHODLR.innermost_leaves`), iterates over the entire tree and 
+ * computes the size of each diagonal HODLR block node. Saves each size on the 
+ * appropriate node.
+ *
+ * :param hodlr: Pointer to the HODLR tree whose block sizes to compute. Must 
+ *               be a correctly allocated tree and should be empty - any data 
+ *               on the tree may be overwritten. Must not be NULL; otherwise 
+ *               is undefined.
+ * :param ms: Pointer to access an array containing the number of rows of each 
+ *            :c:struct:`NodeDiagonal` that will make up the HODLR tree.
+ *
+ * :return: A pointer to access an array of internal nodes which contains 
+ *          the innermost internal nodes on ``hodlr``.
+ */
+static struct HODLRInternalNode ** compute_block_sizes_custom(
+  struct TreeHODLR *hodlr,
+  const int *ms
+) {
+  struct HODLRInternalNode **queue = hodlr->work_queue;
+  long n_parent_nodes = hodlr->len_work_queue;
+  int m_smaller = 0, m_larger = 0, idx = 0;
+
+  for (int parent = 0; parent < n_parent_nodes; parent++) {
+    queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
+    queue[parent]->m = ms[2 * parent] + ms[2 * parent + 1];
+  }
+
+  for (int _ = hodlr->height - 1; _ > 0; _--) {
+    n_parent_nodes /= 2;
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      queue[2 * parent]->parent->m = queue[2 * parent]->m 
+                                   + queue[2 * parent + 1]->m;
+      queue[parent] = queue[2 * parent]->parent;
+    }
+  }
+
+  for (int parent = 0; parent < n_parent_nodes; parent++) {
+    queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
+  }
+
+  return queue;
 }
 
 
@@ -300,7 +354,7 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
 static int compress_matrix(struct TreeHODLR *restrict hodlr,
                            struct HODLRInternalNode **restrict queue,
                            double *restrict matrix,
-                           const int m,
+                   const int m,
                            double *restrict s,
                            double *restrict u,
                            double *restrict vt,
@@ -461,6 +515,16 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
  * :param m: The size of the ``matrix`` matrix. I.e., the number of rows and 
  *           columns.
  *
+ * :param ms: (optional) A pointer to access an array containing the sizes 
+ *            of the dense diagonal blocks. This allows the HODLR tree to be 
+ *            split in a customised fashion. If ``NULL``, this parameter is 
+ *            ignored and the HODLR is split in halves.
+ *            If provided, this must be an array of length :math:`2^h` where
+ *            ``h`` is the height of ``hodlr`` (shorter array leads to 
+ *            undefined behaviour). Each entry in the array must specify the 
+ *            size of a dense diagonal block, starting with the one in the 
+ *            top left corner (i.e. ``matrix[0]``).
+ *
  * :param matrix: The dense matrix to compress. This must be an column-major 
  *                array holding an ``m`` x ``m`` square 2D matrix.
  *                If ``NULL``, aborts immediately *Some of the values may be 
@@ -492,6 +556,7 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
  */
 int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr, 
                         const int m,
+                        const int *ms,
                         double *restrict matrix, 
                         const double svd_threshold,
                         int *ierr
@@ -526,9 +591,18 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
   double *vt = u + (4 * m_larger * m_smaller);
 
   long n_parent_nodes = hodlr->len_work_queue; 
-  struct HODLRInternalNode **queue = hodlr->work_queue;
 
-  compute_block_sizes(hodlr, queue, m);
+  struct HODLRInternalNode **queue;
+  if (ms == NULL) {
+    queue = compute_block_sizes_halves(hodlr, m);
+  } else {
+    queue = compute_block_sizes_custom(hodlr, ms);
+    if (hodlr->root->m != m) {
+      *ierr = INPUT_ERROR;
+      free(s); free(u);
+      return 0;
+    }
+  }
 
 #ifndef _TEST_HODLR
   copy_diagonal_blocks(matrix, m, queue, n_parent_nodes, ierr);
