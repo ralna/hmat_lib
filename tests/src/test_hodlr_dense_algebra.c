@@ -258,8 +258,10 @@ static int identity_matrix(struct ParametersTestHxD *params) {
     params[idx].expected = construct_identity_matrix(params[idx].m);
 
     strncat(params[idx+1].dense_name, "0", STR_LEN);
-    params[idx+1].dense = cr_calloc(params[idx+1].m * params[idx+1].m, sizeof(double));
-    params[idx+1].expected = cr_calloc(params[idx+1].m * params[idx+1].m, sizeof(double));
+    params[idx+1].dense = 
+      cr_calloc(params[idx+1].m * params[idx+1].m, sizeof(double));
+    params[idx+1].expected = 
+      cr_calloc(params[idx+1].m * params[idx+1].m, sizeof(double));
 
     strncat(params[idx+2].dense_name, "L", STR_LEN);
     params[idx+2].dense = construct_laplacian_matrix(params[idx].m);
@@ -274,7 +276,8 @@ struct ParametersTestHxD * generate_hodlr_dense_params(int * len) {
   const int n_params = 9+9;
   int actual = 0;
   *len = n_params;
-  struct ParametersTestHxD *params = cr_malloc(n_params * sizeof(struct ParametersTestHxD));
+  struct ParametersTestHxD *params = 
+    cr_malloc(n_params * sizeof(struct ParametersTestHxD));
 
   actual += laplacian_matrix(params, &fill_matrix_row, false);
   actual += identity_matrix(params + actual);
@@ -292,23 +295,29 @@ ParameterizedTestParameters(dense_algebra, test_hodlr_dense) {
   int n_params;
   struct ParametersTestHxD *params = generate_hodlr_dense_params(&n_params);
 
-  return cr_make_param_array(struct ParametersTestHxD, params, n_params, free_hd_params);
+  return cr_make_param_array(struct ParametersTestHxD, params, n_params, 
+                             free_hd_params);
 }
 
 
-ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, test_hodlr_dense) {
+ParameterizedTest(
+  struct ParametersTestHxD *params, dense_algebra, test_hodlr_dense
+) {
   int m = params->hodlr->root->m;
 
   cr_log_info("%.10s (height=%d) x %.10s (%dx%d, lda=%d)",
               params->hodlr_name, params->hodlr->height, params->dense_name, 
               params->m, params->dense_n, params->dense_ld);
 
-  double * result = multiply_hodlr_dense(params->hodlr, params->dense, params->dense_n, 
-                                         params->dense_ld, NULL, m);
+  double * result = multiply_hodlr_dense(
+    params->hodlr, params->dense, params->dense_n, params->dense_ld, NULL, m
+  );
 
   double norm, diff;
-  expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M', "", &norm, &diff);
+  expect_matrix_double_eq_safe(
+    result, params->expected, m, params->dense_n, m, params->dense_n, m, m, 
+    'M', "", &norm, &diff
+  );
   cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
 
@@ -320,7 +329,8 @@ ParameterizedTestParameters(dense_algebra, test_internal_dense) {
   int n_params;
   struct ParametersTestHxD *params = generate_hodlr_dense_params(&n_params);
 
-  return cr_make_param_array(struct ParametersTestHxD, params, n_params, free_hd_params);
+  return cr_make_param_array(struct ParametersTestHxD, params, n_params, 
+                             free_hd_params);
 }
 
 
@@ -345,8 +355,10 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra,
   );
 
   double norm, diff;
-  expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M', "", &norm, &diff);
+  expect_matrix_double_eq_safe(
+    result, params->expected, m, params->dense_n, m, params->dense_n, m, m, 
+    'M', "", &norm, &diff
+  );
   cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
 
@@ -413,6 +425,7 @@ ParameterizedTestParameters(dense_algebra, internal_transpose_dense) {
 
 ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, 
                   internal_transpose_dense) {
+  int ierr = 0;
   int m = params->hodlr->root->m;
 
   cr_log_info("%.10s (height=%d) x %.10s (%dx%d, lda=%d)",
@@ -432,8 +445,10 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra,
   );
 
   double norm, diff;
-  expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M', "", &norm, &diff);
+  expect_matrix_double_eq_safe(
+    result, params->expected, m, params->dense_n, m, params->dense_n, m, m, 
+    'M', "", &norm, &diff
+  );
   cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
 

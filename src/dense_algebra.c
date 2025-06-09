@@ -958,4 +958,3 @@ void multiply_dense_internal_node(
   }
 }
 
-
