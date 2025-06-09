@@ -166,7 +166,8 @@ void free_hd_params(struct criterion_test_params *params) {
 
 
 static int laplacian_matrix(struct ParametersTestHxD *params,
-                            void(*fill)(double*, int, int, int, double)) {
+                            void(*fill)(double*, int, int, int, double),
+                            bool hodlr_transpose) {
   const int n_cases = 3, max_height = 3;
   int i = 0, ierr = 0;
   double svd_threshold = 0.1;
@@ -224,8 +225,13 @@ static int laplacian_matrix(struct ParametersTestHxD *params,
 
     // LAPLACIAN MATRIX with 0.5 in bottom corner
     i += 1;
-    fill(params[i].expected, 0, params[i].m, params[i].dense_ld, 10.0);
-    fill(params[i].expected, params[i].m-1, params[i].m, params[i].dense_ld, 15.0);
+    if (hodlr_transpose == false) {
+      fill(params[i].expected, 0, params[i].m, params[i].dense_ld, 10.0);
+      fill(params[i].expected, params[i].m-1, params[i].m, params[i].dense_ld, 15.0);
+    } else {
+      fill(params[i].expected, 0, params[i].m, params[i].dense_ld, 15.0);
+      fill(params[i].expected, params[i].m-1, params[i].m, params[i].dense_ld, 10.0);
+    }
   }
 
   return n_cases * max_height;
@@ -278,7 +284,7 @@ struct ParametersTestHxD * generate_hodlr_dense_params(int * len) {
   *len = n_params;
   struct ParametersTestHxD *params = cr_malloc(n_params * sizeof(struct ParametersTestHxD));
 
-  actual += laplacian_matrix(params, &fill_matrix_row);
+  actual += laplacian_matrix(params, &fill_matrix_row, false);
   actual += identity_matrix(params + actual);
 
   if (actual != n_params) {
@@ -359,18 +365,70 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra,
 }
 
 
+struct ParametersTestHxD * generate_hodlr_trans_dense_params(int * len) {
+  const int n_params = 9+9;
+  int actual = 0;
+  *len = n_params;
+  struct ParametersTestHxD *params = 
+    cr_malloc(n_params * sizeof(struct ParametersTestHxD));
+
+  actual += laplacian_matrix(params, &fill_matrix_row, true);
+  actual += identity_matrix(params + actual);
+
+  if (actual != n_params) {
+    printf("PARAMETER SET-UP FAILED - allocated %d parameters but set %d\n",
+           n_params, actual);
+  }
+
+  return params;
+}
+
+
+ParameterizedTestParameters(dense_algebra, internal_transpose_dense) {
+  int n_params;
+  struct ParametersTestHxD *params = generate_hodlr_trans_dense_params(&n_params);
+
+  return cr_make_param_array(struct ParametersTestHxD, params, n_params, free_hd_params);
+}
+
+
+ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, 
+                  internal_transpose_dense) {
+  int ierr = 0;
+  int m = params->hodlr->root->m;
+
+  cr_log_info("%.10s (height=%d) x %.10s (%dx%d, lda=%d)",
+              params->hodlr_name, params->hodlr->height, params->dense_name, 
+              params->m, params->dense_n, params->dense_ld);
+
+  int *sizes = malloc(2 * sizeof(int));
+  compute_multiply_hodlr_dense_workspace(params->hodlr, params->dense_n, sizes);
+
+  double *workspace = malloc(sizes[0] * sizeof(double));
+  double *workspace2 = malloc(sizes[1] * sizeof(double));
+
+  double * result = malloc(params->dense_ld * m * sizeof(double));
+  multiply_internal_node_transpose_dense(
+    params->hodlr->root, params->hodlr->height, params->dense, 
+    params->dense_n, params->dense_ld, params->hodlr->work_queue, 
+    workspace, workspace2, result, m
+  );
+
+  expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
+                               m, params->dense_n, m, m, 'M');
+
+  free(result); free(sizes); free(workspace2); free(workspace);
+}
+
+
+
 struct ParametersTestHxD * generate_dense_hodlr_params(int * len) {
   const int n_params = 9+9;
   int actual = 0;
   *len = n_params;
   struct ParametersTestHxD *params = cr_malloc(n_params * sizeof(struct ParametersTestHxD));
 
-  actual += laplacian_matrix(params, &fill_matrix_column);
-  for (int i = 2; i < actual; i += 3) {
-    fill_matrix_column(params[i].expected, 0, params[i].m, params[i].dense_ld, 15.0);
-    fill_matrix_column(params[i].expected, params[i].m-1, params[i].m, params[i].dense_ld, 10.0);
-  }
-
+  actual += laplacian_matrix(params, &fill_matrix_column, true);
   actual += identity_matrix(params + actual);
 
   if (actual != n_params) {
