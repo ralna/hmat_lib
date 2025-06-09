@@ -384,6 +384,34 @@ struct ParametersTestHxD * generate_hodlr_trans_dense_params(int * len) {
 }
 
 
+ParameterizedTestParameters(dense_algebra, hodlr_transpose_dense) {
+  int n_params;
+  struct ParametersTestHxD *params = generate_hodlr_trans_dense_params(&n_params);
+
+  return cr_make_param_array(struct ParametersTestHxD, params, n_params, free_hd_params);
+}
+
+
+ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, 
+                  hodlr_transpose_dense) {
+  int ierr = 0;
+  int m = params->hodlr->root->m;
+
+  cr_log_info("%.10s (height=%d) x %.10s (%dx%d, lda=%d)",
+              params->hodlr_name, params->hodlr->height, params->dense_name, 
+              params->m, params->dense_n, params->dense_ld);
+
+  double * result = multiply_hodlr_transpose_dense(
+    params->hodlr, params->dense, params->dense_n, params->dense_ld, NULL, m
+  );
+
+  expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
+                               m, params->dense_n, m, m, 'M');
+
+  free(result);
+}
+
+
 ParameterizedTestParameters(dense_algebra, internal_transpose_dense) {
   int n_params;
   struct ParametersTestHxD *params = generate_hodlr_trans_dense_params(&n_params);

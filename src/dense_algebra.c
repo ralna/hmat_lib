@@ -102,7 +102,7 @@ void compute_multiply_hodlr_dense_workspace(
  * Multiplies a low-rank matrix and a dense matrix.
  *
  * Given an off-diagonal node (which represents a low-rank matrix) and a 
- * dense matrix, computies the product of the two as a dense matrix.
+ * dense matrix, computes the product of the two as a dense matrix.
  *
  * :param node: A pointer to the off-diagonal node to multiply. It must not be
  *              ``NULL`` and must point to a valid node with correctly 
@@ -144,10 +144,11 @@ static inline void multiply_low_rank_dense(
 
 
 /**
- * Multiplies a low-rank matrix and a dense matrix.
+ * Multiplies the transpose of a low-rank matrix and a dense matrix.
  *
  * Given an off-diagonal node (which represents a low-rank matrix) and a 
- * dense matrix, computies the product of the two as a dense matrix.
+ * dense matrix, transposes the low-rank matrix and computes the product of 
+ * the two as a dense matrix.
  *
  * :param node: A pointer to the off-diagonal node to multiply. It must not be
  *              ``NULL`` and must point to a valid node with correctly 
@@ -286,11 +287,15 @@ static inline void multiply_off_diagonal_dense(
 
 
 /**
- * Multiplies two off-diagonal blocks with a dense matrix.
+ * Multiplies the transpose of two off-diagonal blocks with a dense matrix.
  *
- * Computes the matrix-matrix multiplication of the two off-diagonal blocks 
- * of a tree HODLR matrix internal node with a dense matrix, and adds the 
- * results to the ``out`` matrix.
+ * Computes the matrix-matrix multiplication of the transpose of two 
+ * off-diagonal blocks of a tree HODLR matrix internal node with a dense 
+ * matrix, and adds the results to the ``out`` matrix.
+ *
+ * The two off-diagonal blocks are fully transposed - the two low-rank 
+ * matrices are switched and each is transposed. (Of course, this is not 
+ * performed separately but at the same time as the multiplication.)
  *
  * :param parent: Pointer to an internal node holding the off-diagonal nodes
  *                to multiply.
@@ -607,11 +612,88 @@ void multiply_internal_node_dense(
 
 
 /**
- * Multiplies a HODLR matrix represented by an internal node and a dense 
- * matrix.
+ * Multiplies the transpose of a tree HODLR matrix by a dense matrix as a 
+ * dense matrix.
  *
- * Given an internal node and its height, and a dense matrix, computes their
- * product as a dense matrix.
+ * Given a HODLR tree and a dense matrix array, transposes the HODLR tree,
+ * computes the matrix-matrix multiplication and returns the result as a 
+ * dense matrix.
+ *
+ * :param hodlr: Pointer to the HODLR tree to multiply. This must be a 
+ *               fully constructed HODLR tree, including all the data being 
+ *               filled in. If the data has not been assigned (e.g. by using
+ *               :c:func:`dense_to_tree_hodlr`), it will lead to undefined
+ *               behaviour.
+ *               If ``NULL``, the function will immediately abort.
+ * :param matrix: Pointer to an array storing the dense matrix to use for the
+ *                multiplication. Must be of size ``matrix_ld`` x ``matrix_n``
+ *                of which M x ``matrix_n`` submatrix will be used for the 
+ *                multiplication (where M is the number of rows of ``hodlr``).
+ *                Must be stored in column-major order.
+ *                Must not overlap with ``out`` and must be occupied with 
+ *                values - either will lead to undefined behaviour.
+ *                If ``NULL``, the function will immediately abort.
+ * :param matrix_n: The number of columns of ``matrix``.
+ * :param matrix_ld: The leading dimension of ``matrix``, i.e. the number of 
+ *                   rows of the full array. Must be greater than or equal to 
+ *                   the number of rows of ``hodlr``.
+ * :param out: Pointer to an array to be used for storing the results of the
+ *             multiplication. Must be of size ``out_ld`` x ``matrix_n``. Will
+ *             be stored in column-major order.
+ *             Must not overlap with ``vector``, otherwise undefined behaviour
+ *             will ensue, but may be both filled with value (which will be
+ *             overwritten) or empty (i.e. just allocated).
+ *             If ``NULL``, a new array is allocated.
+ * :param out_ld: The leading dimension of ``out``, i.e. the number of rows of
+ *                the full array. Must be greater than or equal to the number
+ *                of rows of ``hodlr``, even if ``out == NULL``, in which case
+ *                ``out`` will be allocated with size ``out_ld`` x 
+ *                ``matrix_n``.
+ * :return: The ``out`` array with the results of the matrix-matrix
+ *          multiplication stored inside.
+ */
+double * multiply_hodlr_transpose_dense(const struct TreeHODLR *hodlr,
+                                        const double *restrict matrix,
+                                        const int matrix_n,
+                                        const int matrix_ld,
+                                        double *restrict out,
+                                        const int out_ld) {
+  if (hodlr == NULL || matrix == NULL) {
+    return NULL;
+  }
+  if (out == NULL) {
+    out = malloc(out_ld * matrix_n * sizeof(double));
+    if (out == NULL) {
+      return NULL;
+    }
+  }
+
+  int offset = 0, idx=0, m = 0;
+  long n_parent_nodes = hodlr->len_work_queue;
+  const double alpha = 1.0, beta = 0.0;
+
+  int workspace_size[2] = {0, 0};
+  compute_multiply_hodlr_dense_workspace(hodlr, matrix_n, &workspace_size);
+  double *workspace = malloc((workspace_size[0] + workspace_size[1]) * sizeof(double));
+  double *workspace2 = workspace + workspace_size[0];
+
+  struct HODLRInternalNode **queue = hodlr->work_queue;
+
+  multiply_internal_node_transpose_dense(
+    hodlr->root, hodlr->height, matrix, matrix_n, matrix_ld, queue, workspace, 
+    workspace2, out, out_ld
+  );
+
+  return out;
+}
+
+
+/**
+ * Multiplies the transpose of a HODLR matrix represented by an internal 
+ * node and a dense matrix.
+ *
+ * Given an internal node and its height, and a dense matrix, transposes the
+ * internal node and computes their product as a dense matrix.
  *
  * :param internal: A pointer to the internal node representing a HODLR matrix
  *                  to multiply. Must not be NULL and must be correctly 
