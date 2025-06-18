@@ -28,4 +28,4 @@ jobs:
           mkdir build
           make
           ../bin/unit_test -j1 --verbose=0
-          make clean
+
