@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "../include/tree.h"
+#include "../tests/include/io.h"
 
 
 static void print_matrix(int m, int n, double *matrix) {
@@ -125,7 +126,7 @@ void construct_laplacian_matrix(int m, double *matrix) {
 }
 
 
-int main() {
+int main(int argc, char **argv) {
   int m = 10;
   double svd_threshold = 0.1;
   int depth = 2, ierr;
@@ -134,20 +135,30 @@ int main() {
   printf("TREE ALLOCATED\n");
   free_tree_hodlr(&test);
 
-  int idx;
-  double *matrix = malloc(m * m * sizeof(double));
-  construct_laplacian_matrix(m, matrix);
-  //matrix[m - 1] = 0.5;
-  //matrix[m * (m - 1)] = 0.5;
+  int idx; double *matrix;
 
-  print_matrix(m, m, matrix);
+  if (argc == 1) {
+    matrix = malloc(m * m * sizeof(double));
+    construct_laplacian_matrix(m, matrix);
+    //matrix[m - 1] = 0.5;
+    //matrix[m * (m - 1)] = 0.5;
+    print_matrix(m, m, matrix);
+  } else if (argc == 2) {
+    matrix = read_dense_matrix(argv[1], &m);
+    if (matrix == NULL) {
+      printf("Matrix from '%s' could not be read, aborting...\n", argv[1]);
+    }
+  } else {
+    printf("Incorrect number of arguments (%d)\n", argc);
+    return 1;
+  }
 
   printf("%d x %d matrix initialised - constructing HOLDR matrix...\n", m, m);
 
   struct TreeHODLR *hodlr = allocate_tree(depth, &ierr);
   printf("HODLR matrix allocated, converting from dense...\n");
 
-  dense_to_tree_hodlr(hodlr, m, matrix, svd_threshold, &ierr);
+  dense_to_tree_hodlr(hodlr, m, NULL, matrix, svd_threshold, &ierr);
 
   printf("HODLR matrix computed, printing...\n");
 
