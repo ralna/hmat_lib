@@ -22,7 +22,7 @@ OUT_DIR := bin
 OTHER_DIR := ignore
 
 
-test: test.o allocators.o constructors.o vector_algebra.o dense_algebra.o
+test: test.o allocators.o constructors.o vector_algebra.o dense_algebra.o io.o
 	${COMPILER} \
 		${BUILD_DIR}/test.o \
 		${BUILD_DIR}/allocators.o \
@@ -30,6 +30,7 @@ test: test.o allocators.o constructors.o vector_algebra.o dense_algebra.o
 		${BUILD_DIR}/vector_algebra.o \
 		${BUILD_DIR}/dense_algebra.o \
 		${BUILD_DIR}/lapack_wrapper.o \
+		${BUILD_DIR}/io.o \
 		-o ${OUT_DIR}/${EXE} \
 		-llapack -lm -lopenblas \
 		${WARNINGS} \
@@ -82,7 +83,14 @@ dense_algebra.o: ${SRC_DIR}/dense_algebra.c
 
 
 lapack_wrapper.o: ${SRC_DIR}/lapack_wrapper.c
-	${COMPILER} -c ${SRC_DIR}/lapack_wrapper.c -o ${BUILD_DIR}/lapack_wrapper.o -llapack -I ${INCLUDE_DIR} ${EXTRA_FLAGS}
+	${COMPILER} \
+		-c ${SRC_DIR}/lapack_wrapper.c \
+		-o ${BUILD_DIR}/lapack_wrapper.o \
+		-llapack -I ${INCLUDE_DIR} ${EXTRA_FLAGS}
+
+io.o: tests/src/io.c
+	${COMPILER} -c tests/src/io.c -o ${BUILD_DIR}/io.o -I tests/include ${EXTRA_FLAGS}
+
 
 clean:
 	rm ${BUILD_DIR}/*.o ${OUT_DIR}/test
