@@ -45,6 +45,67 @@ static void compute_off_diagonal(
 }
 
 
+static inline void compute_inner_off_diagonal(
+  const struct HODLRInternalNode *restrict const node1,
+  const struct NodeDiagonal *restrict const diagonal1,
+  const struct NodeOffDiagonal *restrict const off_diagonal1,
+  const struct HODLRInternalNode *restrict const node2,
+  const struct NodeDiagonal *restrict const diagonal2,
+  const struct NodeOffDiagonal *restrict const off_diagonal2,
+  double *restrict workspace,
+  struct NodeOffDiagonal *restrict out,
+  const int height
+) {
+  const double alpha = 1.0, beta = 0.0;
+  double **matrices = malloc((height + 1) * sizeof(double *));
+
+  matrices[0] = malloc((diagonal1->m * off_diagonal2->s + 
+                       diagonal2->m * off_diagonal1->s) * sizeof(double));
+  matrices[1] = matrices[0] + (diagonal1->m & off_diagonal2->s);
+
+  dgemm_("N", "N", &diagonal1->m, &off_diagonal2->s, &diagonal1->m, &alpha,
+         diagonal1->data, &diagonal1->m, off_diagonal2->u, &off_diagonal2->m,
+         &beta, matrices[0], &diagonal1->m);
+
+  dgemm_("T", "N", &off_diagonal1->s, &diagonal2->m, &off_diagonal1->n, &alpha,
+         off_diagonal1->v, &off_diagonal1->s, diagonal2->data, &diagonal2->m,
+         &beta, matrices[1], &diagonal2->m);
+
+  struct HODLRInternalNode *parent1 = node1->parent, *parent2 = node2->parent;
+  const int v_n = off_diagonal1->n;
+
+  int midx = 2;
+  for (int level = height-1; level > 0; level--) {
+    matrices[midx] = malloc(parent1->children[1].leaf->data.off_diagonal.s
+                            * v_n * sizeof(double));
+
+    dgemm_("T", "N", &parent1->children[1].leaf->data.off_diagonal.s,
+           &parent2->children[2].leaf->data.off_diagonal.s,
+           &parent1->children[1].leaf->data.off_diagonal.n,
+           &alpha,
+           parent1->children[1].leaf->data.off_diagonal.v,
+           &parent1->children[1].leaf->data.off_diagonal.s,
+           parent2->children[2].leaf->data.off_diagonal.u,
+           &parent2->children[2].leaf->data.off_diagonal.m,
+           &beta, workspace,
+           &parent1->children[1].leaf->data.off_diagonal.s);
+  
+    dgemm_("N", "T",
+           &parent1->children[1].leaf->data.off_diagonal.s,
+           &parent2->children[2].leaf->data.off_diagonal.n,
+           &parent2->children[2].leaf->data.off_diagonal.s,
+           &alpha,
+           workspace, &parent1->children[1].leaf->data.off_diagonal.s,
+           parent2->children[2].leaf->data.off_diagonal.v,
+           &parent2->children[2].leaf->data.off_diagonal.s,
+           &beta, matrices[midx],
+           &parent1->children[1].leaf->data.off_diagonal.s);
+
+    parent1 = parent1->parent; parent2 = parent2->parent;
+  }
+}
+
+
 static inline void add_off_diagonal_contribution(
   const struct NodeOffDiagonal *restrict const leaf1,
   const struct NodeOffDiagonal *restrict const leaf2,
@@ -70,7 +131,7 @@ static inline void add_off_diagonal_contribution(
 }
 
 
-void compute_diagonal(
+static void compute_diagonal(
   const struct TreeHODLR *restrict const hodlr1,
   const struct TreeHODLR *restrict const hodlr2,
   struct TreeHODLR *restrict out,
@@ -88,7 +149,7 @@ void compute_diagonal(
   for (int parent = 0; parent < out->len_work_queue; parent++) {
     queue[parent] = out->innermost_leaves[2 * parent]->parent;
 
-    for (int child = 0; child < 2; child++) {
+    for (int _diagonal = 0; _diagonal < 2; _diagonal++) {
       m = out->innermost_leaves[idx]->data.diagonal.m;
       out->innermost_leaves[idx]->data.diagonal.data = 
         malloc(m * m * sizeof(double));
@@ -109,7 +170,7 @@ void compute_diagonal(
 
       int position = idx;
       oidx = 0;
-      for (int level = out->height; level > 0; level++) {
+      for (int level = out->height; level > 0; level--) {
         if (position % 2 == 0) {
           which_child1 = 1; which_child2 = 2;
           offsets[oidx] = 0;
@@ -134,6 +195,12 @@ void compute_diagonal(
 
       idx++;
     }
+
+    for (int offdiag = 1; offdiag < 3; offdiag++) {
+      double **matrices = malloc((out->height + 1) * sizeof(double *));
+
+
+    }
   }
 }
 
@@ -155,6 +222,19 @@ void multiply_hodlr_hodlr(
 
   compute_diagonal(hodlr1, hodlr2, out, queue, offsets, workspace, 
                    workspace2, ierr);
+
+  long n_parent_nodes = out->len_work_queue;
+
+  for (int level = out->height; level > 0; level--) {
+    //n_parent_nodes /= 2;
+
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      
+      queue[parent / 2] = queue[parent]->parent;
+    }
+
+    n_parent_nodes /= 2;
+  }
   
   free(offsets);
 }
