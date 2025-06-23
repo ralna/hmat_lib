@@ -1,9 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 #include "../include/tree.h"
 #include "../tests/include/io.h"
+#include "../include/blas_wrapper.h"
+
+
+#define MAX_PRINT_M 25
 
 
 static void print_matrix(int m, int n, double *matrix) {
@@ -30,11 +35,13 @@ static void print_node_diagonal(struct NodeDiagonal *node) {
 
   printf("(%dx%d) node=%p data=%p\n", m, m, node, node->data);
 
-  for (int i=0; i<m; i++) {
-    for (int j=0; j < m; j++) {
-      printf("%f    ", node->data[j * m + i]);
+  if (m < MAX_PRINT_M) {
+    for (int i=0; i<m; i++) {
+      for (int j=0; j < m; j++) {
+        printf("%f    ", node->data[j * m + i]);
+      }
+      printf("\n");
     }
-    printf("\n");
   }
   printf("\n");
 }
@@ -44,19 +51,23 @@ static void print_node_offdiagonal(struct NodeOffDiagonal *node) {
   int m = node->m; int s = node->s; int n = node->n;
 
   printf("U (%dx%d):\n", m, s);
-  for (int i = 0; i < m; i++) {
-    for (int j = 0; j < s; j++) {
-      printf("%f    ", node->u[j * m + i]);
+  if (m < MAX_PRINT_M) {
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < s; j++) {
+        printf("%f    ", node->u[j * m + i]);
+      }
+      printf("\n");
     }
-    printf("\n");
   }
 
   printf("\nV_T (%dx%d):\n", s, n);
-  for (int i = 0; i < s; i++) {
-    for (int j = 0; j < n; j++) {
-      printf("%f    ", node->v[j + i * n]);
+  if (n < MAX_PRINT_M) {
+    for (int i = 0; i < s; i++) {
+      for (int j = 0; j < n; j++) {
+        printf("%f    ", node->v[j + i * n]);
+      }
+      printf("\n");
     }
-    printf("\n");
   }
   printf("\n");
 }
@@ -128,12 +139,8 @@ void construct_laplacian_matrix(int m, double *matrix) {
 
 int main(int argc, char **argv) {
   int m = 10;
-  double svd_threshold = 0.1;
+  double svd_threshold = 1e-8;
   int depth = 2, ierr;
-
-  struct TreeHODLR *test = allocate_tree_monolithic(depth, &ierr);
-  printf("TREE ALLOCATED\n");
-  free_tree_hodlr(&test);
 
   int idx; double *matrix;
 
@@ -153,22 +160,19 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  printf("%d x %d matrix initialised - constructing HOLDR matrix...\n", m, m);
+  double *matrix2 = malloc(m * m * sizeof(double));
+  memcpy(matrix2, matrix, m * m * sizeof(double));
 
+  printf("%d x %d matrix initialised - constructing HOLDR matrix...\n", m, m);
   struct TreeHODLR *hodlr = allocate_tree(depth, &ierr);
   printf("HODLR matrix allocated, converting from dense...\n");
 
   dense_to_tree_hodlr(hodlr, m, NULL, matrix, svd_threshold, &ierr);
-
   printf("HODLR matrix computed, printing...\n");
+  free(matrix);
 
-  //printf("diagonal=%d, off_diagonal=%d\n", DIAGONAL, OFFDIAGONAL);
-  //printf("depth=%d   child.type=%d\n", hodlr.depth, hodlr.child->type);
-  
   print_tree_hodlr(hodlr);
 
-  //print_matrix(m, m, matrix);
-  
   double *vector = malloc(m * sizeof(double));
   for (int i = 0; i < m; i++) {
     vector[i] = 10;
@@ -176,9 +180,25 @@ int main(int argc, char **argv) {
 
   printf("HODLR vector multiplication:\n");
   double *result = multiply_vector(hodlr, vector, NULL);
-  print_vector(m, result);
-  free(result);
+  if (m < 4 * MAX_PRINT_M) {
+    print_vector(m, result);
+  }
 
+  printf("Computing reference using blas...\n");
+  double *result2 = malloc(m * sizeof(double));
+  const double alpha = 1.0, beta = 0.0;
+  const int incx = 1;
+  dgemv_("N", &m, &m, &alpha, matrix2, &m, vector, &incx, &beta, result2, &incx);
+
+  printf("Comparing HODLR mult with BLAS:\n");
+  double normv = 0.0, diff = 0.0;
+  for (int i = 0; i < m; i++) {
+    normv += result[i] * result[i];
+    diff += (result[i] - result2[i]) * (result[i] - result2[i]);
+  }
+  printf("normv=%f, diff=%f, relerr=%f\n\n", sqrt(normv), sqrtf(diff), 
+         sqrtf(diff) / sqrtf(normv));
+  free(result2); free(result);
   /* for (int i = 0; i < m; i++) { */
   /*   for (int j = 0 ; j < m; j++) { */
   /*     if (i == j) { */
@@ -194,16 +214,22 @@ int main(int argc, char **argv) {
   printf("\n\nHODLR dense matrix multiplication:\n");
 
   result = multiply_hodlr_dense(hodlr, matrix, m, m, NULL, m);
-  print_matrix(m, m, result);
+  if (m < MAX_PRINT_M) {
+    print_matrix(m, m, result);
+  }
   free(result);
 
   result = multiply_dense_hodlr(hodlr, matrix, m, m, NULL, m);
-  print_matrix(m, m, result);
+  if (m < MAX_PRINT_M) {
+    print_matrix(m, m, result);
+  }
   free(result);
 
+  // Always free:
   free_tree_hodlr(&hodlr);
   free(matrix);
-  free(vector);
+
+  free(vector); free(matrix2);
 
   return 0;
 }
