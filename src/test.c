@@ -169,13 +169,12 @@ int main(int argc, char **argv) {
 
   dense_to_tree_hodlr(hodlr, m, NULL, matrix, svd_threshold, &ierr);
   printf("HODLR matrix computed, printing...\n");
-  free(matrix);
 
   print_tree_hodlr(hodlr);
 
   double *vector = malloc(m * sizeof(double));
   for (int i = 0; i < m; i++) {
-    vector[i] = 10;
+    vector[i] = (double)rand() / RAND_MAX;
   }
 
   printf("HODLR vector multiplication:\n");
