@@ -7,6 +7,7 @@ set(CMAKE_C_STANDARD 23)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 option(ENABLE_OPENMP "Allow user to activate/deactivate OpenMP support" ON)
+option(BUILD_OPENMP_TESTS "Also builds tests with OpenMP" ON)
 
 option(ASAN "Turns on/off Adress Sanitizer" OFF)
 
@@ -16,6 +17,14 @@ if(ENABLE_OPENMP)
     message(STATUS "OpenMP for C Compiler Found, version ${OpenMP_C_VERSION_MAJOR}.${OpenMP_C_VERSION_MINOR}")
   else()
     message(ERROR_CRITICAL "No OpenMP support detected")
+  endif()
+else()
+  if(BUILD_OPENMP_TESTS)
+    message(WARNING "Testing with OpenMP but building without")
+    include(FindOpenMP)
+    if(NOT OpenMP_C_FOUND)
+      message(WARNING "No OpenMP support detected")
+    endif()
   endif()
 endif()
 
