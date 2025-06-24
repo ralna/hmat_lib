@@ -16,6 +16,10 @@ target_link_libraries(hmat_lib ${MATH_LIBRARY})
 target_link_libraries(hmat_lib openblas)
 target_link_libraries(hmat_lib lapack)
 
+if(OpenMP_C_FOUND)
+  target_link_libraries(hmat_lib OpenMP::OpenMP_C)
+endif()
+
 
 if(ASAN)
   message(STATUS "Building test_asan...")
