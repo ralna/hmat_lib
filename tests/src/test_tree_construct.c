@@ -475,14 +475,14 @@ static int fill_copy_diagonal_var(struct ParametersCopyDiag *params,
 }
 
 
-
 ParameterizedTestParameters(constructors, copy_diagonal) {
   const int n_params = 2*9; int actual_n_params = 0;
   struct ParametersCopyDiag *params = 
     cr_malloc(n_params * sizeof(struct ParametersCopyDiag));
 
   actual_n_params += fill_copy_diagonal_const(params, &construct_laplacian_matrix);
-  actual_n_params += fill_copy_diagonal_var(params, &construct_diagonal_increasing);
+  actual_n_params += fill_copy_diagonal_var(params + actual_n_params, 
+                                            &construct_diagonal_increasing);
 
   if (n_params != actual_n_params) {
     printf("PARAMETER SETUP FAILED\n");

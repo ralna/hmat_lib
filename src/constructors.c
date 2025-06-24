@@ -354,7 +354,7 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
 static int compress_matrix(struct TreeHODLR *restrict hodlr,
                            struct HODLRInternalNode **restrict queue,
                            double *restrict matrix,
-                   const int m,
+                           const int m,
                            double *restrict s,
                            double *restrict u,
                            double *restrict vt,
@@ -480,7 +480,9 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
       return result;
       #endif
     }
-  } 
+  }
+  offset_s += m_smaller; offset_u += m_larger * m_smaller;
+
   // Off-diagonal block in the bottom left corner
   sub_matrix_pointer = matrix + m_larger;
   node = &(queue[0]->children[2].leaf->data.off_diagonal);
