@@ -147,7 +147,7 @@ int main() {
   struct TreeHODLR *hodlr = allocate_tree(depth, &ierr);
   printf("HODLR matrix allocated, converting from dense...\n");
 
-  dense_to_tree_hodlr(hodlr, m, matrix, svd_threshold, &ierr);
+  dense_to_tree_hodlr(hodlr, m, NULL, matrix, svd_threshold, &ierr);
 
   printf("HODLR matrix computed, printing...\n");
 
