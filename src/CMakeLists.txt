@@ -14,7 +14,6 @@ add_library(hmat_lib allocators.c constructors.c dense_algebra.c lapack_wrapper.
 
 target_link_libraries(hmat_lib ${MATH_LIBRARY})
 target_link_libraries(hmat_lib openblas)
-target_link_libraries(hmat_lib lapack)
 
 if(OpenMP_C_FOUND)
   target_link_libraries(hmat_lib OpenMP::OpenMP_C)
@@ -29,7 +28,6 @@ if(ASAN)
   )
   target_link_libraries(test_asan ${MATH_LIBRARY})
   target_link_libraries(test_asan openblas)
-  target_link_libraries(test_asan lapack)
   target_link_libraries(test_asan hmat_lib)
 else()
   message(STATUS "Building test_unsafe...")
@@ -39,7 +37,6 @@ else()
   )
   target_link_libraries(test_unsafe ${MATH_LIBRARY})
   target_link_libraries(test_unsafe openblas)
-  target_link_libraries(test_unsafe lapack)
   target_link_libraries(test_unsafe hmat_lib)
 endif()
 
