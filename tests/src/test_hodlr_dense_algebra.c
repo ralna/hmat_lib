@@ -310,7 +310,7 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, test_hodlr_de
                                          params->dense_ld, NULL, m);
 
   expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M');
+                               m, params->dense_n, m, m, 'M', "");
 
   free(result);
 }
@@ -347,7 +347,7 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra,
   );
 
   expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M');
+                               m, params->dense_n, m, m, 'M', "");
 
   free(result); free(sizes); free(workspace2); free(workspace);
 }
@@ -396,7 +396,7 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, dense_hodlr) 
                                          params->dense_ld, NULL, m);
 
   expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M');
+                               m, params->dense_n, m, m, 'M', "");
 
   free(result);
 }
@@ -433,7 +433,7 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra,
   );
 
   expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M');
+                               m, params->dense_n, m, m, 'M', "");
 
   free(result); free(sizes); free(workspace2); free(workspace);
 }

@@ -40,7 +40,9 @@ int expect_matrix_double_eq_safe(
   const int n_expected,
   const int ld_actual, 
   const int ld_expected,
-  const char name);
+  const char name,
+  const char *metadata
+);
 
 
 int expect_vector_double_eq_safe(

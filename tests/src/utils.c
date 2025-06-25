@@ -99,6 +99,9 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
   const int max_depth_n = (int)pow(2, expected->height - 1);
   int len_queue = 1, err = 0;
 
+  const size_t sbuff = 50 * sizeof(char);
+  char *buffer = malloc(sbuff);
+
   union HODLRData *exp, *act;
 
   struct HODLRInternalNode **queue_a = malloc(max_depth_n * sizeof(void *));
@@ -115,20 +118,31 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
         act = &(queue_a[j]->children[k].leaf->data);
         exp = &(queue_e[j]->children[k].leaf->data);
 
-        err += expect_matrix_double_eq_safe(act->off_diagonal.u, exp->off_diagonal.u,
-                                         act->off_diagonal.m, act->off_diagonal.s,
-                                         exp->off_diagonal.m, exp->off_diagonal.s,
-                                         act->off_diagonal.m, exp->off_diagonal.m,
-                                         'U');
+        snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", i, j, k);
+        err += expect_matrix_double_eq_safe(
+          act->off_diagonal.u, exp->off_diagonal.u,
+          act->off_diagonal.m, act->off_diagonal.s, 
+          exp->off_diagonal.m, exp->off_diagonal.s,
+          act->off_diagonal.m, exp->off_diagonal.m,
+          'U', buffer
+        );
         
-        err += expect_matrix_double_eq_safe(act->off_diagonal.v, exp->off_diagonal.v,
-                                         act->off_diagonal.n, exp->off_diagonal.s,
-                                         exp->off_diagonal.n, exp->off_diagonal.s,
-                                         act->off_diagonal.n, exp->off_diagonal.n,
-                                         'V');
+        err += expect_matrix_double_eq_safe(
+          act->off_diagonal.v, exp->off_diagonal.v,
+          act->off_diagonal.n, exp->off_diagonal.s,
+          exp->off_diagonal.n, exp->off_diagonal.s,
+          act->off_diagonal.n, exp->off_diagonal.n,
+          'V', buffer
+        );
       }
 
-      cr_expect(eq(queue_a[j]->children[0].internal->m, queue_e[j]->children[3].internal->m));
+      cr_expect(eq(int, queue_a[j]->children[0].internal->m, 
+                   queue_e[j]->children[0].internal->m),
+                "level=%d, node=%d, internal=0", i, j);
+
+      cr_expect(eq(int, queue_a[j]->children[3].internal->m, 
+                   queue_e[j]->children[3].internal->m),
+                "level=%d, node=%d, internal=1", i, j);
 
       next_level_a[2 * j] = queue_a[j]->children[0].internal;
       next_level_a[2 * j + 1] = queue_a[j]->children[3].internal;
@@ -150,24 +164,29 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
 
   for (int i = 0; i < len_queue; i++) {
     for (int j = 1; j < 3; j ++) {
-      cr_log_info("Lowest level: i=%d j=%d", i, j);
       act = &(queue_a[i]->children[j].leaf->data);
       exp = &(queue_e[i]->children[j].leaf->data);
-      err += expect_matrix_double_eq_safe(act->off_diagonal.u, exp->off_diagonal.u,
-                                       act->off_diagonal.m, act->off_diagonal.s,
-                                       exp->off_diagonal.m, exp->off_diagonal.s,
-                                       act->off_diagonal.m, exp->off_diagonal.m,
-                                       'U');
-      err += expect_matrix_double_eq_safe(act->off_diagonal.v, exp->off_diagonal.v,
-                                       act->off_diagonal.n, exp->off_diagonal.s,
-                                       exp->off_diagonal.n, exp->off_diagonal.s,
-                                       act->off_diagonal.n, exp->off_diagonal.n,
-                                       'V');
+        
+      snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", expected->height, i, j);
+      err += expect_matrix_double_eq_safe(
+        act->off_diagonal.u, exp->off_diagonal.u,
+        act->off_diagonal.m, act->off_diagonal.s,
+        exp->off_diagonal.m, exp->off_diagonal.s,
+        act->off_diagonal.m, exp->off_diagonal.m,
+        'U', buffer
+      );
+      err += expect_matrix_double_eq_safe(
+        act->off_diagonal.v, exp->off_diagonal.v,
+        act->off_diagonal.n, exp->off_diagonal.s,
+        exp->off_diagonal.n, exp->off_diagonal.s,
+        act->off_diagonal.n, exp->off_diagonal.n,
+        'V', buffer
+      );
     }
     act = &(queue_a[i]->children[0].leaf->data);
     exp = &(queue_e[i]->children[0].leaf->data);
 
-    cr_expect(eq(act->diagonal.m, exp->diagonal.m));
+    cr_expect(eq(int, act->diagonal.m, exp->diagonal.m));
 
     if (act->diagonal.m == exp->diagonal.m) {
       expect_matrix_double_eq(act->diagonal.data, exp->diagonal.data, 
@@ -178,7 +197,7 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
     act = &(queue_a[i]->children[3].leaf->data);
     exp = &(queue_e[i]->children[3].leaf->data);
 
-    cr_expect(eq(act->diagonal.m, exp->diagonal.m));
+    cr_expect(eq(int, act->diagonal.m, exp->diagonal.m));
 
     if (act->diagonal.m == exp->diagonal.m) {
       expect_matrix_double_eq(act->diagonal.data, exp->diagonal.data, 
@@ -188,6 +207,7 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
   }
 
   free(queue_a); free(next_level_a); free(queue_e); free(next_level_e);
+  free(buffer);
   return err;
 }
 
@@ -195,8 +215,8 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
 
 
 void log_matrix(const double *matrix, const int m, const int n, const int lda) {
+  char *buffer = malloc(n * 16 * sizeof(char));
   for (int i = 0; i < m; i++) {
-    char *buffer = malloc(n * 16 * sizeof(char));
     buffer[0] = '\0';
 
     for (int j = 0; j < n; j++) {
@@ -207,8 +227,8 @@ void log_matrix(const double *matrix, const int m, const int n, const int lda) {
     }
     //printf("\n");
     cr_log_info("%s", buffer);
-    free(buffer);
   }
+  free(buffer);
   //printf("\n");
 }
 
@@ -222,32 +242,37 @@ int expect_matrix_double_eq_safe(
   const int n_expected,
   const int ld_actual, 
   const int ld_expected,
-  const char name)
-{
+  const char name,
+  const char *metadata
+) {
   int err = 0;
   if (m_actual != m_expected) {
     err = 1;
-    cr_fail("actual matrix dimension 1 (M) different than expected (actual=%d vs expected=%d)",
-            m_actual, m_expected);
+    cr_fail("actual matrix %c (%s) dimension 1 (M) different than expected "
+            "(actual=%d vs expected=%d)",
+            name, metadata, m_actual, m_expected);
   }
   
   if (n_actual != n_expected) {
     err = 1;
-    cr_fail("actual matrix dimension 2 (N) different than expected (actual=%d vs expected=%d)",
-            n_actual, n_expected);
+    cr_fail("actual matrix %c (%s) dimension 2 (N) different than expected "
+            "(actual=%d vs expected=%d)",
+            name, metadata, n_actual, n_expected);
   }
   if (err == 0) {
-    expect_matrix_double_eq(actual, expected, m_expected, n_expected, ld_actual, ld_expected, name);
+    expect_matrix_double_eq(actual, expected, m_expected, n_expected, 
+                            ld_actual, ld_expected, name);
   }
 
   return err;
 }
 
 
-void expect_matrix_double_eq(const double *restrict actual, const double *restrict expected, 
-                          const int m, const int n,
-                          const int ld_actual, const int ld_expected,
-                          const char name) {
+void expect_matrix_double_eq(const double *restrict actual, 
+                             const double *restrict expected, 
+                             const int m, const int n,
+                             const int ld_actual, const int ld_expected,
+                             const char name) {
 
   int errors = 0;
   for (int i = 0; i < n; i++) {
