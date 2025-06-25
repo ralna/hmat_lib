@@ -766,7 +766,8 @@ struct ParametersTestDense {
 
 void free_dense_params(struct criterion_test_params *params) {
   for (size_t i = 0; i < params->length; i++) {
-    struct ParametersTestDense *param = params->params + i;
+    struct ParametersTestDense *param = 
+      (struct ParametersTestDense *)params->params + i;
     cr_free(param->matrix);
     free_tree_hodlr(&param->expected, &cr_free);
   }
