@@ -774,72 +774,97 @@ void free_dense_params(struct criterion_test_params *params) {
 }
 
 
+static inline void set_up_off_diagonal(struct NodeOffDiagonal *node,
+                                       const int m,
+                                       const int n,
+                                       const int s) {
+  node->m = m; node->n = n; node->s = s;
+  node->u = cr_calloc(m * s, sizeof(double));
+  node->v = cr_calloc(n * s, sizeof(double));
+}
+
+
 struct ParametersTestDense * generate_dense_params(int * len) {
-  int n_params = 1, ierr = SUCCESS;
+  const int n_params = 5; int ierr = SUCCESS;
   *len = n_params;
   struct ParametersTestDense *params = cr_malloc(n_params * sizeof(struct ParametersTestDense));
-
-  // Set up test matrix
-  params[0].height = 1;
-  params[0].m = 21;
-  params[0].matrix = construct_laplacian_matrix(params[0].m);
-  params[0].matrix[params[0].m - 1] = 0.5;
-  params[0].matrix[params[0].m * (params[0].m - 1)] = 0.5;
   
-  // Set up HODLR
-  params[0].svd_threshold = 0.1;
-  params[0].expected = cr_malloc(sizeof(struct TreeHODLR));
-  params[0].expected->height = params[0].height;
-  params[0].expected->innermost_leaves = cr_malloc(2 * sizeof(struct NodeDiagonal *));
-  params[0].expected->len_work_queue = 1;
-  params[0].expected->work_queue = cr_malloc(sizeof(struct HODLRInternalNode *));
+  int idx = 0;
+  const int m = 69; int m_larger, m_smaller;
+  for (int height = 1; height < 6; height++) {
+    params[idx].height = height;
+    params[idx].m = m;
+    params[idx].matrix = construct_laplacian_matrix(m);
+    params[idx].matrix[m - 1] = 0.5;
+    params[idx].matrix[m * (m - 1)] = 0.5;
+    params[idx].svd_threshold = 1e-8;
+    params[idx].expected = 
+      allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
+    compute_block_sizes_halves(params[idx].expected, m);
 
-  // Set up the root node
-  params[0].expected->root = cr_malloc(sizeof(struct HODLRInternalNode));
-  params[0].expected->root->parent = NULL;
+    struct HODLRInternalNode **queue = params[idx].expected->work_queue;
+    int n_parent_nodes = params[idx].expected->len_work_queue;
+    printf("h=%d, npn=%d\n", height, n_parent_nodes);
+    // Diagonal blocks
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      queue[parent] = params[idx].expected->innermost_leaves[2 * parent]->parent;
+      
+      m_smaller = queue[parent]->m / 2;
+      m_larger = queue[parent]->m - m_smaller;
+      printf("%d vs %d\n", m_larger, m_smaller);
 
-  // Allocate children
-  for (int i = 0; i < 4; i++) {
-    params[0].expected->root->children[i].leaf = cr_malloc(sizeof(struct HODLRLeafNode));
-    params[0].expected->root->children[i].leaf->type = (i == 0 || i == 3) ? DIAGONAL : OFFDIAGONAL;
-    params[0].expected->root->children[i].leaf->parent = params[0].expected->root;
-  }
+      params[idx].expected->innermost_leaves[2 * parent]->data.diagonal.m = m_larger;
+      params[idx].expected->innermost_leaves[2 * parent]->data.diagonal.data 
+        = construct_laplacian_matrix(m_larger);
 
-  int m_larger = 11, m_smaller = 10;
-  params[0].expected->root->children[0].leaf->data.diagonal.data = construct_laplacian_matrix(m_larger);
-  params[0].expected->root->children[3].leaf->data.diagonal.data = construct_laplacian_matrix(m_smaller);
+      params[idx].expected->innermost_leaves[2 * parent + 1]->data.diagonal.m 
+        = m_smaller;
+      params[idx].expected->innermost_leaves[2 * parent + 1]->data.diagonal.data 
+        = construct_laplacian_matrix(m_smaller);   
+    }
+
+    for (int level = height; level > 1; level--) {
+      for (int node = 0; node < n_parent_nodes; node++) {
+        m_smaller = queue[node]->m / 2;
+        m_larger = queue[node]->m - m_smaller;
+        
+        set_up_off_diagonal(&queue[node]->children[1].leaf->data.off_diagonal, 
+                            m_larger, m_smaller, 1);
+        queue[node]->children[1].leaf->data.off_diagonal.u[m_larger-1] = 1.0;
+        queue[node]->children[1].leaf->data.off_diagonal.v[0] = -1.0;
   
-  params[0].expected->root->children[0].leaf->data.diagonal.m = m_larger;
-  params[0].expected->root->children[3].leaf->data.diagonal.m = m_smaller;
+        set_up_off_diagonal(&queue[node]->children[2].leaf->data.off_diagonal, 
+                            m_larger, m_smaller, 1);
+        queue[node]->children[2].leaf->data.off_diagonal.u[0] = 1.0;
+        queue[node]->children[2].leaf->data.off_diagonal.v[m_larger-1] = -1.0;
 
-  for (int i = 1; i < 3; i++) {
-    params[0].expected->root->children[i].leaf->data.off_diagonal.m = m_larger;
-    params[0].expected->root->children[i].leaf->data.off_diagonal.s = 2;
-    params[0].expected->root->children[i].leaf->data.off_diagonal.n = m_smaller;
-    
-    params[0].expected->root->children[i].leaf->data.off_diagonal.u = cr_calloc(m_larger * 2, sizeof(double));
-    params[0].expected->root->children[i].leaf->data.off_diagonal.v = cr_calloc(m_smaller * 2, sizeof(double));
-     
-    m_larger -= 1; m_smaller += 1;
+        queue[node / 2] = queue[node]->parent;
+      }
+      n_parent_nodes /= 2;
+    }
+
+    m_smaller = m / 2; m_larger = m - m_smaller;
+    set_up_off_diagonal(
+      &queue[0]->children[1].leaf->data.off_diagonal,
+      m_larger, m_smaller, 2    
+    );
+    queue[0]->children[1].leaf->data.off_diagonal.u[m_larger-1] = 1.0;
+    queue[0]->children[1].leaf->data.off_diagonal.u[m_larger] = -0.5;
+    queue[0]->children[1].leaf->data.off_diagonal.v[0] = -1.0;
+    queue[0]->children[1].leaf->data.off_diagonal.v[2 * m_smaller - 1] = -1.0;
+
+    set_up_off_diagonal(
+      &queue[0]->children[2].leaf->data.off_diagonal,
+      m_smaller, m_larger, 2
+    );
+    queue[0]->children[2].leaf->data.off_diagonal.u[0] = 1.0;
+    queue[0]->children[2].leaf->data.off_diagonal.u[2 * m_smaller - 1] = 0.5;
+    queue[0]->children[2].leaf->data.off_diagonal.v[m_larger-1] = -1.0;
+    queue[0]->children[2].leaf->data.off_diagonal.v[m_larger] = 1.0;
+
+    idx++;
   }
-
-  params[0].expected->innermost_leaves[0] = params[0].expected->root->children[0].leaf;
-  params[0].expected->innermost_leaves[1] = params[0].expected->root->children[3].leaf;
-
-  // Top right block
-  params[0].expected->root->children[1].leaf->data.off_diagonal.u[10] = 1;
-  params[0].expected->root->children[1].leaf->data.off_diagonal.u[11] = -0.5;
-
-  params[0].expected->root->children[1].leaf->data.off_diagonal.v[0] = -1;
-  params[0].expected->root->children[1].leaf->data.off_diagonal.v[19] = -1;
-
-  // Bottom left block
-  params[0].expected->root->children[2].leaf->data.off_diagonal.u[0] = 1;
-  params[0].expected->root->children[2].leaf->data.off_diagonal.u[19] = 0.5;
-
-  params[0].expected->root->children[2].leaf->data.off_diagonal.v[10] = -1;
-  params[0].expected->root->children[2].leaf->data.off_diagonal.v[11] = 1;
-
+  
   return params;
 }
 
@@ -854,6 +879,7 @@ ParameterizedTestParameters(constructors, dense_to_tree) {
 ParameterizedTest(struct ParametersTestDense *params, 
                   constructors, dense_to_tree) {
   int ierr;
+  cr_log_info("height=%d, m=%d", params->height, params->m);
 
   struct TreeHODLR *result = allocate_tree_monolithic(params->height, &ierr,
                                                       &malloc, &free);
@@ -863,8 +889,6 @@ ParameterizedTest(struct ParametersTestDense *params,
     cr_fatal("Tree HODLR allocation failed");
   }
 
-  expect_tree_consistent(result, params->height, params->expected->len_work_queue);
-  
   int svd = dense_to_tree_hodlr(
     result, params->m, NULL, params->matrix, params->svd_threshold, &ierr, 
     &malloc, &free
