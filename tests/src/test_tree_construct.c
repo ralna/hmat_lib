@@ -804,14 +804,13 @@ struct ParametersTestDense * generate_dense_params(int * len) {
 
     struct HODLRInternalNode **queue = params[idx].expected->work_queue;
     int n_parent_nodes = params[idx].expected->len_work_queue;
-    printf("h=%d, npn=%d\n", height, n_parent_nodes);
+
     // Diagonal blocks
     for (int parent = 0; parent < n_parent_nodes; parent++) {
       queue[parent] = params[idx].expected->innermost_leaves[2 * parent]->parent;
       
       m_smaller = queue[parent]->m / 2;
       m_larger = queue[parent]->m - m_smaller;
-      printf("%d vs %d\n", m_larger, m_smaller);
 
       params[idx].expected->innermost_leaves[2 * parent]->data.diagonal.m = m_larger;
       params[idx].expected->innermost_leaves[2 * parent]->data.diagonal.data 
@@ -834,7 +833,7 @@ struct ParametersTestDense * generate_dense_params(int * len) {
         queue[node]->children[1].leaf->data.off_diagonal.v[0] = -1.0;
   
         set_up_off_diagonal(&queue[node]->children[2].leaf->data.off_diagonal, 
-                            m_larger, m_smaller, 1);
+                            m_smaller, m_larger, 1);
         queue[node]->children[2].leaf->data.off_diagonal.u[0] = 1.0;
         queue[node]->children[2].leaf->data.off_diagonal.v[m_larger-1] = -1.0;
 
@@ -849,18 +848,18 @@ struct ParametersTestDense * generate_dense_params(int * len) {
       m_larger, m_smaller, 2    
     );
     queue[0]->children[1].leaf->data.off_diagonal.u[m_larger-1] = 1.0;
-    queue[0]->children[1].leaf->data.off_diagonal.u[m_larger] = -0.5;
+    queue[0]->children[1].leaf->data.off_diagonal.u[m_larger] = 0.5;
     queue[0]->children[1].leaf->data.off_diagonal.v[0] = -1.0;
-    queue[0]->children[1].leaf->data.off_diagonal.v[2 * m_smaller - 1] = -1.0;
+    queue[0]->children[1].leaf->data.off_diagonal.v[2 * m_smaller - 1] = 1.0;
 
     set_up_off_diagonal(
       &queue[0]->children[2].leaf->data.off_diagonal,
       m_smaller, m_larger, 2
     );
     queue[0]->children[2].leaf->data.off_diagonal.u[0] = 1.0;
-    queue[0]->children[2].leaf->data.off_diagonal.u[2 * m_smaller - 1] = 0.5;
+    queue[0]->children[2].leaf->data.off_diagonal.u[2 * m_smaller - 1] = -0.5;
     queue[0]->children[2].leaf->data.off_diagonal.v[m_larger-1] = -1.0;
-    queue[0]->children[2].leaf->data.off_diagonal.v[m_larger] = 1.0;
+    queue[0]->children[2].leaf->data.off_diagonal.v[m_larger] = -1.0;
 
     idx++;
   }
