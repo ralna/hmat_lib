@@ -20,12 +20,13 @@ jobs:
           sudo apt upgrade
           sudo apt-get install -y libcriterion-dev libopenblas-dev liblapack-dev
 
+      - name: Compile
+        run: |
+          cmake -DBUILD_TESTING=ON -DBUILD_OPENMP_TESTS=ON -S . -B /tmp/build
+          cmake --build /tmp/build
+
       - name: Run tests
         run: |
-          mkdir bin
-          mkdir build
-          cd tests
-          mkdir build
-          make
-          ../bin/unit_test -j1 --verbose=0
+          cd /temp/build
+          make vtest
 
