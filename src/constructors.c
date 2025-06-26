@@ -354,7 +354,7 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
 static int compress_matrix(struct TreeHODLR *restrict hodlr,
                            struct HODLRInternalNode **restrict queue,
                            double *restrict matrix,
-                   const int m,
+                           const int m,
                            double *restrict s,
                            double *restrict u,
                            double *restrict vt,
@@ -383,7 +383,11 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
         sub_matrix_pointer = matrix + offset_matrix + m * (offset_matrix + m_larger);
         node = &(queue[child]->children[1].leaf->data.off_diagonal);
 
+#ifndef _TEST_HODLR
 #pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+#else
+#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
+#endif
         {
           result = compress_off_diagonal(
             node, 
@@ -412,7 +416,11 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
         sub_matrix_pointer = matrix + m * offset_matrix + offset_matrix + m_larger;
         node = &(queue[child]->children[2].leaf->data.off_diagonal);
 
+#ifndef _TEST_HODLR
 #pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+#else
+#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
+#endif
         {
           result = compress_off_diagonal(
             node, 
@@ -448,7 +456,11 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
 
   sub_matrix_pointer = matrix + m * m_larger;
   node = &(queue[0]->children[1].leaf->data.off_diagonal); 
+#ifndef _TEST_HODLR
 #pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+#else
+#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
+#endif
   {
     result = compress_off_diagonal(
       node, 
@@ -468,12 +480,18 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
       return result;
       #endif
     }
-  } 
+  }
+  offset_s += m_smaller; offset_u += m_larger * m_smaller;
+
   // Off-diagonal block in the bottom left corner
   sub_matrix_pointer = matrix + m_larger;
   node = &(queue[0]->children[2].leaf->data.off_diagonal);
 
+#ifndef _TEST_HODLR
 #pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+#else
+#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
+#endif
   {
     result = compress_off_diagonal(
       node, 
@@ -576,7 +594,7 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
 
   int result = 0;
 
-  double *s = malloc(2 * m * sizeof(double));
+  double *s = malloc(hodlr->height * m * sizeof(double));
   if (s == NULL) {
     *ierr = ALLOCATION_FAILURE;
     return 0;
