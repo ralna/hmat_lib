@@ -8,6 +8,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
+        compiler: [gcc, clang]
 
     runs-on: ${{matrix.os}}
 
@@ -18,14 +19,17 @@ jobs:
         run: |
           sudo apt update
           sudo apt upgrade
-          sudo apt-get install -y libcriterion-dev libopenblas-dev liblapack-dev
+          sudo apt-get install -y libcriterion-dev libopenblas-dev
+
+      - name: Compile
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          cmake -DBUILD_TESTING=ON -DBUILD_OPENMP_TESTS=ON -S . -B /tmp/build
+          cmake --build /tmp/build
 
       - name: Run tests
         run: |
-          mkdir bin
-          mkdir build
-          cd tests
-          mkdir build
-          make
-          ../bin/unit_test -j1 --verbose=0
+          cd /tmp/build
+          make vtest
 
