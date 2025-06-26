@@ -27,6 +27,6 @@ jobs:
 
       - name: Run tests
         run: |
-          cd /temp/build
+          cd /tmp/build
           make vtest
 
