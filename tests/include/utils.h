@@ -50,7 +50,9 @@ int expect_vector_double_eq_safe(
   const double *expected,
   const int len_actual,
   const int len_expected,
-  const char name
+  const char name,
+  double *norm_out,
+  double *diff_out
 );
 
 void fill_leaf_node_ints(struct TreeHODLR *hodlr, const int m, int *ss);
