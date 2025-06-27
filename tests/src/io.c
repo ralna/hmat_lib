@@ -9,7 +9,10 @@
 #endif
 
 
-double * read_dense_matrix(char *path, int *size) {
+double * read_dense_matrix(char *path, 
+                           int *size,
+                           void *(*malloc)(size_t size),
+                           void(*free)(void *ptr)) {
   FILE *fptr = fopen(path, "r");
   if (fptr == NULL) {
     #ifdef _TEST_HODLR
