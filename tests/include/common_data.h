@@ -8,4 +8,5 @@ double * construct_full_matrix(const int m, const double val);
 void fill_full_matrix(const int m, const double val, double *matrix);
 
 double * construct_random_matrix(const int m, const int n);
+void fill_random_matrix(const int m, const int n, double *matrix);
 
