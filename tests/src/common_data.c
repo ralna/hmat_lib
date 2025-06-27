@@ -71,13 +71,16 @@ void fill_full_matrix(const int m, const double val, double *matrix) {
 
 double * construct_random_matrix(const int m, const int n) {
   double * matrix = cr_malloc(m * n * sizeof(double));
+  fill_random_matrix(m, n, matrix);
+  return matrix;
+}
 
+
+void fill_random_matrix(const int m, const int n, double *matrix) {
   for (int j = 0; j < n; j++) {
     for (int i = 0; i < m; i++) {
       matrix[i + j * m] = (double)rand() / RAND_MAX;
     }
   }
-
-  return matrix;
 }
 
