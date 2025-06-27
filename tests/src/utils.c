@@ -124,7 +124,7 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
           act->off_diagonal.m, act->off_diagonal.s, 
           exp->off_diagonal.m, exp->off_diagonal.s,
           act->off_diagonal.m, exp->off_diagonal.m,
-          'U', buffer
+          'U', buffer, NULL, NULL
         );
         
         err += expect_matrix_double_eq_safe(
@@ -132,7 +132,7 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
           act->off_diagonal.n, exp->off_diagonal.s,
           exp->off_diagonal.n, exp->off_diagonal.s,
           act->off_diagonal.n, exp->off_diagonal.n,
-          'V', buffer
+          'V', buffer, NULL, NULL
         );
       }
 
@@ -173,14 +173,14 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
         act->off_diagonal.m, act->off_diagonal.s,
         exp->off_diagonal.m, exp->off_diagonal.s,
         act->off_diagonal.m, exp->off_diagonal.m,
-        'U', buffer
+        'U', buffer, NULL, NULL
       );
       err += expect_matrix_double_eq_safe(
         act->off_diagonal.v, exp->off_diagonal.v,
         act->off_diagonal.n, exp->off_diagonal.s,
         exp->off_diagonal.n, exp->off_diagonal.s,
         act->off_diagonal.n, exp->off_diagonal.n,
-        'V', buffer
+        'V', buffer, NULL, NULL
       );
     }
     act = &(queue_a[i]->children[0].leaf->data);
@@ -191,7 +191,7 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
     if (act->diagonal.m == exp->diagonal.m) {
       expect_matrix_double_eq(act->diagonal.data, exp->diagonal.data, 
                            exp->diagonal.m, exp->diagonal.m, 
-                           act->diagonal.m, exp->diagonal.m, 'M');
+                           act->diagonal.m, exp->diagonal.m, 'M', NULL, NULL);
     }
 
     act = &(queue_a[i]->children[3].leaf->data);
@@ -202,7 +202,7 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
     if (act->diagonal.m == exp->diagonal.m) {
       expect_matrix_double_eq(act->diagonal.data, exp->diagonal.data, 
                            exp->diagonal.m, exp->diagonal.m, 
-                           act->diagonal.m, exp->diagonal.m, 'M');
+                           act->diagonal.m, exp->diagonal.m, 'M', NULL, NULL);
     } 
   }
 
@@ -243,7 +243,9 @@ int expect_matrix_double_eq_safe(
   const int ld_actual, 
   const int ld_expected,
   const char name,
-  const char *metadata
+  const char *metadata,
+  double *restrict norm_out,
+  double *restrict diff_out
 ) {
   int err = 0;
   if (m_actual != m_expected) {
@@ -261,7 +263,7 @@ int expect_matrix_double_eq_safe(
   }
   if (err == 0) {
     expect_matrix_double_eq(actual, expected, m_expected, n_expected, 
-                            ld_actual, ld_expected, name);
+                            ld_actual, ld_expected, name, norm_out, diff_out);
   }
 
   return err;
@@ -279,6 +281,8 @@ int expect_matrix_double_eq_custom_safe(
   const int ld_expected,
   const char name,
   const char *metadata,
+  double *restrict norm_out,
+  double *restrict diff_out,
   const double delta
 ) {
   int err = 0;
@@ -298,7 +302,7 @@ int expect_matrix_double_eq_custom_safe(
   if (err == 0) {
     expect_matrix_double_eq_custom(
       actual, expected, m_expected, n_expected, ld_actual, ld_expected, name,
-      delta
+      norm_out, diff_out, delta
     );
   }
 
@@ -310,9 +314,11 @@ void expect_matrix_double_eq(const double *restrict actual,
                              const double *restrict expected, 
                              const int m, const int n,
                              const int ld_actual, const int ld_expected,
-                             const char name) {
+                             const char name,
+                             double *restrict norm_out,
+                             double *restrict diff_out) {
   expect_matrix_double_eq_custom(actual, expected, m, n, ld_actual, 
-                                 ld_expected, name, DELTA);
+                                 ld_expected, name, norm_out, diff_out, DELTA);
 }
 
 
@@ -322,12 +328,18 @@ void expect_matrix_double_eq_custom(const double *restrict actual,
                                     const int ld_actual, 
                                     const int ld_expected,
                                     const char name,
+                                    double *restrict norm_out,
+                                    double *restrict diff_out,
                                     const double delta) {
   int errors = 0;
+  double norm = 0.0, diff = 0.0, d = 0.0;
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < m; j++) {
-      if (fabs(actual[j + i * ld_actual] - expected[j + i * ld_expected]) >
-          delta) {
+      norm += actual[j + i * ld_actual] * actual[j + i * ld_actual];
+      d = fabs(actual[j + i * ld_actual] - expected[j + i * ld_expected]);
+      diff += d * d;
+
+      if (d > delta) {
         cr_log_error("actual value '%f' at index [%d, %d] is different from "
                      "the expected '%f'",
                      actual[j + i * ld_actual], j, i,
@@ -344,6 +356,9 @@ void expect_matrix_double_eq_custom(const double *restrict actual,
     cr_log_info("Expected:");
     log_matrix(expected, m, n, ld_expected);
   }
+
+  if (norm_out != NULL) *norm_out = norm;
+  if (diff_out != NULL) *diff_out = diff;
 }
 
 
