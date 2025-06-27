@@ -89,7 +89,6 @@ test_tree_construct.o: ${TESTS_DIR}/test_tree_construct.c
 		${WARNINGS} \
 		${EXTRA_FLAGS}
 
-
 test_allocators: test_allocators.o utils.o
 	gcc \
 		${BUILD_DIR}/test_allocators.o \
@@ -103,6 +102,30 @@ test_allocators.o: ${TESTS_DIR}/test_allocators.c
 	gcc \
 		-c ${TESTS_DIR}/test_allocators.c \
 		-o ${BUILD_DIR}/test_allocators.o \
+		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
+		${EXTRA_FLAGS}
+
+test_real_data: test_real_data.o utils.o common_data.o io.o allocators.o constructors_omp.o lapack_wrapper.o vector_algebra.o dense_algebra.o
+	gcc \
+		${BUILD_DIR}/test_real_data.o \
+		${BUILD_DIR}/allocators.o \
+		${BUILD_DIR}/constructors_omp.o \
+		${BUILD_DIR}/utils.o \
+		${BUILD_DIR}/common_data.o \
+		${BUILD_DIR}/io.o \
+		${BUILD_DIR}/lapack_wrapper.o \
+		${BUILD_DIR}/vector_algebra.o \
+		${BUILD_DIR}/dense_algebra.o \
+		-o ${OUT_DIR}/test_real_data \
+		-lopenblas -lm -lcriterion \
+		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
+		${WARNINGS} ${EXTRA_FLAGS} \
+		-fopenmp
+
+test_real_data.o: ${TESTS_DIR}/test_real_data.c
+	gcc \
+		-c ${TESTS_DIR}/test_real_data.c \
+		-o ${BUILD_DIR}/test_real_data.o \
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${EXTRA_FLAGS}
 
@@ -123,6 +146,13 @@ constructors.o: ${SRC_DIR}/constructors.c
 		-o ${BUILD_DIR}/constructors.o \
 		-I ${INCLUDE_DIR} ${WARNINGS} ${EXTRA_FLAGS} 
 
+constructors_omp.o: ${SRC_DIR}/constructors.c
+	${COMPILER} \
+		-c ${SRC_DIR}/constructors.c \
+		-o ${BUILD_DIR}/constructors_omp.o \
+		-I ${INCLUDE_DIR} ${WARNINGS} ${EXTRA_FLAGS} \
+		-fopenmp
+
 lapack_wrapper.o: ${SRC_DIR}/lapack_wrapper.c
 	gcc \
 		-c ${SRC_DIR}/lapack_wrapper.c \
@@ -130,6 +160,18 @@ lapack_wrapper.o: ${SRC_DIR}/lapack_wrapper.c
 		-lopenblas \
 		-I ${INCLUDE_DIR} \
 		${EXTRA_FLAGS}
+
+vector_algebra.o: ${SRC_DIR}/vector_algebra.c
+	${COMPILER} \
+		-c ${SRC_DIR}/vector_algebra.c \
+		-o ${BUILD_DIR}/vector_algebra.o \
+		-I ${INCLUDE_DIR} ${WARNINGS} ${EXTRA_FLAGS}
+
+dense_algebra.o: ${SRC_DIR}/dense_algebra.c
+	${COMPILER} \
+		-c ${SRC_DIR}/dense_algebra.c \
+		-o ${BUILD_DIR}/dense_algebra.o \
+		-I ${INCLUDE_DIR} ${WARNINGS} ${EXTRA_FLAGS}
 
 
 
@@ -145,6 +187,14 @@ common_data.o: ${TESTS_DIR}/common_data.c
 	gcc \
 		-c ${TESTS_DIR}/common_data.c \
 		-o ${BUILD_DIR}/common_data.o \
+		-lcriterion \
+		-I ${UTIL_INCLUDE_DIR} \
+		${EXTRA_FLAGS}
+
+io.o: ${TESTS_DIR}/io.c
+	gcc \
+		-c ${TESTS_DIR}/io.c \
+		-o ${BUILD_DIR}/io.o \
 		-lcriterion \
 		-I ${UTIL_INCLUDE_DIR} \
 		${EXTRA_FLAGS}
