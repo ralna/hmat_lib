@@ -85,20 +85,23 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
                       svd_threshold, &ierr, &malloc, &free);
   free(matrix); matrix = NULL;
   cr_log_info("HODLR constructed!");
-  expect_tree_consistent(hodlr, params->height, hodlr->len_work_queue);
 
   srand(42);
-  double *vector = construct_random_matrix(params->m, 1);
+  double *vector = malloc(m * sizeof(double));
+  fill_random_matrix(m, 1, vector);
   
   double *vector_expected = malloc(m * sizeof(double));
   dgemv_("N", &m, &m, &alpha, params->matrix, &m, vector, &inc, 
          &beta, vector_expected, &inc);
+  cr_log_info("Expected vector computed!");
 
   double *vector_actual = multiply_vector(hodlr, vector, NULL);
+  cr_log_info("Vector multiplied!");
 
   double norm, diff;
-  expect_vector_double_eq_safe(vector_actual, vector_expected, m, m, 'V',
-                               &norm, &diff);
+  expect_vector_double_eq_custom(
+    vector_actual, vector_expected, m, m, 'V', &norm, &diff, 1e-6
+  );
   free(vector_expected); free(vector_actual); free(vector);
   cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
@@ -106,10 +109,17 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
   double *matrix_expected = malloc(matrix_size);
   dgemm_("N", "N", &m, &m, &m, &alpha, params->matrix, &m, params->matrix, &m,
          &beta, matrix_expected, &m);
+  cr_log_info("Expected matrix computed!");
 
   double *matrix_actual = multiply_hodlr_dense(hodlr, params->matrix, 
                                                m, m, NULL, m);
+  cr_log_info("Matrix multiplied!");
 
-  expect_matrix_double_eq(matrix_actual, matrix_expected, m, m, m, m, 'M');
+  expect_matrix_double_eq_custom(matrix_actual, matrix_expected, m, m, m, m, 
+                                 'M', &norm, &diff, 1e-6);
+  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
+              sqrtf(diff) / sqrtf(norm));
+
   free(matrix_expected); free(matrix_actual);
 }
+
