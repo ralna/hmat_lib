@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
     //matrix[m * (m - 1)] = 0.5;
     print_matrix(m, m, matrix);
   } else if (argc == 2) {
-    matrix = read_dense_matrix(argv[1], &m);
+    matrix = read_dense_matrix(argv[1], &m, &malloc, &free);
     if (matrix == NULL) {
       printf("Matrix from '%s' could not be read, aborting...\n", argv[1]);
     }
