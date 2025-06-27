@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <criterion/criterion.h>
 
 #include "../include/common_data.h"
@@ -63,6 +64,22 @@ void fill_full_matrix(const int m, const double val, double *matrix) {
   for (i = 0; i < m; i++) {
     for (j = 0; j < m; j ++) {
       matrix[i + j * m] = val;
+    }
+  }
+}
+
+
+double * construct_random_matrix(const int m, const int n) {
+  double * matrix = cr_malloc(m * n * sizeof(double));
+  fill_random_matrix(m, n, matrix);
+  return matrix;
+}
+
+
+void fill_random_matrix(const int m, const int n, double *matrix) {
+  for (int j = 0; j < n; j++) {
+    for (int i = 0; i < m; i++) {
+      matrix[i + j * m] = (double)rand() / RAND_MAX;
     }
   }
 }

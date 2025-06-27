@@ -2,6 +2,8 @@
 #define _TEST_HODLR 1
 #endif
 
+#include <math.h>
+
 #include <criterion/criterion.h>
 #include <criterion/parameterized.h>
 #include <criterion/new/assert.h>
@@ -148,7 +150,11 @@ ParameterizedTestParameters(tree, test_hodlr_vector) {
 ParameterizedTest(struct ParametersTestHxV *params, tree, test_hodlr_vector) {
   double * result = multiply_vector(params->hodlr, params->vector, NULL);
 
-  expect_vector_double_eq_safe(result, params->expected, params->len, params->len, 'V');
+  double norm, diff;
+  expect_vector_double_eq_safe(result, params->expected, params->len, 
+                               params->len, 'V', &norm, &diff);
+  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
+              sqrtf(diff) / sqrtf(norm));
 
   free(result);
 }
