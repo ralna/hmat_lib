@@ -533,7 +533,7 @@ ParameterizedTest(struct ParametersCopyDiag *params, constructors,
         queue[i]->children[0].leaf->data.diagonal.m,
         queue[i]->children[0].leaf->data.diagonal.m,
         params->expected_m[idx],
-        idx
+        idx, NULL, NULL
       );
     }
     idx++;
@@ -555,7 +555,7 @@ ParameterizedTest(struct ParametersCopyDiag *params, constructors,
         queue[i]->children[3].leaf->data.diagonal.m,
         queue[i]->children[3].leaf->data.diagonal.m,
         params->expected_m[idx],
-        idx
+        idx, NULL, NULL
       );
     }
     idx++;
@@ -720,11 +720,14 @@ ParameterizedTest(struct ParametersTestCompress *params, constructors,
   cr_expect(eq(int, result.s, params->expected_n_singular));
   cr_expect(eq(int, result.n, params->n));
 
-  expect_matrix_double_eq(result.u, params->u_expected, params->m, params->expected_n_singular,
-                          result.m, params->m, 'U');
-  expect_matrix_double_eq(result.v, params->v_expected, params->n, params->expected_n_singular,
-                          result.m, params->m, 'V');
-  
+  expect_matrix_double_eq(
+    result.u, params->u_expected, params->m, params->expected_n_singular,
+    result.m, params->m, 'U', NULL, NULL
+  );
+  expect_matrix_double_eq(
+    result.v, params->v_expected, params->n, params->expected_n_singular,
+    result.m, params->m, 'V', NULL, NULL
+  );
   free(result.u); free(result.v);
 }
 
@@ -772,8 +775,11 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, recompress) {
          &node.s, &alpha, node.u, &node.m, 
          node.v, &node.n, &beta, result, &params->m);
 
+  double norm, diffd;
   expect_matrix_double_eq(result, og_matrix, node.m, node.n, 
-                       node.m, params->m_full, 'A');
+                       node.m, params->m_full, 'A', &norm, &diffd);
+  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diffd),
+              sqrtf(diffd) / sqrtf(norm));
 
   free(og_data); free(result);
 }

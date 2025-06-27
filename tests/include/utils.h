@@ -29,7 +29,9 @@ void expect_matrix_double_eq(const double *actual,
                              const int n,
                              const int ld_actual,
                              const int ld_expected,
-                             const char name);
+                             const char name,
+                             double *norm_out,
+                             double *diff_out);
 
 void expect_matrix_double_eq_custom(
     const double *actual, 
@@ -39,6 +41,8 @@ void expect_matrix_double_eq_custom(
     const int ld_actual,
     const int ld_expected,
     const char name,
+  double *norm_out,
+  double *diff_out,
     const double delta
 );
 
@@ -52,7 +56,9 @@ int expect_matrix_double_eq_safe(
   const int ld_actual, 
   const int ld_expected,
   const char name,
-  const char *metadata
+  const char *metadata,
+  double *norm_out,
+  double *diff_out
 );
 
 int expect_matrix_double_eq_custom_safe(
@@ -66,6 +72,8 @@ int expect_matrix_double_eq_custom_safe(
   const int ld_expected,
   const char name,
   const char *metadata,
+  double *norm_out,
+  double *diff_out,
   const double delta
 );
 

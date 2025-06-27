@@ -309,8 +309,11 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, test_hodlr_de
   double * result = multiply_hodlr_dense(params->hodlr, params->dense, params->dense_n, 
                                          params->dense_ld, NULL, m);
 
+  double norm, diff;
   expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M', "");
+                               m, params->dense_n, m, m, 'M', "", &norm, &diff);
+  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
+              sqrtf(diff) / sqrtf(norm));
 
   free(result);
 }
@@ -346,8 +349,11 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra,
     workspace, workspace2, result, m
   );
 
+  double norm, diff;
   expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M', "");
+                               m, params->dense_n, m, m, 'M', "", &norm, &diff);
+  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
+              sqrtf(diff) / sqrtf(norm));
 
   free(result); free(sizes); free(workspace2); free(workspace);
 }
@@ -395,8 +401,11 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, dense_hodlr) 
   double * result = multiply_dense_hodlr(params->hodlr, params->dense, params->dense_n, 
                                          params->dense_ld, NULL, m);
 
+  double norm, diff;
   expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M', "");
+                               m, params->dense_n, m, m, 'M', "", &norm, &diff);
+  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
+              sqrtf(diff) / sqrtf(norm));
 
   free(result);
 }
@@ -432,8 +441,11 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra,
     workspace, workspace2, result, params->dense_n
   );
 
+  double norm, diff;
   expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M', "");
+                               m, params->dense_n, m, m, 'M', "", &norm, &diff);
+  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
+              sqrtf(diff) / sqrtf(norm));
 
   free(result); free(sizes); free(workspace2); free(workspace);
 }
