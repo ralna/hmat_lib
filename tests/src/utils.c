@@ -268,17 +268,66 @@ int expect_matrix_double_eq_safe(
 }
 
 
+int expect_matrix_double_eq_custom_safe(
+  const double *restrict actual, 
+  const double *restrict expected, 
+  const int m_actual, 
+  const int n_actual,
+  const int m_expected, 
+  const int n_expected,
+  const int ld_actual, 
+  const int ld_expected,
+  const char name,
+  const char *metadata,
+  const double delta
+) {
+  int err = 0;
+  if (m_actual != m_expected) {
+    err = 1;
+    cr_fail("actual matrix %c (%s) dimension 1 (M) different than expected "
+            "(actual=%d vs expected=%d)",
+            name, metadata, m_actual, m_expected);
+  }
+  
+  if (n_actual != n_expected) {
+    err = 1;
+    cr_fail("actual matrix %c (%s) dimension 2 (N) different than expected "
+            "(actual=%d vs expected=%d)",
+            name, metadata, n_actual, n_expected);
+  }
+  if (err == 0) {
+    expect_matrix_double_eq_custom(
+      actual, expected, m_expected, n_expected, ld_actual, ld_expected, name,
+      delta
+    );
+  }
+
+  return err;
+}
+
+
 void expect_matrix_double_eq(const double *restrict actual, 
                              const double *restrict expected, 
                              const int m, const int n,
                              const int ld_actual, const int ld_expected,
                              const char name) {
+  expect_matrix_double_eq_custom(actual, expected, m, n, ld_actual, 
+                                 ld_expected, name, DELTA);
+}
 
+
+void expect_matrix_double_eq_custom(const double *restrict actual, 
+                                    const double *restrict expected, 
+                                    const int m, const int n,
+                                    const int ld_actual, 
+                                    const int ld_expected,
+                                    const char name,
+                                    const double delta) {
   int errors = 0;
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < m; j++) {
       if (fabs(actual[j + i * ld_actual] - expected[j + i * ld_expected]) >
-          DELTA) {
+          delta) {
         cr_log_error("actual value '%f' at index [%d, %d] is different from "
                      "the expected '%f'",
                      actual[j + i * ld_actual], j, i,
@@ -323,6 +372,22 @@ int expect_vector_double_eq_safe(
   double *restrict norm_out,
   double *restrict diff_out
 ) {
+  return expect_vector_double_eq_custom(
+    actual, expected, len_actual, len_expected, name, norm_out, diff_out, DELTA
+  );
+}
+
+
+int expect_vector_double_eq_custom(
+  const double *restrict actual,
+  const double *restrict expected,
+  const int len_actual,
+  const int len_expected,
+  const char name,
+  double *restrict norm_out,
+  double *restrict diff_out,
+  const double delta
+) {
   int errors = 0;
   double norm = 0.0, diff = 0.0, d = 0.0;
 
@@ -337,7 +402,7 @@ int expect_vector_double_eq_safe(
     d = fabs(actual[i] - expected[i]);
     diff += d * d;
 
-    if (d > DELTA) {
+    if (d > delta) {
       cr_log_error("actual value '%f' at index [%d] is different from "
                    "the expected '%f'", actual[i], i, expected[i]);
       errors += 1;
