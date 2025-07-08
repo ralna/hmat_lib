@@ -117,9 +117,9 @@ static inline void compute_inner_off_diagonal(
          diagonal1->data, &diagonal1->m, off_diagonal2->u, &off_diagonal2->m,
          &beta, matrices[0], &diagonal1->m);
 
-  // V^T x dense = V^T* at index=1 (actually transposed)
-  dgemm_("T", "N", &off_diagonal1->s, &diagonal2->m, &off_diagonal1->n, &alpha,
-         off_diagonal1->v, &off_diagonal1->s, diagonal2->data, &diagonal2->m,
+  // V^T x dense = V* at index=1 (represents V^T* but not actually transposed)
+  dgemm_("T", "N", &diagonal2->m, &off_diagonal1->s, &diagonal2->m, &alpha,
+         diagonal2->data, &diagonal2->m, off_diagonal1->v, &off_diagonal1->n,
          &beta, matrices[1], &diagonal2->m);
 
   compute_higher_level_contributions_off_diagonal(
