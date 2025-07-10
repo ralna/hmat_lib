@@ -13,6 +13,17 @@
 static double DELTA = 1e-10;
 
 
+void print_matrix(int m, int n, double *matrix, int lda) {
+  for (int i=0; i<m; i++) {
+    for (int j=0; j < n; j++) {
+      printf("%f    ", matrix[j * lda + i]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
+
 inline void expect_leaf_offdiagonal(struct HODLRLeafNode *leaf,
                                     struct HODLRInternalNode *parent) {
   cr_expect(eq(ptr, leaf->parent, parent));
@@ -168,7 +179,8 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
       act = &(queue_a[i]->children[j].leaf->data);
       exp = &(queue_e[i]->children[j].leaf->data);
         
-      snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", expected->height, i, j);
+      snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", expected->height, 
+               i, j);
       err += expect_matrix_double_eq_safe(
         act->off_diagonal.u, exp->off_diagonal.u,
         act->off_diagonal.m, act->off_diagonal.s,
@@ -211,7 +223,6 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
   free(buffer);
   return err;
 }
-
 
 
 void expect_off_diagonal_recompress(

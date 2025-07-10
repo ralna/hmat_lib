@@ -105,3 +105,5 @@ int expect_vector_double_eq_custom(
 
 void fill_leaf_node_ints(struct TreeHODLR *hodlr, const int m, int *ss);
 
+void print_matrix(int m, int n, double *matrix, int lda);
+
