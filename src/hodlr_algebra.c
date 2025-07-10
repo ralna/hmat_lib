@@ -195,7 +195,7 @@ static inline void add_off_diagonal_contribution(
          &beta, workspace, &leaf1->s);
 
   dgemm_("N", "T", &leaf1->s, &m, &leaf2->s, &alpha,
-         workspace, &leaf1->s, leaf2->v + offset, &leaf2->s,
+         workspace, &leaf1->s, leaf2->v + offset, &leaf2->n,
          &beta, workspace2, &leaf1->s);
 
   dgemm_("N", "N", &m, &m, &leaf1->s, &alpha,
@@ -223,7 +223,9 @@ static void compute_diagonal(
     queue[parent] = out->innermost_leaves[2 * parent]->parent;
 
     for (int _diagonal = 0; _diagonal < 2; _diagonal++) {
-      m = out->innermost_leaves[idx]->data.diagonal.m;
+      m = hodlr1->innermost_leaves[idx]->data.diagonal.m;
+
+      out->innermost_leaves[idx]->data.diagonal.m = m;
       out->innermost_leaves[idx]->data.diagonal.data = 
         malloc(m * m * sizeof(double));
       if (out->innermost_leaves[idx]->data.diagonal.data == NULL) {
