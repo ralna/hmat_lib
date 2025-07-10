@@ -6,17 +6,6 @@
 #include "../include/error.h"
 
 
-static void print_matrix(int m, int n, double *matrix, int lda) {
-  for (int i=0; i<m; i++) {
-    for (int j=0; j < n; j++) {
-      printf("%f    ", matrix[j * lda + i]);
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
-
-
 /**
  * Computes and sets the sizes of all HODLR internal nodes.
  *

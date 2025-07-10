@@ -8,18 +8,6 @@
 #include "../include/blas_wrapper.h"
 
 
-static void print_matrix(const int m, const int n, 
-                         const double *matrix, const int lda) {
-  for (int i=0; i<m; i++) {
-    for (int j=0; j < n; j++) {
-      printf("%f    ", matrix[j * lda + i]);
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
-
-
 /**
  * Computes the workspace size(s) required for the HODLR-dense multiplication
  * functions.

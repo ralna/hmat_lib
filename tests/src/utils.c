@@ -12,6 +12,17 @@
 static double DELTA = 1e-10;
 
 
+void print_matrix(int m, int n, double *matrix, int lda) {
+  for (int i=0; i<m; i++) {
+    for (int j=0; j < n; j++) {
+      printf("%f    ", matrix[j * lda + i]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
+
 inline void expect_leaf_offdiagonal(struct HODLRLeafNode *leaf,
                                     struct HODLRInternalNode *parent) {
   cr_expect(eq(ptr, leaf->parent, parent));
@@ -190,8 +201,6 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
   free(queue_a); free(next_level_a); free(queue_e); free(next_level_e);
   return err;
 }
-
-
 
 
 void log_matrix(const double *matrix, const int m, const int n, const int lda) {
