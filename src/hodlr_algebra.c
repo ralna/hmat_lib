@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "../include/tree.h"
 #include "../include/error.h"
@@ -178,6 +179,7 @@ static inline void compute_other_off_diagonal(
   }
 }
 
+#include "../tests/include/utils.h"
 
 static inline void add_off_diagonal_contribution(
   const struct NodeOffDiagonal *restrict const leaf1,
@@ -193,10 +195,14 @@ static inline void add_off_diagonal_contribution(
   dgemm_("T", "N", &leaf1->s, &leaf2->s, &leaf1->n, &alpha,
          leaf1->v, &leaf1->n, leaf2->u, &leaf2->m,
          &beta, workspace, &leaf1->s);
+  print_matrix(leaf1->s, leaf2->s, workspace, leaf1->s);
+  print_matrix(leaf2->n, leaf2->s, leaf2->v, leaf2->n);
+  print_matrix(m, leaf2->s, leaf2->v + offset, leaf2->n);
 
   dgemm_("N", "T", &leaf1->s, &m, &leaf2->s, &alpha,
          workspace, &leaf1->s, leaf2->v + offset, &leaf2->n,
          &beta, workspace2, &leaf1->s);
+  print_matrix(leaf1->s, m, workspace2, leaf1->s);
 
   dgemm_("N", "N", &m, &m, &leaf1->s, &alpha,
          leaf1->u + offset, &leaf1->m, workspace2, &leaf1->s, &alpha, 
@@ -243,10 +249,10 @@ static void compute_diagonal(
       parent_node1 = hodlr1->innermost_leaves[idx]->parent;
       parent_node2 = hodlr2->innermost_leaves[idx]->parent;
 
-      int position = idx;
+      int divisor = 1;
       oidx = 0;
       for (int level = out->height; level > 0; level--) {
-        if (position % 2 == 0) {
+        if (idx % divisor == 0) {
           which_child1 = 1; which_child2 = 2;
           offsets[oidx] = 0;
         } else {
@@ -260,11 +266,11 @@ static void compute_diagonal(
           out->innermost_leaves[idx]->data.diagonal.m
         );
 
-        offsets[oidx] += out->innermost_leaves[idx]->data.diagonal.m;
+        offsets[oidx] += m;
 
         parent_node1 = parent_node1->parent;
         parent_node2 = parent_node2->parent;
-        position /= 2;
+        divisor *= 2;
         oidx++;
       }
 
