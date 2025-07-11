@@ -27,7 +27,7 @@ static void compute_off_diagonal(
 
   multiply_internal_node_dense(
     internal1, height1, leaf2->data.off_diagonal.u, leaf2->data.off_diagonal.s,
-    leaf2->data.off_diagonal.m, queue, workspace, workspace2, u, 
+    leaf2->data.off_diagonal.m, queue, workspace, u, 
     leaf2->data.off_diagonal.m
   );
 
@@ -39,7 +39,7 @@ static void compute_off_diagonal(
 
   multiply_internal_node_transpose_dense(
     internal2, height2, leaf1->data.off_diagonal.v, leaf1->data.off_diagonal.s,
-     leaf2->data.off_diagonal.n, queue, workspace, workspace2, v, 
+     leaf2->data.off_diagonal.n, queue, workspace, v, 
     leaf2->data.off_diagonal.n
   );
  
@@ -158,14 +158,14 @@ static inline void compute_other_off_diagonal(
   // HODLR x U = U* at index=0
   multiply_internal_node_dense(
     hodlr1, height - current_level - 1, off_diagonal2->u, off_diagonal2->s,
-    off_diagonal2->m, queue, workspace, workspace2, matrices[0], 
+    off_diagonal2->m, queue, workspace, matrices[0], 
     off_diagonal2->m
   );
 
   // V^T x HODLR = V* at index=1 (represents V^T* but not actually transposed)
   multiply_internal_node_transpose_dense(
     hodlr2, height - current_level - 1, off_diagonal1->v, off_diagonal1->s,
-    off_diagonal1->m, queue, workspace, workspace2, matrices[1], 
+    off_diagonal1->m, queue, workspace, matrices[1], 
     off_diagonal1->m
   );
 
@@ -179,7 +179,6 @@ static inline void compute_other_off_diagonal(
   }
 }
 
-#include "../tests/include/utils.h"
 
 static inline void add_off_diagonal_contribution(
   const struct NodeOffDiagonal *restrict const leaf1,

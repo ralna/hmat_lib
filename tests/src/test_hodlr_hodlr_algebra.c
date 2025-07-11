@@ -85,7 +85,7 @@ static int laplacian_matrix(struct ParametersTestHxH *params) {
     // LAPLACIAN MATRIX
     fill_laplacian_matrix(m, matrix);
     strncat(params[i].hodlr1_name, "L", STR_LEN);
-    dense_to_tree_hodlr(params[i].hodlr1, m, matrix, 
+    dense_to_tree_hodlr(params[i].hodlr1, m, NULL, matrix, 
                         svd_threshold, &ierr, &cr_malloc, &cr_free);
 
     // LAPLACIAN MATRIX with 0.5 in corners
@@ -93,26 +93,26 @@ static int laplacian_matrix(struct ParametersTestHxH *params) {
     fill_laplacian_matrix(m, matrix);
     matrix[m - 1] = 0.5;
     matrix[m * (m - 1)] = 0.5;
-    dense_to_tree_hodlr(params[i+1].hodlr1, m,
+    dense_to_tree_hodlr(params[i+1].hodlr1, m, NULL,
                         matrix, svd_threshold, &ierr, &cr_malloc, &cr_free);
 
     // LAPLACIAN MATRIX with 0.5 in bottom corner
     strncat(params[i+2].hodlr1_name, "L0.5A", STR_LEN);
     fill_laplacian_matrix(m, matrix);
     matrix[m - 1] = 0.5;
-    dense_to_tree_hodlr(params[i+2].hodlr1, m,
+    dense_to_tree_hodlr(params[i+2].hodlr1, m, NULL,
                         matrix, svd_threshold, &ierr, &cr_malloc, &cr_free);
 
     for (int j = 0; j < n_cases; j++) {
       strncat(params[i+j].hodlr2_name, "LC", STR_LEN);
       fill_laplacian_converse_matrix(m, matrix);
-      dense_to_tree_hodlr(params[i+j].hodlr2, m, matrix, svd_threshold,
+      dense_to_tree_hodlr(params[i+j].hodlr2, m, NULL, matrix, svd_threshold,
                           &ierr, &cr_malloc, &cr_free);
     }
 
     // LAPLACIAN MATRIX
     fill_laplacian_x_converse(m, matrix);
-    dense_to_tree_hodlr(params[i].expected, m, matrix, svd_threshold,
+    dense_to_tree_hodlr(params[i].expected, m, NULL, matrix, svd_threshold,
                         &ierr, &cr_malloc, &cr_free);
 
     // LAPLACIAN MATRIX with 0.5 in corners
@@ -122,7 +122,7 @@ static int laplacian_matrix(struct ParametersTestHxH *params) {
     matrix[2 * m - 1] = 1.0;
     matrix[(m - 2) * m] = 1.0;
     matrix[(m - 1) * m] = -0.5;
-    dense_to_tree_hodlr(params[i].expected, m, matrix, svd_threshold,
+    dense_to_tree_hodlr(params[i].expected, m, NULL, matrix, svd_threshold,
                         &ierr, &cr_malloc, &cr_free);
 
     // LAPLACIAN MATRIX with 0.5 in bottom corner
@@ -130,7 +130,7 @@ static int laplacian_matrix(struct ParametersTestHxH *params) {
     fill_laplacian_x_converse(m, matrix);
     matrix[m - 1] = -0.5;
     matrix[2 * m - 1] = 1.0;
-    dense_to_tree_hodlr(params[i].expected, m, matrix, svd_threshold,
+    dense_to_tree_hodlr(params[i].expected, m, NULL, matrix, svd_threshold,
                         &ierr, &cr_malloc, &cr_free);
   }
 
@@ -154,7 +154,7 @@ static int identity_matrix(struct ParametersTestHxH *params) {
       params[i].hodlr1 = allocate_tree_monolithic(height, &ierr,
                                                   &cr_malloc, &cr_free);
       fill_identity_matrix(m, matrix);
-      dense_to_tree_hodlr(params[i].hodlr1, m, matrix, 
+      dense_to_tree_hodlr(params[i].hodlr1, m, NULL, matrix, 
                           svd_threshold, &ierr, &cr_malloc, &cr_free);
       
       params[i].hodlr2 = allocate_tree_monolithic(height, &ierr,
@@ -165,26 +165,26 @@ static int identity_matrix(struct ParametersTestHxH *params) {
 
     strncat(params[idx].hodlr2_name, "I", STR_LEN);
     fill_identity_matrix(m, matrix);
-    dense_to_tree_hodlr(params[idx].hodlr2, m, matrix, svd_threshold,
+    dense_to_tree_hodlr(params[idx].hodlr2, m, NULL, matrix, svd_threshold,
                         &ierr, &cr_malloc, &cr_free);
     fill_identity_matrix(m, matrix);
-    dense_to_tree_hodlr(params[idx].expected, m, matrix, svd_threshold,
+    dense_to_tree_hodlr(params[idx].expected, m, NULL, matrix, svd_threshold,
                         &ierr, &cr_malloc, &cr_free);
 
     strncat(params[idx+1].hodlr2_name, "0", STR_LEN);
     fill_full_matrix(m, 0.0, matrix);
-    dense_to_tree_hodlr(params[idx+1].hodlr2, m, matrix, svd_threshold,
+    dense_to_tree_hodlr(params[idx+1].hodlr2, m, NULL, matrix, svd_threshold,
                         &ierr, &cr_malloc, &cr_free);
     fill_full_matrix(m, 0.0, matrix);
-    dense_to_tree_hodlr(params[idx+1].expected, m, matrix, svd_threshold,
+    dense_to_tree_hodlr(params[idx+1].expected, m, NULL, matrix, svd_threshold,
                         &ierr, &cr_malloc, &cr_free);
 
     strncat(params[idx+2].hodlr2_name, "L", STR_LEN);
     fill_laplacian_matrix(m, matrix);
-    dense_to_tree_hodlr(params[idx+2].hodlr2, m, matrix, svd_threshold,
+    dense_to_tree_hodlr(params[idx+2].hodlr2, m, NULL, matrix, svd_threshold,
                         &ierr, &cr_malloc, &cr_free);
     fill_laplacian_matrix(m, matrix);
-    dense_to_tree_hodlr(params[idx+2].expected, m, matrix, svd_threshold,
+    dense_to_tree_hodlr(params[idx+2].expected, m, NULL, matrix, svd_threshold,
                         &ierr, &cr_malloc, &cr_free);
   }
 
