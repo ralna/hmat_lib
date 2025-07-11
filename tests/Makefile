@@ -12,19 +12,30 @@ WARNINGS := -Wall -Wextra -Wno-unknown-pragmas
 COMPILER := gcc
 
 
-unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_dense_algebra.o lapack_wrapper.o utils.o common_data.o
+unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_dense_algebra.o test_hodlr_algebra.o lapack_wrapper.o utils.o common_data.o main_utils.o
 	gcc \
 		${BUILD_DIR}/test_allocators.o \
 		${BUILD_DIR}/test_vector_algebra.o \
 		${BUILD_DIR}/test_tree_construct.o \
 		${BUILD_DIR}/test_dense_algebra.o \
+		${BUILD_DIR}/test_hodlr_algebra.o \
 		${BUILD_DIR}/lapack_wrapper.o \
 		${BUILD_DIR}/utils.o \
 		${BUILD_DIR}/common_data.o \
+		${BUILD_DIR}/main_utils.o \
 		-o ${OUT_DIR}/unit_test \
 		-lopenblas -lm -lcriterion \
 		${EXTRA_FLAGS}
 
+
+test_hodlr_algebra.o: ${TESTS_DIR}/test_hodlr_hodlr_algebra.c lapack_wrapper.o utils.o common_data.o
+	gcc \
+		-c ${TESTS_DIR}/test_hodlr_hodlr_algebra.c \
+		-o ${BUILD_DIR}/test_hodlr_algebra.o \
+		-lopenblas -lm -lcriterion \
+		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
+		${WARNINGS} \
+		${EXTRA_FLAGS}
 
 test_dense_algebra: test_dense_algebra.o allocators.o constructors.o
 	gcc \
@@ -147,6 +158,13 @@ common_data.o: ${TESTS_DIR}/common_data.c
 		-o ${BUILD_DIR}/common_data.o \
 		-lcriterion \
 		-I ${UTIL_INCLUDE_DIR} \
+		${EXTRA_FLAGS}
+
+main_utils.o: ${SRC_DIR}/utils.c
+	gcc \
+		-c ${SRC_DIR}/utils.c \
+		-o ${BUILD_DIR}/main_utils.o \
+		-I ${INCLUDE_DIR} \
 		${EXTRA_FLAGS}
 
 
