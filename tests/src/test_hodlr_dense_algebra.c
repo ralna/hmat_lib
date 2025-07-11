@@ -154,7 +154,6 @@ void free_hd_params(struct criterion_test_params *params) {
     free_tree_hodlr(&(param->hodlr), &cr_free);
     cr_free(param->expected);
     cr_free(param->dense);
-    //cr_free(param);
   }
   cr_free(params->params);
 }
