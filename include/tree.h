@@ -317,7 +317,6 @@ void multiply_internal_node_dense(
   const int matrix_ld,
   const struct HODLRInternalNode **queue,
   double *workspace,
-  double *workspace2,
   double *out,
   const int out_ld
 );
@@ -330,7 +329,6 @@ void multiply_internal_node_transpose_dense(
   const int matrix_ld,
   const struct HODLRInternalNode **queue,
   double *workspace,
-  double *workspace2,
   double *out,
   const int out_ld
 );
