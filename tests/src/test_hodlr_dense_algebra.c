@@ -454,7 +454,6 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra,
   cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
 
-
   free(result); free(workspace);
 }
 
