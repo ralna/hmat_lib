@@ -1,0 +1,432 @@
+#ifndef _TEST_HODLR
+#define _TEST_HODLR 1
+#endif
+
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <criterion/criterion.h>
+#include <criterion/parameterized.h>
+#include <criterion/new/assert.h>
+#include <criterion/logging.h>
+
+#include "../include/utils.h"
+#include "../include/common_data.h"
+
+#include "../../include/tree.h"
+#include "../../include/utils.h"
+#include "../../src/hodlr_algebra.c"
+
+
+#define STR_LEN 10
+
+
+struct ParametersTestHxH {
+  struct TreeHODLR *hodlr1;
+  struct TreeHODLR *hodlr2;
+  struct TreeHODLR *expected;
+  char hodlr1_name[STR_LEN];
+  char hodlr2_name[STR_LEN];
+};
+
+
+void free_hh_params(struct criterion_test_params *params) {
+  for (size_t i = 0; i < params->length; i++) {
+    struct ParametersTestHxH *param = 
+      (struct ParametersTestHxH *) params->params + i;
+    
+    free_tree_hodlr(&(param->hodlr1), &cr_free);
+    free_tree_hodlr(&(param->hodlr2), &cr_free);
+    free_tree_hodlr(&(param->expected), &cr_free);
+  }
+  cr_free(params->params);
+}
+
+
+static void fill_laplacian_x_converse(const int m, double *matrix) {
+  for (int j = 0; j < m; j++) {
+    for (int i = 0; i < m; i++) {
+      if (i == j) {
+        matrix[i + j * m] = -6.0;
+      } else if (i == j + 1 || i == j - 1) {
+        matrix[i + j * m] = 5.0;
+      } else if (i == j + 2 || i == j - 2) {
+        matrix[i + j * m] = -2.0;
+      } else {
+        matrix[i + j * m] = 0.0;
+      }
+    }
+  }
+  matrix[0] = -4.0;
+  matrix[m * m - 1] = -4.0;
+}
+
+
+static int laplacian_matrix(struct ParametersTestHxH *params) {
+  const int n_cases = 3, max_height = 3;
+  int i = 0, ierr = 0;
+  double svd_threshold = 1e-8;
+  const int m = 21;
+  double *matrix = cr_malloc(m * m * sizeof(double));
+
+  for (int height = 1; height < max_height + 1; height++) {
+    i = n_cases * (height - 1);
+
+    for (int j = i; j < i+n_cases; j++) {
+      params[j].hodlr1 = allocate_tree_monolithic(height, &ierr, 
+                                                  &cr_malloc, &cr_free);
+      params[j].hodlr2 = allocate_tree_monolithic(height, &ierr, 
+                                                  &cr_malloc, &cr_free);
+      params[j].expected = allocate_tree_monolithic(height, &ierr, 
+                                                    &cr_malloc, &cr_free);
+    }
+
+    // LAPLACIAN MATRIX
+    fill_laplacian_matrix(m, matrix);
+    strncat(params[i].hodlr1_name, "L", STR_LEN);
+    dense_to_tree_hodlr(params[i].hodlr1, m, matrix, 
+                        svd_threshold, &ierr, &cr_malloc, &cr_free);
+
+    // LAPLACIAN MATRIX with 0.5 in corners
+    strncat(params[i+1].hodlr1_name, "L0.5S", STR_LEN);
+    fill_laplacian_matrix(m, matrix);
+    matrix[m - 1] = 0.5;
+    matrix[m * (m - 1)] = 0.5;
+    dense_to_tree_hodlr(params[i+1].hodlr1, m,
+                        matrix, svd_threshold, &ierr, &cr_malloc, &cr_free);
+
+    // LAPLACIAN MATRIX with 0.5 in bottom corner
+    strncat(params[i+2].hodlr1_name, "L0.5A", STR_LEN);
+    fill_laplacian_matrix(m, matrix);
+    matrix[m - 1] = 0.5;
+    dense_to_tree_hodlr(params[i+2].hodlr1, m,
+                        matrix, svd_threshold, &ierr, &cr_malloc, &cr_free);
+
+    for (int j = 0; j < n_cases; j++) {
+      strncat(params[i+j].hodlr2_name, "LC", STR_LEN);
+      fill_laplacian_converse_matrix(m, matrix);
+      dense_to_tree_hodlr(params[i+j].hodlr2, m, matrix, svd_threshold,
+                          &ierr, &cr_malloc, &cr_free);
+    }
+
+    // LAPLACIAN MATRIX
+    fill_laplacian_x_converse(m, matrix);
+    dense_to_tree_hodlr(params[i].expected, m, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+
+    // LAPLACIAN MATRIX with 0.5 in corners
+    i += 1;
+    fill_laplacian_x_converse(m, matrix);
+    matrix[m - 1] = -0.5;
+    matrix[2 * m - 1] = 1.0;
+    matrix[(m - 2) * m] = 1.0;
+    matrix[(m - 1) * m] = -0.5;
+    dense_to_tree_hodlr(params[i].expected, m, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+
+    // LAPLACIAN MATRIX with 0.5 in bottom corner
+    i += 1;
+    fill_laplacian_x_converse(m, matrix);
+    matrix[m - 1] = -0.5;
+    matrix[2 * m - 1] = 1.0;
+    dense_to_tree_hodlr(params[i].expected, m, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+  }
+
+  return n_cases * max_height;
+}
+
+
+static int identity_matrix(struct ParametersTestHxH *params) {
+  const int n_cases = 3, max_height = 3;
+  int i = 0, idx = 0, ierr = 0;
+  double svd_threshold = 1e-8;
+  const int m = 21;
+  double *matrix = cr_malloc(m * m * sizeof(double));
+
+  for (int height = 1; height < max_height + 1; height++) {
+    idx = n_cases * (height - 1);
+
+    for (i = idx; i < idx+n_cases; i++) {
+      strncat(params[i].hodlr1_name, "I", STR_LEN);
+
+      params[i].hodlr1 = allocate_tree_monolithic(height, &ierr,
+                                                  &cr_malloc, &cr_free);
+      fill_identity_matrix(m, matrix);
+      dense_to_tree_hodlr(params[i].hodlr1, m, matrix, 
+                          svd_threshold, &ierr, &cr_malloc, &cr_free);
+      
+      params[i].hodlr2 = allocate_tree_monolithic(height, &ierr,
+                                                  &cr_malloc, &cr_free);
+      params[i].expected = allocate_tree_monolithic(height, &ierr,
+                                                    &cr_malloc, &cr_free);
+    }
+
+    strncat(params[idx].hodlr2_name, "I", STR_LEN);
+    fill_identity_matrix(m, matrix);
+    dense_to_tree_hodlr(params[idx].hodlr2, m, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+    fill_identity_matrix(m, matrix);
+    dense_to_tree_hodlr(params[idx].expected, m, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+
+    strncat(params[idx+1].hodlr2_name, "0", STR_LEN);
+    fill_full_matrix(m, 0.0, matrix);
+    dense_to_tree_hodlr(params[idx+1].hodlr2, m, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+    fill_full_matrix(m, 0.0, matrix);
+    dense_to_tree_hodlr(params[idx+1].expected, m, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+
+    strncat(params[idx+2].hodlr2_name, "L", STR_LEN);
+    fill_laplacian_matrix(m, matrix);
+    dense_to_tree_hodlr(params[idx+2].hodlr2, m, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+    fill_laplacian_matrix(m, matrix);
+    dense_to_tree_hodlr(params[idx+2].expected, m, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+  }
+
+  return n_cases * max_height;
+}
+
+
+struct ParametersTestHxH * generate_hodlr_hodlr_params(int * len) {
+  const int n_params = 9+9;
+  int actual = 0;
+  *len = n_params;
+  struct ParametersTestHxH *params = 
+    cr_malloc(n_params * sizeof(struct ParametersTestHxH));
+
+  actual += laplacian_matrix(params);
+  actual += identity_matrix(params + actual);
+
+  if (actual != n_params) {
+    printf("PARAMETER SET-UP FAILED - allocated %d parameters but set %d\n",
+           n_params, actual);
+  }
+
+  return params;
+}
+
+
+ParameterizedTestParameters(hodlr_hodlr_algebra, compute_diagonal) {
+  int n_params;
+  struct ParametersTestHxH *params = generate_hodlr_hodlr_params(&n_params);
+
+  return cr_make_param_array(struct ParametersTestHxH, params, n_params, 
+                             free_hh_params);
+}
+
+
+ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra, 
+                  compute_diagonal) {
+  cr_log_info("%.10s (height=%d) x %.10s (height=%d)",
+              params->hodlr1_name, params->hodlr1->height, params->hodlr2_name, 
+              params->hodlr2->height);
+
+  int ierr = 0;
+  int *offsets = calloc(params->expected->height, sizeof(int));
+  
+  int m, highest_m = 0;
+  for (int i = 0; i < params->hodlr2->len_work_queue * 2; i++) {
+    m = params->hodlr2->innermost_leaves[i]->data.diagonal.m;
+    if (m > highest_m) highest_m = m;
+  }
+  int s1 = get_highest_s(params->hodlr1);
+  int s2 = get_highest_s(params->hodlr2);
+  double *workspace = malloc(s1 * s2 * sizeof(double));
+  double *workspace2 = malloc(s1 * highest_m * sizeof(double));
+
+  struct TreeHODLR *result = allocate_tree_monolithic(
+    params->expected->height, &ierr, &malloc, &free
+  );
+
+  struct HODLRInternalNode **queue = result->work_queue;
+
+  compute_diagonal(
+    params->hodlr1, params->hodlr2, result, queue, offsets, workspace, 
+    workspace2, &ierr
+  );
+  if (ierr != SUCCESS) {
+    cr_fail("Returned ierr (%d) different from SUCCESS (%d)", ierr, SUCCESS);
+  }
+
+  struct NodeDiagonal *r, *e;
+  for (int i = 0; i < result->len_work_queue * 2; i++) {
+    r = &result->innermost_leaves[i]->data.diagonal;
+    e = &params->expected->innermost_leaves[i]->data.diagonal;
+
+    expect_matrix_double_eq_safe(
+      r->data, e->data, r->m, r->m, e->m, e->m, r->m, e->m, i
+    );
+  }
+
+  free(offsets); free(workspace); free(workspace2);
+}
+
+
+struct ParametersOffDiagContrib {
+  struct NodeOffDiagonal *restrict leaf1;
+  struct NodeOffDiagonal *restrict leaf2;
+  int offset;
+  double *restrict out;
+  double *restrict expected;
+  int m;
+  char out_name;
+};
+
+
+void free_odc_params(struct criterion_test_params *params) {
+  for (size_t i = 0; i < params->length; i++) {
+    struct ParametersOffDiagContrib *param = 
+      (struct ParametersOffDiagContrib *) params->params + i;
+    
+    cr_free(param->leaf1); cr_free(param->leaf2);
+    cr_free(param->out); cr_free(param->expected);
+  }
+  cr_free(params->params);
+}
+
+
+static inline double * zeros(const int m) {
+  return cr_calloc(m * m, sizeof(double));
+}
+
+
+static inline double * ones(const int m) {
+  return construct_full_matrix(m, 1.0);
+}
+
+
+int create_params_add_off_diag_contrib(
+  struct ParametersOffDiagContrib *params,
+  double *(*func)(int),
+  char out_name
+) {
+  enum {n_params = 7};
+
+  const int ms[n_params] = {5, 5, 5, 5, 5, 10, 10};
+  const int mms[n_params] = {5, 10, 10, 15, 15, 10, 10};
+  const int ns[n_params] = {5, 10, 10, 15, 15, 9, 11};
+  const int s1s[n_params] = {1, 1, 1, 1, 1, 3, 3};
+  const int s2s[n_params] = {1, 1, 1, 1, 1, 2, 2};
+  const int offsets[n_params] = {0, 5, 0, 5, 0, 0, 0};
+
+  for (int i = 0; i < n_params; i++) {
+    params[i].leaf1 = cr_malloc(sizeof(struct NodeOffDiagonal));
+    params[i].leaf1->m = mms[i];
+    params[i].leaf1->n = ns[i];
+    params[i].leaf1->s = s1s[i];
+    params[i].leaf1->u = cr_calloc(mms[i] * s1s[i], sizeof(double));
+    params[i].leaf1->v = cr_calloc(ns[i] * s1s[i], sizeof(double));
+
+    params[i].leaf2 = cr_malloc(sizeof(struct NodeOffDiagonal));
+    params[i].leaf2->m = ns[i];
+    params[i].leaf2->n = mms[i];
+    params[i].leaf2->s = s2s[i];
+    params[i].leaf2->u = cr_calloc(ns[i] * s2s[i], sizeof(double));
+    params[i].leaf2->v = cr_calloc(mms[i] * s2s[i], sizeof(double));
+
+    params[i].m = ms[i];
+    params[i].out = func(ms[i]);
+    params[i].out_name = out_name;
+    params[i].expected = func(ms[i]);
+    params[i].offset = offsets[i];
+  }
+
+  for (int i = 0; i < 4; i++) {
+    params[i].leaf1->u[params[i].leaf1->m - 1] = 1.0;
+    params[i].leaf1->v[0] = 1.0;
+    params[i].leaf2->u[0] = 1.0;
+    params[i].leaf2->v[params[i].leaf2->m - 1] = 1.0;
+  }
+
+  for (int i = 0; i < 2; i++) {
+    params[i].expected[params[i].m * params[i].m - 1] += 1.0;
+  }
+
+  int idx = 4;
+  params[idx].leaf1->u[0] = 1.0;
+  params[idx].leaf1->v[params[idx].leaf1->n - 1] = 1.0;
+  params[idx].leaf2->u[params[idx].leaf2->m - 1] = 1.0;
+  params[idx].leaf2->v[0] = 1.0;
+  params[idx].expected[0] += 1.0;
+
+  // More complex test:
+  idx++;
+  for (int i = 0; i < 2; i++) {
+    params[idx].leaf1->u[0] = 1.0;
+    params[idx].leaf1->u[params[idx].leaf1->m] = 1.0;
+    params[idx].leaf1->u[2 * params[idx].leaf1->m + 1] = 9.0;
+    params[idx].leaf1->v[params[idx].leaf1->n - 2] = 9.0;
+    params[idx].leaf1->v[params[idx].leaf1->n - 1] = -0.5;
+    params[idx].leaf1->v[params[idx].leaf1->n] = 0.01;
+    params[idx].leaf1->v[params[idx].leaf1->n * 3 - 1] = 1.0;
+
+    params[idx].leaf2->u[params[idx].leaf2->m - 2] = -9.0;
+    params[idx].leaf2->u[params[idx].leaf2->m - 1] = 3.3;
+    params[idx].leaf2->u[params[idx].leaf2->m * 2 - 1] = 6.6;
+    params[idx].leaf2->v[0] = -0.25;
+    params[idx].leaf2->v[1] = 1.0;
+    params[idx].leaf2->v[params[idx].leaf2->n + 1] = 11.0;
+    params[idx].expected[0] += 20.6625;
+    params[idx].expected[1] += -7.425;
+    params[idx].expected[params[idx].m] += -118.95;
+    params[idx].expected[params[idx].m + 1] += 683.1;
+
+    idx++;
+  }
+
+  return n_params;
+}
+
+
+ParameterizedTestParameters(hodlr_hodlr_algebra, add_off_diag_contrib) {
+  const int np_per_func = 7;
+  const int n_params = 3 * np_per_func;
+  struct ParametersOffDiagContrib *params = 
+    cr_malloc(n_params * sizeof(struct ParametersOffDiagContrib));
+  int actual = 0, previous = 0;
+
+  actual += create_params_add_off_diag_contrib(params, zeros, '0');
+  actual += create_params_add_off_diag_contrib(params + actual, 
+                                               construct_laplacian_matrix, 'L');
+  actual += create_params_add_off_diag_contrib(params + actual,
+                                               ones, '1');
+
+  if (actual != n_params) {
+    printf("PARAMETER SET-UP FAILED - allocated %d parameters but set %d\n",
+           n_params, actual);
+  }
+
+  return cr_make_param_array(struct ParametersOffDiagContrib, params, n_params, 
+                             free_odc_params);
+}
+
+
+ParameterizedTest(struct ParametersOffDiagContrib *params, hodlr_hodlr_algebra, 
+                  add_off_diag_contrib) {
+  cr_log_info("leaf1 (m=%d, s=%d, n=%d) x leaf2 (m=%d, s=%d, n=%d) + '%c' = "
+              "result (%dx%d)", 
+              params->leaf1->m, params->leaf1->s, params->leaf1->n,
+              params->leaf2->m, params->leaf2->s, params->leaf2->n,
+              params->out_name, params->m, params->m);
+
+  double *workspace = malloc(params->leaf1->s * params->leaf2->s * sizeof(double));
+  double *workspace2 = malloc(params->m * params->leaf1->s * sizeof(double));
+
+  add_off_diagonal_contribution(
+    params->leaf1, params->leaf2, params->offset, workspace, workspace2,
+    params->out, params->m
+  );
+
+  expect_matrix_double_eq(
+    params->out, params->expected, params->m, params->m, params->m, params->m,
+    'M'
+  );
+
+  free(workspace); free(workspace2);
+}
+
