@@ -48,8 +48,8 @@
  *                    ``NULL`` - again undefined.
  */
 static inline int multiply_off_diagonal_vector(
-  const struct HODLRInternalNode *restrict parent,
-  const double *restrict vector,
+  const struct HODLRInternalNode *restrict const parent,
+  const double *restrict const vector,
   double *restrict out,
   double *restrict workspace,
   const int increment,
@@ -112,8 +112,8 @@ static inline int multiply_off_diagonal_vector(
  * :return: The ``out`` array with the results of the matrix-vector 
  *          multiplication stored inside.
  */
-double * multiply_vector(const struct TreeHODLR *restrict hodlr,
-                         const double *restrict vector,
+double * multiply_vector(const struct TreeHODLR *restrict const hodlr,
+                         const double *restrict const vector,
                          double *restrict out) {
   if (hodlr == NULL || vector == NULL) {
     return NULL;
