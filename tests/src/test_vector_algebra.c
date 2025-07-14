@@ -21,6 +21,14 @@
 #define STR_LEN 10
 
 
+static inline void fill_full_vector(const int len, const double val, 
+                                    double *vector) {
+  for (int i = 0; i < len; i++) {
+    vector[i] = val;
+  }
+}
+
+
 struct ParametersTestHxV {
   struct TreeHODLR *hodlr;
   double *vector;
@@ -38,7 +46,6 @@ void free_hv_params(struct criterion_test_params *params) {
     free_tree_hodlr(&(param->hodlr), &cr_free);
     cr_free(param->expected);
     cr_free(param->vector);
-    //cr_free(param);
   }
   cr_free(params->params);
 }
@@ -150,7 +157,8 @@ int identity_matrix(struct ParametersTestHxV *params) {
 struct ParametersTestHxV * generate_hodlr_vector_params(int * len) {
   const int n_params = 9+9;
   *len = n_params;
-  struct ParametersTestHxV *params = cr_malloc(n_params * sizeof(struct ParametersTestHxV));
+  struct ParametersTestHxV *params = 
+    cr_malloc(n_params * sizeof(struct ParametersTestHxV));
 
   int actual = laplacian_matrix(params);
   actual += identity_matrix(params + actual);
@@ -189,4 +197,157 @@ ParameterizedTest(struct ParametersTestHxV *params, vector_algebra,
 
   free(result);
 }
+
+
+struct ParametersTestOffdiagxV {
+  struct HODLRInternalNode *parent;
+  double *vector;
+  double *out;
+  double *expected;
+  int len;
+  int offset;
+  char hodlr_name[STR_LEN];
+  char vector_name[STR_LEN];
+  char out_name[STR_LEN];
+};
+
+
+void free_ov_params(struct criterion_test_params *params) {
+  for (int i = 0; i < params->length; i++) {
+    struct ParametersTestOffdiagxV *param = 
+      (struct ParametersTestOffdiagxV *) params->params + i;
+
+    for (int i = 1; i < 3; i++) {
+      cr_free(param->parent->children[i].leaf->data.off_diagonal.u);
+      cr_free(param->parent->children[i].leaf->data.off_diagonal.v);
+      cr_free(param->parent->children[i].leaf);
+    }
+    cr_free(param->parent);
+
+    cr_free(param->expected);
+    cr_free(param->out);
+    cr_free(param->vector);
+  }
+  cr_free(params->params);
+}
+
+
+ParameterizedTestParameters(vector_algebra, multiply_off_diagonal_vector) {
+  const int n_params = 3;
+  struct ParametersTestOffdiagxV *params = 
+    cr_malloc(n_params * sizeof(struct ParametersTestOffdiagxV));
+
+  const int lens[] = {20, 10, 19};
+  const int ms[] = {6, 4, 8};
+  const int ns[] = {5, 4, 7};
+  const int ss[] = {1, 1, 1};
+  const int offsets[] = {5, 2, 3};
+
+  for (int i = 0; i < n_params; i++) {
+    params[i].parent = cr_malloc(sizeof(struct HODLRInternalNode));
+    params[i].parent->children[1].leaf = 
+      cr_malloc(sizeof(struct NodeOffDiagonal));
+    params[i].parent->children[1].leaf->data.off_diagonal.u =
+      cr_calloc(ms[i] * ss[i], sizeof(double));
+    params[i].parent->children[1].leaf->data.off_diagonal.v =
+      cr_calloc(ns[i] * ss[i], sizeof(double));
+    params[i].parent->children[1].leaf->data.off_diagonal.m = ms[i];
+    params[i].parent->children[1].leaf->data.off_diagonal.n = ns[i];
+    params[i].parent->children[1].leaf->data.off_diagonal.s = ss[i];
+
+    params[i].parent->children[2].leaf = 
+      cr_malloc(sizeof(struct NodeOffDiagonal));
+    params[i].parent->children[2].leaf->data.off_diagonal.m = ns[i];
+    params[i].parent->children[2].leaf->data.off_diagonal.n = ms[i];
+    params[i].parent->children[2].leaf->data.off_diagonal.s = ss[i];
+    params[i].parent->children[2].leaf->data.off_diagonal.u =
+      cr_calloc(ns[i] * ss[i], sizeof(double));
+    params[i].parent->children[2].leaf->data.off_diagonal.v =
+      cr_calloc(ms[i] * ss[i], sizeof(double));
+    
+    params[i].offset = offsets[i];
+    params[i].len = lens[i];
+    params[i].vector = cr_calloc(lens[i], sizeof(double));
+    params[i].out = cr_calloc(lens[i], sizeof(double));
+    params[i].expected = cr_calloc(lens[i], sizeof(double));
+  }
+
+  // 0 HODLR x 10 vector
+  int i = 0;
+  strncat(params[i].hodlr_name, "0", STR_LEN);
+  strncat(params[i].vector_name, "10", STR_LEN);
+  fill_full_vector(lens[i], 10., params[i].vector);
+  strncat(params[i].out_name, "0", STR_LEN);
+  fill_full_vector(lens[i], 0., params[i].out);
+  fill_full_vector(lens[i], 0., params[i].expected);
+
+  // 5 HODLR x 0.5 vector
+  i++;
+  strncat(params[i].hodlr_name, "+/-5", STR_LEN);
+  fill_full_vector(ms[i] * ss[i], 5., 
+                   params[i].parent->children[1].leaf->data.off_diagonal.u);
+  fill_full_vector(ns[i] * ss[i], 1., 
+                   params[i].parent->children[1].leaf->data.off_diagonal.v);
+  fill_full_vector(ns[i] * ss[i], -5., 
+                   params[i].parent->children[2].leaf->data.off_diagonal.u);
+  fill_full_vector(ms[i] * ss[i], 1., 
+                   params[i].parent->children[2].leaf->data.off_diagonal.v);
+  strncat(params[i].vector_name, "0.5", STR_LEN);
+  fill_full_vector(lens[i], 0.5, params[i].vector);
+  strncat(params[i].out_name, "-10", STR_LEN);
+  fill_full_vector(lens[i], -10., params[i].out);
+  fill_full_vector(lens[i], -10., params[i].expected);
+  fill_full_vector(ms[i], 0., params[i].expected + params[i].offset);
+  fill_full_vector(ns[i], -20., 
+                   params[i].expected + params[i].offset + ms[i]);
+
+  // More realistic
+  i++;
+  strncat(params[i].hodlr_name, "L", STR_LEN);
+  params[i].parent->children[1].leaf->data.off_diagonal.u[ms[i]-1] = 1.;
+  params[i].parent->children[1].leaf->data.off_diagonal.v[0] = 1.;
+  params[i].parent->children[2].leaf->data.off_diagonal.u[0] = 1.;
+  params[i].parent->children[2].leaf->data.off_diagonal.v[ms[i]-1] = 1.;
+  strncat(params[i].vector_name, "3.14", STR_LEN);
+  fill_full_vector(lens[i], 3.14, params[i].vector);
+  strncat(params[i].out_name, "0..len", STR_LEN);
+  for (int j = 0; j < lens[i]; j++) {
+    params[i].out[j] = (double)j;
+    params[i].expected[j] = (double)j;
+  }
+  params[i].expected[offsets[i] + ms[i] - 1] += 3.14;
+  params[i].expected[offsets[i] + ms[i]] += 3.14;
+
+  if (i+1 != n_params) {
+    printf("PARAMETER SET-UP FAILED - allocated %d parameters but set %d\n",
+           n_params, i+1);
+  }
+
+  return cr_make_param_array(struct ParametersTestOffdiagxV, params, n_params, 
+                             free_ov_params);
+}
+
+
+ParameterizedTest(struct ParametersTestOffdiagxV *params, vector_algebra, 
+                  multiply_off_diagonal_vector) {
+  const int m = params->parent->children[1].leaf->data.off_diagonal.m;
+  const int n = params->parent->children[1].leaf->data.off_diagonal.n;
+  const int s = params->parent->children[1].leaf->data.off_diagonal.s;
+
+  cr_log_info("off-diag '%s' (m=%d, n=%d, s=%d) x vector '%s' (l=%d) + '%s'",
+              params->hodlr_name, m, n, s, params->vector_name, params->len,
+              params->out_name);
+
+  double *workspace = malloc(m * sizeof(double));
+
+  multiply_off_diagonal_vector(
+    params->parent, params->vector, params->out, workspace, 1, params->offset
+  );
+
+  expect_vector_double_eq_safe(params->out, params->expected, params->len, 
+                               params->len, 'V');
+
+  free(workspace);
+}
+
 
