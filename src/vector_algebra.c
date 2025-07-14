@@ -141,7 +141,7 @@ double * multiply_vector(const struct TreeHODLR *restrict hodlr,
   for (int parent = 0; parent < n_parent_nodes; parent++) {
     queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
 
-    for (int j = 0; j < 2; j++) {
+    for (int _diagonal = 0; _diagonal < 2; _diagonal++) {
       m = hodlr->innermost_leaves[idx]->data.diagonal.m;
       dgemv_("N", &m, &m, &alpha, 
              hodlr->innermost_leaves[idx]->data.diagonal.data, 
@@ -154,19 +154,18 @@ double * multiply_vector(const struct TreeHODLR *restrict hodlr,
 
   for (int _ = hodlr->height-1; _ > 0; _--) {
     n_parent_nodes /= 2;
-    offset = 0;
+    offset = 0; idx = 0;
 
-    for (int j = 0; j < n_parent_nodes; j++) {
-      idx = 2 * j;
-      for (int k = 0; k < 2; k++) {
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      for (int _child = 0; _child < 2; _child++) {
         offset = multiply_off_diagonal_vector(
           queue[idx], vector, out, workspace, increment, offset
         );
 
-        idx += 1;
+        idx++;
       }
 
-      queue[j] = queue[2 * j + 1]->parent;
+      queue[parent] = queue[2 * parent]->parent;
     }
   }
 
