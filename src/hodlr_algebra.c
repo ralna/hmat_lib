@@ -102,7 +102,6 @@ static inline void compute_other_off_diagonal(
   const struct HODLRInternalNode *restrict const hodlr2,
   const struct NodeOffDiagonal *restrict const off_diagonal2,
   double *restrict workspace,
-  double *restrict workspace2,
   double *restrict *restrict matrices,
   struct NodeOffDiagonal *restrict out,
   struct HODLRInternalNode *restrict *restrict queue,
@@ -118,15 +117,13 @@ static inline void compute_other_off_diagonal(
   // HODLR x U = U* at index=0
   multiply_internal_node_dense(
     hodlr1, height - current_level - 1, off_diagonal2->u, off_diagonal2->s,
-    off_diagonal2->m, queue, workspace, matrices[0], 
-    off_diagonal2->m
+    off_diagonal2->m, queue, workspace, matrices[0], off_diagonal2->m
   );
 
   // V^T x HODLR = V* at index=1 (represents V^T* but not actually transposed)
   multiply_internal_node_transpose_dense(
     hodlr2, height - current_level - 1, off_diagonal1->v, off_diagonal1->s,
-    off_diagonal1->m, queue, workspace, matrices[1], 
-    off_diagonal1->m
+    off_diagonal1->m, queue, workspace, matrices[1], off_diagonal1->m
   );
 
   compute_higher_level_contributions_off_diagonal(
@@ -308,7 +305,7 @@ void multiply_hodlr_hodlr(
         q2[parent],
         q2[parent]->children[0].internal,
         &q2[parent]->children[2].leaf->data.off_diagonal,
-        workspace, workspace2, matrices, 
+        workspace, matrices, 
         &queue[parent]->children[2].leaf->data.off_diagonal,
         extra_queue, out->height, level, parent, offsets
       );
@@ -319,7 +316,7 @@ void multiply_hodlr_hodlr(
         q2[parent],
         q2[parent]->children[3].internal,
         &q2[parent]->children[1].leaf->data.off_diagonal,
-        workspace, workspace2, matrices, 
+        workspace, matrices, 
         &queue[parent]->children[1].leaf->data.off_diagonal,
         extra_queue, out->height, level, parent, offsets
       );

@@ -26,13 +26,12 @@ unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_d
 		${BUILD_DIR}/utils.o \
 		${BUILD_DIR}/main_utils.o \
 		${BUILD_DIR}/common_data.o \
-		${BUILD_DIR}/main_utils.o \
 		-o ${OUT_DIR}/unit_test \
 		-lopenblas -lm -lcriterion \
 		${EXTRA_FLAGS} -fopenmp
 
 
-test_hodlr_algebra.o: ${TESTS_DIR}/test_hodlr_hodlr_algebra.c lapack_wrapper.o utils.o common_data.o
+test_hodlr_algebra.o: ${TESTS_DIR}/test_hodlr_hodlr_algebra.c
 	gcc \
 		-c ${TESTS_DIR}/test_hodlr_hodlr_algebra.c \
 		-o ${BUILD_DIR}/test_hodlr_algebra.o \
