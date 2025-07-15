@@ -6,46 +6,6 @@
 #include "../include/blas_wrapper.h"
 
 
-static void compute_off_diagonal(
-  const struct HODLRInternalNode *restrict const internal1,
-  const int height1,
-  const struct HODLRLeafNode *restrict const leaf1,
-  const struct HODLRInternalNode *restrict const internal2,
-  const int height2,
-  const struct HODLRLeafNode *restrict const leaf2,
-  const struct HODLRInternalNode **restrict queue,
-  double *restrict workspace,
-  double *restrict workspace2,
-  struct HODLRLeafNode *restrict out,
-  int *ierr
-) {
-  double *u = malloc(internal1->m * leaf2->data.off_diagonal.s * sizeof(double));
-  if (u == NULL) {
-    *ierr = ALLOCATION_FAILURE;
-    return;
-  }
-
-  multiply_internal_node_dense(
-    internal1, height1, leaf2->data.off_diagonal.u, leaf2->data.off_diagonal.s,
-    leaf2->data.off_diagonal.m, queue, workspace, u, 
-    leaf2->data.off_diagonal.m
-  );
-
-  double *v = malloc(leaf1->data.off_diagonal.s * internal2->m * sizeof(double));
-  if (v == NULL) {
-    *ierr = ALLOCATION_FAILURE;
-    return;
-  }
-
-  multiply_internal_node_transpose_dense(
-    internal2, height2, leaf1->data.off_diagonal.v, leaf1->data.off_diagonal.s,
-     leaf2->data.off_diagonal.n, queue, workspace, v, 
-    leaf2->data.off_diagonal.n
-  );
- 
-}
-
-
 static inline void compute_higher_level_contributions_off_diagonal(
   const struct HODLRInternalNode *restrict parent1,
   const struct HODLRInternalNode *restrict parent2,
