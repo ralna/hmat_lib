@@ -6,24 +6,73 @@
 #include "../include/blas_wrapper.h"
 
 
-static inline void compute_higher_level_contributions_off_diagonal(
+static inline void recompress(
+  double *restrict *restrict us,
+  double *restrict *restrict vs,
+  struct NodeOffDiagonal *restrict out
+) {
+
+}
+
+
+static inline void compute_uv_workspace_size(
   const struct HODLRInternalNode *restrict parent1,
   const struct HODLRInternalNode *restrict parent2,
-  double *restrict *restrict matrices,
-  double *restrict workspace,
-  int *restrict offsets,
+  int *restrict const offsets,
   const int height,
   int parent_position,
-  const int v_n
+  const int target_m,
+  const int target_n,
+  int *restrict const u_size_out,
+  int *restrict const v_size_out
 ) {
-  int which_child1 = 0, which_child2 = 0;
-  int midx = 2, oidx = 0;
-  const double alpha = 1.0, beta = 0.0;
+  int which_child1 = 0, which_child2 = 0, u_size = 0, v_size = 0;
 
   for (int level = height-1; level > 0; level--) {
     if (parent_position % 2 == 0) {
       which_child1 = 1; which_child2 = 2;
-      offsets[oidx] = 0;
+    } else {
+      which_child1 = 2; which_child2 = 1;
+    }
+    int s1 = parent1->children[which_child1].leaf->data.off_diagonal.s;
+
+    u_size += s1 * target_m;
+    v_size += s1 * target_n;
+
+    parent1 = parent1->parent; parent2 = parent2->parent;
+    parent_position /= 2;
+  }
+
+  *u_size_out += u_size;
+  *v_size_out += v_size;
+}
+
+
+static inline void compute_higher_level_contributions_off_diagonal(
+  const int height,
+  const int origin_idx,
+  int divisor,
+  const struct HODLRInternalNode *restrict parent1,
+  int *restrict const offsets1,
+  const struct HODLRInternalNode *restrict parent2,
+  int *restrict const offsets2,
+  struct NodeOffDiagonal *restrict const out_tr,
+  struct NodeOffDiagonal *restrict const out_bl,
+  double *restrict const workspace
+) {
+  int which_child1 = 0, which_child2 = 0;
+  int midx = 2, oidx = 0, parent_position = origin_idx;
+  const double alpha = 1.0, beta = 0.0;
+
+  // out_tr->m == out_bl->n => offsets can be reused
+  int offset_utr_vbl = 0, offset_vtr_ubl = 0;
+
+  for (int level = height-1; level > 0; level--) {
+    if (origin_idx % divisor) {
+      offsets1[oidx] = 0; offsets2[oidx] = out_bl->n;
+    }
+    if (parent_position % 2 == 0) {
+      which_child1 = 1; which_child2 = 2;
     } else {
       which_child1 = 2; which_child2 = 1;
     }
@@ -32,24 +81,40 @@ static inline void compute_higher_level_contributions_off_diagonal(
     int m = parent1->children[which_child1].leaf->data.off_diagonal.m;
     int n = parent1->children[which_child1].leaf->data.off_diagonal.n;
 
-    matrices[midx] = malloc(s1 * v_n * sizeof(double));
-
-    // Low-rank x low-rank = V* (represents V^T, but not actually transposed)
     dgemm_("T", "N", &s1, &s2, &n, &alpha,
-           parent1->children[which_child1].leaf->data.off_diagonal.v, &s1,
+           parent1->children[which_child1].leaf->data.off_diagonal.v, &n,
            parent2->children[which_child2].leaf->data.off_diagonal.u, &n,
            &beta, workspace, &s1);
-    dgemm_("N", "T", &v_n, &s1, &s2, &alpha,
-           parent2->children[which_child2].leaf->data.off_diagonal.v + offsets[oidx],
-           &m, workspace, &s2, &beta, matrices[midx], &v_n);
 
-    offsets[oidx] += m;
+    // TOP-RIGHT OUTPUT
+    // Low-rank x low-rank = V* (represents V^T, but not actually transposed)
+    dgemm_("N", "T", &out_tr->n, &s1, &s2, &alpha,
+           parent2->children[which_child2].leaf->data.off_diagonal.v 
+           + offsets2[oidx], &m, 
+           workspace, &s2, &beta, out_tr->v + offset_vtr_ubl, &out_tr->n);
+    dlacpy_("A", &out_tr->m, &s1, 
+            parent1->children[which_child1].leaf->data.off_diagonal.u
+            + offsets1[oidx], &m,
+            out_tr->u + offset_utr_vbl, &out_tr->m);
+
+    // BOTTOM-LEFT OUTPUT
+    // Low-rank x low-rank = V* (represents V^T, but not actually transposed)
+    dgemm_("N", "T", &out_bl->n, &s1, &s2, &alpha,
+           parent2->children[which_child2].leaf->data.off_diagonal.v 
+           + offsets1[oidx], &m, 
+           workspace, &s2, &beta, out_bl->v + offset_utr_vbl, &out_bl->n);
+    dlacpy_("A", &out_bl->m, &s1, 
+            parent1->children[which_child1].leaf->data.off_diagonal.u
+            + offsets2[oidx], &m,
+            out_bl->u + offset_vtr_ubl, &out_bl->m);
+
+    offsets1[oidx] += out_tr->m + out_bl->m;
+    offsets2[oidx] += out_tr->n + out_bl->n;
     parent1 = parent1->parent; parent2 = parent2->parent;
     midx++;
-    parent_position /= 2;
+    divisor *=2; parent_position /= 2;
+    offset_utr_vbl += out_tr->m * s1; offset_vtr_ubl += out_tr->n * s1;
   }
-
-
 }
 
 
@@ -61,7 +126,6 @@ static inline void compute_inner_off_diagonal(
   const struct NodeDiagonal *restrict const diagonal2,
   const struct NodeOffDiagonal *restrict const off_diagonal2,
   double *restrict workspace,
-  double *restrict *restrict matrices,
   struct NodeOffDiagonal *restrict out,
   const int height,
   int parent_position,
@@ -69,28 +133,42 @@ static inline void compute_inner_off_diagonal(
 ) {
   const double alpha = 1.0, beta = 0.0;
 
-  matrices[0] = malloc((diagonal1->m * off_diagonal2->s + 
-                       diagonal2->m * off_diagonal1->s) * sizeof(double));
-  matrices[1] = matrices[0] + (diagonal1->m * off_diagonal2->s);
+  const int u_size1 = diagonal1->m * off_diagonal2->s;
+  const int u_size2 = off_diagonal1->m * off_diagonal1->s;
+  const int v_size1 = off_diagonal2->s * off_diagonal2->n;
+  const int v_size2 = off_diagonal1->s * diagonal2->m;
+
+  int u_size = u_size1 + u_size2, v_size = v_size1 + v_size2;
+
+  compute_uv_workspace_size(
+    node1->parent, node2->parent, offsets, height, parent_position, 
+    diagonal1->m, diagonal2->m, &u_size, &v_size
+  );
+
+  double *u = malloc((u_size + v_size) * sizeof(double));
+  double *v = u + u_size;
 
   // Dense x U = U* at index=0
   dgemm_("N", "N", &diagonal1->m, &off_diagonal2->s, &diagonal1->m, &alpha,
          diagonal1->data, &diagonal1->m, off_diagonal2->u, &off_diagonal2->m,
-         &beta, matrices[0], &diagonal1->m);
+         &beta, u, &diagonal1->m);
+  dlacpy_("A", &off_diagonal2->n, &off_diagonal2->s, off_diagonal2->v,
+          &off_diagonal2->n, v, &diagonal1->m);
 
   // V^T x dense = V* at index=1 (represents V^T* but not actually transposed)
+  dlacpy_("A", &off_diagonal1->m, &off_diagonal1->s, off_diagonal1->u,
+          &off_diagonal1->m, u + u_size1, &diagonal2->m);
   dgemm_("T", "N", &diagonal2->m, &off_diagonal1->s, &diagonal2->m, &alpha,
          diagonal2->data, &diagonal2->m, off_diagonal1->v, &off_diagonal1->n,
-         &beta, matrices[1], &diagonal2->m);
+         &beta, v + v_size1, &diagonal2->m);
 
   compute_higher_level_contributions_off_diagonal(
-    node1->parent, node2->parent, matrices, workspace, offsets, height,
-    parent_position, off_diagonal1->n
+    height, parent_position, node1->parent, node2->parent, 
+    u + u_size1 + u_size2, out->m, v + v_size1 + v_size2, out->n, 
+    offsets, workspace
   );
 
-  for (int i = 0; i < height + 1; i++) {
-    free(matrices[i]);
-  }
+  free(u);
 }
 
 
