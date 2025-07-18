@@ -15,36 +15,26 @@ static inline void recompress(
 }
 
 
-static inline void compute_uv_workspace_size(
+static inline int compute_workspace_size_s_component(
   const struct HODLRInternalNode *restrict parent1,
   const struct HODLRInternalNode *restrict parent2,
-  int *restrict const offsets,
   const int height,
-  int parent_position,
-  const int target_m,
-  const int target_n,
-  int *restrict const u_size_out,
-  int *restrict const v_size_out
+  int parent_position
 ) {
-  int which_child1 = 0, which_child2 = 0, u_size = 0, v_size = 0;
+  int which_child1 = 0, which_child2 = 0, s_sum;
 
-  for (int level = height-1; level > 0; level--) {
+  for (int level = height; level > 0; level--) {
     if (parent_position % 2 == 0) {
       which_child1 = 1; which_child2 = 2;
     } else {
       which_child1 = 2; which_child2 = 1;
     }
-    int s1 = parent1->children[which_child1].leaf->data.off_diagonal.s;
-
-    u_size += s1 * target_m;
-    v_size += s1 * target_n;
+    s_sum += parent1->children[which_child1].leaf->data.off_diagonal.s;
 
     parent1 = parent1->parent; parent2 = parent2->parent;
     parent_position /= 2;
   }
-
-  *u_size_out += u_size;
-  *v_size_out += v_size;
+  return s_sum;
 }
 
 
@@ -58,7 +48,9 @@ static inline void compute_higher_level_contributions_off_diagonal(
   int *restrict const offsets2,
   struct NodeOffDiagonal *restrict const out_tr,
   struct NodeOffDiagonal *restrict const out_bl,
-  double *restrict const workspace
+  double *restrict const workspace,
+  int *restrict const offset_utr_vbl_out,
+  int *restrict const offset_vtr_ubl_out
 ) {
   int which_child1 = 0, which_child2 = 0;
   int midx = 2, oidx = 0, parent_position = origin_idx;
@@ -67,7 +59,7 @@ static inline void compute_higher_level_contributions_off_diagonal(
   // out_tr->m == out_bl->n => offsets can be reused
   int offset_utr_vbl = 0, offset_vtr_ubl = 0;
 
-  for (int level = height-1; level > 0; level--) {
+  for (int level = height; level > 0; level--) {
     if (origin_idx % divisor) {
       offsets1[oidx] = 0; offsets2[oidx] = out_bl->n;
     }
@@ -115,103 +107,193 @@ static inline void compute_higher_level_contributions_off_diagonal(
     divisor *=2; parent_position /= 2;
     offset_utr_vbl += out_tr->m * s1; offset_vtr_ubl += out_tr->n * s1;
   }
+
+  *offset_utr_vbl_out = offset_utr_vbl;
+  *offset_vtr_ubl_out = offset_vtr_ubl;
 }
 
 
-static inline void compute_inner_off_diagonal(
-  const struct HODLRInternalNode *restrict const node1,
+static inline void set_up_inner_off_diagonal(
+  const struct NodeOffDiagonal *restrict const off_diagonal1,
+  const struct NodeOffDiagonal *restrict const off_diagonal2,
+  struct NodeOffDiagonal *restrict const out,
+  const int s_sum
+) {
+  const int s_total = s_sum + off_diagonal2->s;
+  out->u = malloc(s_total * out->m * sizeof(double));
+  out->v = malloc(s_total * out->n * sizeof(double));
+}
+
+
+static inline void compute_inner_off_diagonal_lowest_level(
   const struct NodeDiagonal *restrict const diagonal1,
   const struct NodeOffDiagonal *restrict const off_diagonal1,
-  const struct HODLRInternalNode *restrict const node2,
   const struct NodeDiagonal *restrict const diagonal2,
   const struct NodeOffDiagonal *restrict const off_diagonal2,
-  double *restrict workspace,
-  struct NodeOffDiagonal *restrict out,
-  const int height,
-  int parent_position,
-  int *restrict offsets
+  struct NodeOffDiagonal *restrict const out,
+  int offset_u,
+  int offset_v
 ) {
   const double alpha = 1.0, beta = 0.0;
-
-  const int u_size1 = diagonal1->m * off_diagonal2->s;
-  const int u_size2 = off_diagonal1->m * off_diagonal1->s;
-  const int v_size1 = off_diagonal2->s * off_diagonal2->n;
-  const int v_size2 = off_diagonal1->s * diagonal2->m;
-
-  int u_size = u_size1 + u_size2, v_size = v_size1 + v_size2;
-
-  compute_uv_workspace_size(
-    node1->parent, node2->parent, offsets, height, parent_position, 
-    diagonal1->m, diagonal2->m, &u_size, &v_size
-  );
-
-  double *u = malloc((u_size + v_size) * sizeof(double));
-  double *v = u + u_size;
 
   // Dense x U = U* at index=0
   dgemm_("N", "N", &diagonal1->m, &off_diagonal2->s, &diagonal1->m, &alpha,
          diagonal1->data, &diagonal1->m, off_diagonal2->u, &off_diagonal2->m,
-         &beta, u, &diagonal1->m);
+         &beta, out->u + offset_u, &diagonal1->m);
   dlacpy_("A", &off_diagonal2->n, &off_diagonal2->s, off_diagonal2->v,
-          &off_diagonal2->n, v, &diagonal1->m);
+          &off_diagonal2->n, out->v + offset_v, &diagonal1->m);
 
+  offset_u += diagonal1->m * off_diagonal2->s;
+  offset_v += off_diagonal2->s * diagonal2->m;
   // V^T x dense = V* at index=1 (represents V^T* but not actually transposed)
   dlacpy_("A", &off_diagonal1->m, &off_diagonal1->s, off_diagonal1->u,
-          &off_diagonal1->m, u + u_size1, &diagonal2->m);
+          &off_diagonal1->m, out->u + offset_u, &diagonal2->m);
   dgemm_("T", "N", &diagonal2->m, &off_diagonal1->s, &diagonal2->m, &alpha,
          diagonal2->data, &diagonal2->m, off_diagonal1->v, &off_diagonal1->n,
-         &beta, v + v_size1, &diagonal2->m);
+         &beta, out->v + offset_v, &diagonal2->m);
+}
 
-  compute_higher_level_contributions_off_diagonal(
-    height, parent_position, node1->parent, node2->parent, 
-    u + u_size1 + u_size2, out->m, v + v_size1 + v_size2, out->n, 
-    offsets, workspace
+
+static inline void compute_inner_off_diagonal(
+  const int height,
+  int parent_position,
+  const struct HODLRInternalNode *restrict const parent1,
+  int *restrict offsets1,
+  const struct HODLRInternalNode *restrict const parent2,
+  int *restrict offsets2,
+  struct NodeOffDiagonal *restrict const out_tr,
+  struct NodeOffDiagonal *restrict const out_bl,
+  double *restrict workspace
+) {
+  const int s_sum = compute_workspace_size_s_component(
+    parent1, parent2, height, parent_position
+  );
+  
+  set_up_inner_off_diagonal(
+    &parent1->children[1].leaf->data.off_diagonal,
+    &parent2->children[1].leaf->data.off_diagonal,
+    out_tr, s_sum
+  );
+   
+  set_up_inner_off_diagonal(
+    &parent1->children[2].leaf->data.off_diagonal,
+    &parent2->children[2].leaf->data.off_diagonal,
+    out_bl, s_sum
   );
 
-  free(u);
+  int offset_utr_vbl, offset_vtr_ubl;
+  compute_higher_level_contributions_off_diagonal(
+    height-1, parent_position, 1, parent1->parent, offsets1, parent2->parent, 
+    offsets2, out_tr, out_bl, workspace, &offset_utr_vbl, &offset_vtr_ubl
+  );
+
+  compute_inner_off_diagonal_lowest_level(
+    &parent1->children[0].leaf->data.diagonal, 
+    &parent1->children[1].leaf->data.off_diagonal,
+    &parent2->children[3].leaf->data.diagonal,
+    &parent2->children[1].leaf->data.off_diagonal,
+    out_tr, offset_utr_vbl, offset_vtr_ubl
+  );
+   
+  compute_inner_off_diagonal_lowest_level(
+    &parent1->children[3].leaf->data.diagonal, 
+    &parent1->children[2].leaf->data.off_diagonal,
+    &parent2->children[0].leaf->data.diagonal,
+    &parent2->children[2].leaf->data.off_diagonal,
+    out_bl, offset_vtr_ubl, offset_utr_vbl
+  );
+
+
+}
+
+
+static inline void compute_other_off_diagonal_lowest_level(
+  const int height,
+  const struct HODLRInternalNode *restrict const hodlr1,
+  const struct NodeOffDiagonal *restrict const off_diagonal1,
+  const struct HODLRInternalNode *restrict const hodlr2,
+  const struct NodeOffDiagonal *restrict const off_diagonal2,
+  struct NodeOffDiagonal *restrict const out,
+  int offset_u,
+  int offset_v,
+  double *restrict const workspace,
+  struct HODLRInternalNode *restrict *restrict queue
+) {
+  // HODLR x U = U* at index=0
+  multiply_internal_node_dense(
+    hodlr1, height, off_diagonal2->u, off_diagonal2->s,
+    off_diagonal2->m, queue, workspace, out->u + offset_u, off_diagonal2->m
+  );
+  dlacpy_("A", &off_diagonal2->n, &off_diagonal2->s, off_diagonal2->v, 
+          &off_diagonal2->n, out->v + offset_v, &out->m);
+
+  offset_u += hodlr1->m * off_diagonal2->s;
+  offset_v += off_diagonal2->s * off_diagonal2->n;
+
+  dlacpy_("A", &off_diagonal1->m, &off_diagonal1->s, off_diagonal1->u,
+          &off_diagonal1->m, out->u + offset_u, &out->m);
+  // V^T x HODLR = V* at index=1 (represents V^T* but not actually transposed)
+  multiply_internal_node_transpose_dense(
+    hodlr2, height, off_diagonal1->v, off_diagonal1->s,
+    off_diagonal1->m, queue, workspace, out->v + offset_v, off_diagonal1->m
+  );
 }
 
 
 static inline void compute_other_off_diagonal(
-  const struct HODLRInternalNode *restrict const parent1,
-  const struct HODLRInternalNode *restrict const hodlr1,
-  const struct NodeOffDiagonal *restrict const off_diagonal1,
-  const struct HODLRInternalNode *restrict const parent2,
-  const struct HODLRInternalNode *restrict const hodlr2,
-  const struct NodeOffDiagonal *restrict const off_diagonal2,
-  double *restrict workspace,
-  double *restrict *restrict matrices,
-  struct NodeOffDiagonal *restrict out,
-  struct HODLRInternalNode *restrict *restrict queue,
   const int height,
   const int current_level,
   int parent_position,
-  int *restrict offsets
+  const struct HODLRInternalNode *restrict const parent1,
+  int *restrict offsets1,
+  const struct HODLRInternalNode *restrict const parent2,
+  int *restrict offsets2,
+  struct NodeOffDiagonal *restrict out_tr,
+  struct NodeOffDiagonal *restrict out_bl,
+  struct HODLRInternalNode *restrict *restrict queue,
+  double *restrict workspace
 ) {
-  matrices[0] = malloc((hodlr1->m * off_diagonal2->s + 
-                        hodlr2->m * off_diagonal1->s) * sizeof(double));
-  matrices[1] = matrices[0] + (hodlr1->m * off_diagonal2->s);
-
-  // HODLR x U = U* at index=0
-  multiply_internal_node_dense(
-    hodlr1, height - current_level - 1, off_diagonal2->u, off_diagonal2->s,
-    off_diagonal2->m, queue, workspace, matrices[0], off_diagonal2->m
+  const int s_sum = compute_workspace_size_s_component(
+    parent1, parent2, current_level+1, parent_position
   );
 
-  // V^T x HODLR = V* at index=1 (represents V^T* but not actually transposed)
-  multiply_internal_node_transpose_dense(
-    hodlr2, height - current_level - 1, off_diagonal1->v, off_diagonal1->s,
-    off_diagonal1->m, queue, workspace, matrices[1], off_diagonal1->m
+  set_up_inner_off_diagonal(
+    &parent1->children[1].leaf->data.off_diagonal,
+    &parent2->children[1].leaf->data.off_diagonal,
+    out_tr, s_sum
+  );
+   
+  set_up_inner_off_diagonal(
+    &parent1->children[2].leaf->data.off_diagonal,
+    &parent2->children[2].leaf->data.off_diagonal,
+    out_bl, s_sum
   );
 
+  int offset_utr_vbl, offset_vtr_ubl;
   compute_higher_level_contributions_off_diagonal(
-    parent1->parent, parent2->parent, matrices, workspace, offsets, 
-    current_level, parent_position, off_diagonal1->n
+    current_level, parent_position, 1, parent1->parent, offsets1, parent2->parent, 
+    offsets2, out_tr, out_bl, workspace, &offset_utr_vbl, &offset_vtr_ubl
   );
 
-  for (int i = 0; i < height + 1; i++) {
-    free(matrices[i]);
-  }
+  compute_other_off_diagonal_lowest_level(
+    height - current_level - 1,
+    parent1->children[0].internal,
+    &parent1->children[1].leaf->data.off_diagonal,
+    parent2->children[3].internal,
+    &parent2->children[1].leaf->data.off_diagonal,
+    out_tr, offset_utr_vbl, offset_vtr_ubl, workspace, queue
+  );
+
+  compute_other_off_diagonal_lowest_level(
+    height - current_level - 1,
+    parent1->children[3].internal,
+    &parent1->children[2].leaf->data.off_diagonal,
+    parent2->children[0].internal,
+    &parent2->children[2].leaf->data.off_diagonal,
+    out_tr, offset_utr_vbl, offset_vtr_ubl, workspace, queue
+  );
+
+
 }
 
 
@@ -319,11 +401,12 @@ void multiply_hodlr_hodlr(
   int *restrict ierr
 ) {
   double *workspace, *workspace2;
-  int *offsets = calloc(hodlr1->height, sizeof(int));
+  int *offsets = calloc(2 * hodlr1->height, sizeof(int));
   if (offsets == NULL) {
     *ierr = ALLOCATION_FAILURE;
     return;
   }
+  int *offsets2 = offsets + hodlr1->height;
 
   double **matrices = malloc((out->height + 1) * sizeof(double *));
 
@@ -342,28 +425,11 @@ void multiply_hodlr_hodlr(
     q1[parent] = hodlr1->innermost_leaves[2 * parent]->parent;
     q2[parent] = hodlr2->innermost_leaves[2 * parent]->parent;
 
-    // NOTE: The order of these functions matters! (for offsets)
     compute_inner_off_diagonal(
-      q1[parent], 
-      &q1[parent]->children[3].leaf->data.diagonal, 
-      &q1[parent]->children[2].leaf->data.off_diagonal,
-      q2[parent], 
-      &q2[parent]->children[0].leaf->data.diagonal, 
-      &q2[parent]->children[2].leaf->data.off_diagonal,
-      workspace, matrices,
-      &queue[parent]->children[2].leaf->data.off_diagonal, 
-      out->height, parent, offsets
-    );
-    compute_inner_off_diagonal(
-      q1[parent], 
-      &q1[parent]->children[0].leaf->data.diagonal, 
-      &q1[parent]->children[1].leaf->data.off_diagonal,
-      q2[parent], 
-      &q2[parent]->children[3].leaf->data.diagonal, 
-      &q2[parent]->children[1].leaf->data.off_diagonal,
-      workspace, matrices,
-      &queue[parent]->children[1].leaf->data.off_diagonal, 
-      out->height, parent, offsets
+      out->height, parent, q1[parent], offsets, q2[parent], offsets2,
+      &queue[parent]->children[1].leaf->data.off_diagonal,
+      &queue[parent]->children[2].leaf->data.off_diagonal,
+      workspace
     );
 
     queue[parent / 2] = queue[parent]->parent;
@@ -375,28 +441,11 @@ void multiply_hodlr_hodlr(
     n_parent_nodes /= 2;
 
     for (int parent = 0; parent < n_parent_nodes; parent++) {
-      // NOTE: The order here is again important!
       compute_other_off_diagonal(
-        q1[parent], 
-        q1[parent]->children[3].internal, 
-        &q1[parent]->children[2].leaf->data.off_diagonal,
-        q2[parent],
-        q2[parent]->children[0].internal,
-        &q2[parent]->children[2].leaf->data.off_diagonal,
-        workspace, matrices, 
-        &queue[parent]->children[2].leaf->data.off_diagonal,
-        extra_queue, out->height, level, parent, offsets
-      );
-      compute_other_off_diagonal(
-        q1[parent], 
-        q1[parent]->children[0].internal, 
-        &q1[parent]->children[1].leaf->data.off_diagonal,
-        q2[parent],
-        q2[parent]->children[3].internal,
-        &q2[parent]->children[1].leaf->data.off_diagonal,
-        workspace, matrices, 
+        out->height, level, parent, q1[parent], offsets, q2[parent], offsets2,
         &queue[parent]->children[1].leaf->data.off_diagonal,
-        extra_queue, out->height, level, parent, offsets
+        &queue[parent]->children[2].leaf->data.off_diagonal,
+        extra_queue, workspace
       );
 
       queue[parent / 2] = queue[parent]->parent;
