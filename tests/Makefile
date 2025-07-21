@@ -23,7 +23,7 @@ unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_d
 		${BUILD_DIR}/common_data.o \
 		-o ${OUT_DIR}/unit_test \
 		-lopenblas -lm -lcriterion \
-		${EXTRA_FLAGS}
+		${EXTRA_FLAGS} -fopenmp
 
 
 test_dense_algebra: test_dense_algebra.o allocators.o constructors.o
