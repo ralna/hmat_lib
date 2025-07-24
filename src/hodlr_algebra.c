@@ -4,14 +4,72 @@
 #include "../include/tree.h"
 #include "../include/error.h"
 #include "../include/blas_wrapper.h"
+#include "../include/lapack_wrapper.h"
 
 
 static inline void recompress(
-  double *restrict *restrict us,
-  double *restrict *restrict vs,
-  struct NodeOffDiagonal *restrict out
+  struct NodeOffDiagonal *restrict const node,
+  const int m_larger,
+  const int m_smaller,
+  const double svd_threshold,
+  int *restrict const ierr
 ) {
+  const int nb = m_smaller < 32 ? m_smaller : 32; int info;
+  double *tu = malloc(2 * nb * m_smaller * sizeof(double));
+  double *tv = tu + nb * m_smaller;
 
+  double *workspace = malloc(nb * m_larger * sizeof(double));
+  dgeqrt_(&node->m, &node->s, &nb, node->u, &node->m, tu, &nb, workspace, &info);
+  dgeqrt_(&node->n, &node->s, &nb, node->v, &node->n, tv, &nb, workspace, &info);
+
+  double *r1 = calloc(node->s * node->s, sizeof(double));
+  for (int j = 0; j < node->s; j++) {
+    for (int i = 0; i < j+1; i++) {
+      r1[i + j * node->s] = node->u[i + j * node->m];
+    }
+  }
+
+  const double alpha = 1.0;
+  dtrmm_("R", "U", "T", "N", &node->s, &node->s, &alpha, node->v, &node->n,
+         r1, &node->s);
+
+  double *s = malloc(node->s * sizeof(double));
+  double *w = malloc(node->s * node->s * sizeof(double));
+  double *zt = malloc(node->s * node->s * sizeof(double));
+
+  int result = svd_double(node->s, node->s, node->s, node->s, r1, s, w, zt, ierr);
+
+  int svd_cutoff_idx = 1;
+  for (svd_cutoff_idx = 1; svd_cutoff_idx < node->s; svd_cutoff_idx++) {
+    if (s[svd_cutoff_idx] < svd_threshold) break;
+  }
+
+  double *u_new = calloc(node->m * svd_cutoff_idx, sizeof(double));
+  for (int j = 0; j < svd_cutoff_idx; j++) {
+    for (int i = 0; i < node->s; i++) {
+      u_new[i + j * node->m] = w[i + j * node->s] * s[j];
+    }
+  }
+
+  dgemqrt_("L", "N", &node->m, &svd_cutoff_idx, &node->s, &nb, node->u, 
+           &node->m, tu, &nb, u_new, &node->m, workspace, ierr);
+  free(node->u);
+  node->u = u_new;
+
+  double *v_new = calloc(node->n * svd_cutoff_idx, sizeof(double));
+  for (int j = 0; j < svd_cutoff_idx; j++ ) {
+    for (int i = 0; i < node->s; i++) {
+      v_new[i + j * node->n] = zt[i + j * node->s];
+    }
+  }
+
+  dgemqrt_("R", "T", &node->n, &svd_cutoff_idx, &node->s, &nb, node->v,
+           &node->n, tv, &nb, v_new, &node->n, workspace, ierr);
+  free(node->v);
+  node->v = v_new;
+
+  // copy w into mxk array with zeros 
+  free(tu); free(workspace); free(r1); free(s); free(w); free(zt);
 }
 
 
@@ -113,7 +171,7 @@ static inline void compute_higher_level_contributions_off_diagonal(
 }
 
 
-static inline void set_up_inner_off_diagonal(
+static inline void set_up_off_diagonal(
   const struct NodeOffDiagonal *restrict const off_diagonal1,
   const struct NodeOffDiagonal *restrict const off_diagonal2,
   struct NodeOffDiagonal *restrict const out,
@@ -122,6 +180,7 @@ static inline void set_up_inner_off_diagonal(
   const int s_total = s_sum + off_diagonal2->s;
   out->u = malloc(s_total * out->m * sizeof(double));
   out->v = malloc(s_total * out->n * sizeof(double));
+  out->s = s_total;
 }
 
 
@@ -169,13 +228,13 @@ static inline void compute_inner_off_diagonal(
     parent1, parent2, height, parent_position
   );
   
-  set_up_inner_off_diagonal(
+  set_up_off_diagonal(
     &parent1->children[1].leaf->data.off_diagonal,
     &parent2->children[1].leaf->data.off_diagonal,
     out_tr, s_sum
   );
    
-  set_up_inner_off_diagonal(
+  set_up_off_diagonal(
     &parent1->children[2].leaf->data.off_diagonal,
     &parent2->children[2].leaf->data.off_diagonal,
     out_bl, s_sum
@@ -257,13 +316,13 @@ static inline void compute_other_off_diagonal(
     parent1, parent2, current_level+1, parent_position
   );
 
-  set_up_inner_off_diagonal(
+  set_up_off_diagonal(
     &parent1->children[1].leaf->data.off_diagonal,
     &parent2->children[1].leaf->data.off_diagonal,
     out_tr, s_sum
   );
    
-  set_up_inner_off_diagonal(
+  set_up_off_diagonal(
     &parent1->children[2].leaf->data.off_diagonal,
     &parent2->children[2].leaf->data.off_diagonal,
     out_bl, s_sum
