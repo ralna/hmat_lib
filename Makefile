@@ -10,7 +10,7 @@ else
 	EXE := test_asan
 endif
 
-OMP := -fopenmp
+OMP := #-fopenmp
 
 WARNINGS := -Wall -Wextra -Wno-unknown-pragmas
 
@@ -22,13 +22,14 @@ OUT_DIR := bin
 OTHER_DIR := ignore
 
 
-test: test.o allocators.o constructors.o vector_algebra.o dense_algebra.o
+test: test.o allocators.o constructors.o vector_algebra.o dense_algebra.o utils.o
 	${COMPILER} \
 		${BUILD_DIR}/test.o \
 		${BUILD_DIR}/allocators.o \
 		${BUILD_DIR}/constructors.o \
 		${BUILD_DIR}/vector_algebra.o \
 		${BUILD_DIR}/dense_algebra.o \
+		${BUILD_DIR}/utils.o \
 		${BUILD_DIR}/lapack_wrapper.o \
 		-o ${OUT_DIR}/${EXE} \
 		-llapack -lm -lopenblas \
@@ -79,6 +80,14 @@ dense_algebra.o: ${SRC_DIR}/dense_algebra.c
 		-c ${SRC_DIR}/dense_algebra.c \
 		-o ${BUILD_DIR}/dense_algebra.o \
 		-I ${INCLUDE_DIR} ${WARNINGS} ${EXTRA_FLAGS}
+
+utils.o: ${SRC_DIR}/utils.c
+	gcc \
+		-c ${SRC_DIR}/utils.c \
+		-o ${BUILD_DIR}/utils.o \
+		-I ${INCLUDE_DIR} \
+		${EXTRA_FLAGS} ${WARNINGS}
+
 
 
 lapack_wrapper.o: ${SRC_DIR}/lapack_wrapper.c
