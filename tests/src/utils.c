@@ -102,6 +102,25 @@ int expect_tree_consistent(struct TreeHODLR *hodlr,
 }
 
 
+int expect_off_diagonal(
+  const struct NodeOffDiagonal *restrict const actual,
+  const struct NodeOffDiagonal *restrict const expected,
+  const char *restrict const buffer
+) {
+  int err = expect_matrix_double_eq_safe(
+    actual->u, expected->u, actual->m, actual->s, expected->m, expected->s,
+    actual->m, expected->m, 'U', buffer, NULL, NULL
+  );
+  
+  err += expect_matrix_double_eq_safe(
+    actual->v, expected->v, actual->n, expected->s, expected->n, expected->s, 
+    actual->n, expected->n, 'V', buffer, NULL, NULL
+  );
+
+  return err;
+}
+
+
 int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
   cr_expect(eq(actual->height, expected->height));
   if (actual->height != expected->height) {
@@ -124,43 +143,32 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
   queue_a[0] = actual->root;
   queue_e[0] = expected->root;
 
-  for (int i = 1; i < expected->height; i++) {
-    for (int j = 0; j < len_queue; j++) {
-      for (int k = 1; k < 3; k++) {
-        act = &(queue_a[j]->children[k].leaf->data);
-        exp = &(queue_e[j]->children[k].leaf->data);
+  for (int level = 1; level < expected->height; level++) {
+    for (int parent = 0; parent < len_queue; parent++) {
+      for (int child = 1; child < 3; child++) {
+        snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", 
+                expected->height, parent, child);
 
-        snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", i, j, k);
-        err += expect_matrix_double_eq_safe(
-          act->off_diagonal.u, exp->off_diagonal.u,
-          act->off_diagonal.m, act->off_diagonal.s, 
-          exp->off_diagonal.m, exp->off_diagonal.s,
-          act->off_diagonal.m, exp->off_diagonal.m,
-          'U', buffer, NULL, NULL
-        );
-        
-        err += expect_matrix_double_eq_safe(
-          act->off_diagonal.v, exp->off_diagonal.v,
-          act->off_diagonal.n, exp->off_diagonal.s,
-          exp->off_diagonal.n, exp->off_diagonal.s,
-          act->off_diagonal.n, exp->off_diagonal.n,
-          'V', buffer, NULL, NULL
+        expect_off_diagonal(
+          &queue_a[parent]->children[child].leaf->data.off_diagonal,
+          &queue_e[parent]->children[child].leaf->data.off_diagonal,
+          buffer
         );
       }
 
-      cr_expect(eq(int, queue_a[j]->children[0].internal->m, 
-                   queue_e[j]->children[0].internal->m),
-                "level=%d, node=%d, internal=0", i, j);
+      cr_expect(eq(int, queue_a[parent]->children[0].internal->m, 
+                   queue_e[parent]->children[0].internal->m),
+                "level=%d, node=%d, internal=0", level, parent);
 
-      cr_expect(eq(int, queue_a[j]->children[3].internal->m, 
-                   queue_e[j]->children[3].internal->m),
-                "level=%d, node=%d, internal=1", i, j);
+      cr_expect(eq(int, queue_a[parent]->children[3].internal->m, 
+                   queue_e[parent]->children[3].internal->m),
+                "level=%d, node=%d, internal=1", level, parent);
 
-      next_level_a[2 * j] = queue_a[j]->children[0].internal;
-      next_level_a[2 * j + 1] = queue_a[j]->children[3].internal;
+      next_level_a[2 * parent] = queue_a[parent]->children[0].internal;
+      next_level_a[2 * parent + 1] = queue_a[parent]->children[3].internal;
 
-      next_level_e[2 * j] = queue_e[j]->children[0].internal;
-      next_level_e[2 * j + 1] = queue_e[j]->children[3].internal;
+      next_level_e[2 * parent] = queue_e[parent]->children[0].internal;
+      next_level_e[2 * parent + 1] = queue_e[parent]->children[3].internal;
 
     }
     temp_pointer = queue_a;
@@ -175,27 +183,16 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
   }
 
   for (int i = 0; i < len_queue; i++) {
-    for (int j = 1; j < 3; j ++) {
-      act = &(queue_a[i]->children[j].leaf->data);
-      exp = &(queue_e[i]->children[j].leaf->data);
-        
-      snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", expected->height, 
-               i, j);
-      err += expect_matrix_double_eq_safe(
-        act->off_diagonal.u, exp->off_diagonal.u,
-        act->off_diagonal.m, act->off_diagonal.s,
-        exp->off_diagonal.m, exp->off_diagonal.s,
-        act->off_diagonal.m, exp->off_diagonal.m,
-        'U', buffer, NULL, NULL
-      );
-      err += expect_matrix_double_eq_safe(
-        act->off_diagonal.v, exp->off_diagonal.v,
-        act->off_diagonal.n, exp->off_diagonal.s,
-        exp->off_diagonal.n, exp->off_diagonal.s,
-        act->off_diagonal.n, exp->off_diagonal.n,
-        'V', buffer, NULL, NULL
+    for (int child = 1; child < 3; child++) {
+      snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", 
+               expected->height, i, child);
+      expect_off_diagonal(
+        &queue_a[i]->children[child].leaf->data.off_diagonal,
+        &queue_e[i]->children[child].leaf->data.off_diagonal,
+        buffer
       );
     }
+
     act = &(queue_a[i]->children[0].leaf->data);
     exp = &(queue_e[i]->children[0].leaf->data);
 

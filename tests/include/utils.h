@@ -18,6 +18,11 @@ int expect_tree_consistent(struct TreeHODLR *hodlr,
                            int height,
                            const long max_depth_n);
 
+int expect_off_diagonal(
+  const struct NodeOffDiagonal *actual,
+  const struct NodeOffDiagonal *expected,
+  const char *buffer
+);
 
 int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected);
 
