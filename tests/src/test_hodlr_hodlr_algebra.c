@@ -263,7 +263,68 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
     );
   }
 
+  free_tree_hodlr(&result, &free);
   free(offsets); free(workspace); free(workspace2);
+}
+
+
+ParameterizedTestParameters(hodlr_hodlr_algebra, compute_inner_off_diagonal) {
+  int n_params;
+  struct ParametersTestHxH *params = generate_hodlr_hodlr_params(&n_params);
+
+  return cr_make_param_array(struct ParametersTestHxH, params, n_params, 
+                             free_hh_params);
+}
+
+
+ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra, 
+                  compute_inner_off_diagonal) {
+  cr_log_info("%.10s (height=%d) x %.10s (height=%d)",
+              params->hodlr1_name, params->hodlr1->height, params->hodlr2_name, 
+              params->hodlr2->height);
+
+  int ierr = SUCCESS;
+  int *offsets = calloc(2 * params->expected->height, sizeof(int));
+  int *offsets2 = offsets + params->expected->height;
+  
+  int s1 = get_highest_s(params->hodlr1);
+  int s2 = get_highest_s(params->hodlr2);
+  double *workspace = malloc(s1 * s2 * sizeof(double));
+
+  struct TreeHODLR *result = allocate_tree_monolithic(
+    params->expected->height, &ierr, &malloc, &free
+  );
+
+  struct HODLRInternalNode **queue = result->work_queue;
+  for (int parent = 0; parent < result->len_work_queue; parent++) {
+    compute_inner_off_diagonal(
+      result->height, parent, 
+      params->hodlr1->innermost_leaves[2 * parent]->parent, offsets,
+      params->hodlr2->innermost_leaves[2 * parent]->parent, offsets2,
+      &result->innermost_leaves[2 * parent]->parent->children[1].leaf->data.off_diagonal,
+      &result->innermost_leaves[2 * parent]->parent->children[2].leaf->data.off_diagonal,
+      workspace
+    );
+  
+    if (ierr != SUCCESS) {
+      free(offsets); free(workspace);
+      cr_fail("Returned ierr (%d) different from SUCCESS (%d)", ierr, SUCCESS);
+    }
+  }
+
+  for (int parent = 0; parent < result->len_work_queue; parent++) {
+    expect_off_diagonal(
+      &result->innermost_leaves[2 * parent]->parent->children[1].leaf->data.off_diagonal,
+      &params->expected->innermost_leaves[2 * parent]->parent->children[1].leaf->data.off_diagonal
+    );
+    expect_off_diagonal(
+      &result->innermost_leaves[2 * parent]->parent->children[2].leaf->data.off_diagonal,
+      &params->expected->innermost_leaves[2 * parent]->parent->children[2].leaf->data.off_diagonal
+    );
+  }
+
+  free_tree_hodlr(&result, &free);
+  free(offsets); free(workspace);
 }
 
 
