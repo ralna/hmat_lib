@@ -79,7 +79,7 @@ static inline int compute_workspace_size_s_component(
   const int height,
   int parent_position
 ) {
-  int which_child1 = 0, which_child2 = 0, s_sum;
+  int which_child1 = 0, which_child2 = 0, s_sum = 0;
 
   for (int level = height; level > 0; level--) {
     if (parent_position % 2 == 0) {
