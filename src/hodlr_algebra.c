@@ -74,22 +74,17 @@ static inline void recompress(
 
 
 static inline int compute_workspace_size_s_component(
-  const struct HODLRInternalNode *restrict parent1,
-  const struct HODLRInternalNode *restrict parent2,
+  const struct HODLRInternalNode *restrict parent,
   const int height,
   int parent_position
 ) {
-  int which_child1 = 0, which_child2 = 0, s_sum = 0;
+  int which_child = 0, s_sum = 0;
 
   for (int level = height; level > 0; level--) {
-    if (parent_position % 2 == 0) {
-      which_child1 = 1; which_child2 = 2;
-    } else {
-      which_child1 = 2; which_child2 = 1;
-    }
-    s_sum += parent1->children[which_child1].leaf->data.off_diagonal.s;
+    which_child = (parent_position % 2 == 0) ? 1 : 2;
+    s_sum += parent->children[which_child].leaf->data.off_diagonal.s;
 
-    parent1 = parent1->parent; parent2 = parent2->parent;
+    parent = parent->parent;
     parent_position /= 2;
   }
   return s_sum;
@@ -225,7 +220,7 @@ static inline void compute_inner_off_diagonal(
   double *restrict workspace
 ) {
   const int s_sum = compute_workspace_size_s_component(
-    parent1, parent2, height, parent_position
+    parent1, height, parent_position
   );
   
   set_up_off_diagonal(
@@ -313,7 +308,7 @@ static inline void compute_other_off_diagonal(
   double *restrict workspace
 ) {
   const int s_sum = compute_workspace_size_s_component(
-    parent1, parent2, current_level+1, parent_position
+    parent1, current_level+1, parent_position
   );
 
   set_up_off_diagonal(

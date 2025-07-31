@@ -328,6 +328,143 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
 }
 
 
+struct ParametersSComponent {
+  struct HODLRInternalNode *parent;
+  int height;
+  int parent_position;
+  int expected;
+  int which_free;
+};
+
+
+void free_sc_params(struct criterion_test_params *params) {
+  for (size_t i = 0; i < params->length; i++) {
+    struct ParametersSComponent *param = 
+      (struct ParametersSComponent *) params->params + i;
+
+    cr_free(param->parent->children[param->which_free].leaf);
+    cr_free(param->parent);
+  }
+  cr_free(params->params);
+}
+
+
+struct ContextSC {
+  int *restrict arr;
+  const int *restrict heights;
+  int idx;
+};
+
+
+static inline int * stack(struct ContextSC *context, int values[]) {
+  const int len = context->heights[context->idx];
+
+  for (int i = 0; i < len; i++) {
+    context->arr[i] = values[i];
+  }
+
+  int *arr = context->arr;
+  context->arr = context->arr + len;
+  context->idx++;
+
+  return arr;
+}
+
+
+ParameterizedTestParameters(hodlr_hodlr_algebra, s_component) {
+  enum {n_params = 9};
+  struct ParametersSComponent *params = 
+    cr_malloc(n_params * sizeof(struct ParametersSComponent));
+
+  // These go into the parameters
+  const int heights[n_params] = {0, 1, 1, 2, 2, 4, 4, 4, 4};
+  const int parent_position[n_params] = {0, 0, 1, 1, 2, 0, 3, 4, 15};
+  const int expected[n_params] = {0, 1, 11, 2, 22, 4, 42, 9, 13};
+
+  // Following are used to set up the node structure
+  int total_height = heights[0];
+  for (int i = 1; i < n_params; i++) {
+    total_height += heights[i];
+  }
+
+  int *which_arr = cr_malloc(total_height * sizeof(int));
+  struct ContextSC context_which = {which_arr, &heights[0], 1};
+  const int *which_child[n_params] = {
+    &which_arr[0],
+    stack(&context_which, (int[]){1}),
+    stack(&context_which, (int[]){2}),
+    stack(&context_which, (int[]){2, 1}),
+    stack(&context_which, (int[]){1, 2}),
+    stack(&context_which, (int[]){1, 1, 1, 1}),
+    stack(&context_which, (int[]){2, 2, 1, 1}),
+    stack(&context_which, (int[]){1, 1, 2, 1}),
+    stack(&context_which, (int[]){2, 2, 2, 2}),
+  };
+
+  int *s_arr = cr_malloc(total_height * sizeof(int));
+  struct ContextSC context_s = {s_arr, &heights[0], 1};
+  const int *ss[n_params] = {
+    &s_arr[0],
+    stack(&context_s, (int[]){1}),
+    stack(&context_s, (int[]){11}),
+    stack(&context_s, (int[]){1, 1}),
+    stack(&context_s, (int[]){1, 21}),
+    stack(&context_s, (int[]){1, 1, 1, 1}),
+    stack(&context_s, (int[]){11, 11, 5, 15}),
+    stack(&context_s, (int[]){2, 3, 1, 3}),
+    stack(&context_s, (int[]){1, 1, 10, 1}),
+  };
+
+  struct HODLRInternalNode *temp = NULL;
+  for (int i = 0; i < n_params; i++) {
+    params[i].height = heights[i];
+    params[i].parent_position = parent_position[i];
+    params[i].expected = expected[i];
+    params[i].which_free = which_child[i][0];
+
+    params[i].parent = 
+      cr_malloc(heights[i] * sizeof(struct HODLRInternalNode));
+    params[i].parent->children[which_child[i][0]].leaf = 
+      cr_malloc(heights[i] * sizeof(struct HODLRLeafNode));
+
+    temp = &params[i].parent[0];
+    for (int h = 1; h < heights[i]; h++) {
+      temp->children[which_child[i][h-1]].leaf->data.off_diagonal.s = 
+        ss[i][h-1];
+
+      temp->parent = &params[i].parent[h];
+      temp = temp->parent;
+      temp->children[which_child[i][h]].leaf = 
+        &params[i].parent->children[which_child[i][0]].leaf[h];
+    }
+
+    if (heights[i] > 0) {
+      temp->parent = NULL;
+      temp->children[which_child[i][heights[i]-1]].leaf->data.off_diagonal.s =
+        ss[i][heights[i]-1];
+    }
+  }
+
+  cr_free(which_arr); cr_free(s_arr);
+
+  return cr_make_param_array(struct ParametersSComponent, params, n_params,
+                             free_sc_params);
+}
+
+
+ParameterizedTest(struct ParametersSComponent *params, hodlr_hodlr_algebra, 
+                  s_component) {
+  cr_log_info("height=%d, parent_position=%d, expected=%d", 
+              params->height, params->parent_position, params->expected);
+
+  int actual = compute_workspace_size_s_component(
+    params->parent, params->height, params->parent_position
+  );
+
+  cr_assert(eq(int, actual, params->expected));
+}
+
+
 struct ParametersOffDiagContrib {
   struct NodeOffDiagonal *restrict leaf1;
   struct NodeOffDiagonal *restrict leaf2;
