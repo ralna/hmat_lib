@@ -20,3 +20,16 @@ matrices, with focus on HODLR-HODLR multiplication.
 - OpenMP parallelisation
 - CUDA acceleration
 
+## Installation
+
+The easiest way to install `hmat_lib` is using cmake:
+
+```
+cd hmat_lib
+mkdir build
+cd build
+
+cmake ..
+make
+```
+
