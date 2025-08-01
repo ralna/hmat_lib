@@ -2,6 +2,7 @@ SRC_DIR := ../src
 TESTS_DIR := src
 UTIL_INCLUDE_DIR := include
 INCLUDE_DIR := ../include
+DEV_DIR := ../dev
 BUILD_DIR := build
 OUT_DIR := ../bin
 
@@ -10,6 +11,8 @@ EXTRA_FLAGS := -g #-fsanitize=address
 WARNINGS := -Wall -Wextra -Wno-unknown-pragmas
 
 COMPILER := gcc
+
+REAL_DATA_PRINT_S := #-DHODLR_REAL_DATA_PRINT_S
 
 
 unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_dense_algebra.o lapack_wrapper.o utils.o common_data.o
@@ -105,7 +108,7 @@ test_allocators.o: ${TESTS_DIR}/test_allocators.c
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${EXTRA_FLAGS}
 
-test_real_data: test_real_data.o utils.o common_data.o io.o allocators.o constructors_omp.o lapack_wrapper.o vector_algebra.o dense_algebra.o
+test_real_data: test_real_data.o utils.o common_data.o io.o allocators.o constructors_omp.o lapack_wrapper.o vector_algebra.o dense_algebra.o common.o
 	gcc \
 		${BUILD_DIR}/test_real_data.o \
 		${BUILD_DIR}/allocators.o \
@@ -113,6 +116,7 @@ test_real_data: test_real_data.o utils.o common_data.o io.o allocators.o constru
 		${BUILD_DIR}/utils.o \
 		${BUILD_DIR}/common_data.o \
 		${BUILD_DIR}/io.o \
+		${BUILD_DIR}/common.o \
 		${BUILD_DIR}/lapack_wrapper.o \
 		${BUILD_DIR}/vector_algebra.o \
 		${BUILD_DIR}/dense_algebra.o \
@@ -120,14 +124,15 @@ test_real_data: test_real_data.o utils.o common_data.o io.o allocators.o constru
 		-lopenblas -lm -lcriterion \
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${WARNINGS} ${EXTRA_FLAGS} \
-		-fopenmp
+		-fopenmp \
+		${REAL_DATA_PRINT_S}
 
 test_real_data.o: ${TESTS_DIR}/test_real_data.c
 	gcc \
 		-c ${TESTS_DIR}/test_real_data.c \
 		-o ${BUILD_DIR}/test_real_data.o \
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
-		${EXTRA_FLAGS}
+		${EXTRA_FLAGS} ${REAL_DATA_PRINT_S} -fopenmp
 
 
 
@@ -197,7 +202,14 @@ io.o: ${TESTS_DIR}/io.c
 		-o ${BUILD_DIR}/io.o \
 		-lcriterion \
 		-I ${UTIL_INCLUDE_DIR} \
-		${EXTRA_FLAGS}
+		${WARNINGS} ${EXTRA_FLAGS} -D_TEST_HODLR
+
+common.o: ${DEV_DIR}/common.c
+	gcc \
+		-c ${DEV_DIR}/common.c \
+		-o ${BUILD_DIR}/common.o \
+		-I ${DEV_DIR} \
+		${WARNINGS} ${EXTRA_FLAGS} -D_TEST_HODLR
 
 
 

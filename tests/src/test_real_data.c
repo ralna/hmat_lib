@@ -24,6 +24,10 @@
 #include "../include/utils.h"
 #include "../include/common_data.h"
 
+#ifdef HODLR_REAL_DATA_PRINT_S
+#include "../../dev/common.h"
+#endif
+
 
 static inline void start_timer(clock_t *cstart, double *wstart) {
   #ifdef _OPENMP
@@ -68,7 +72,7 @@ void free_params(struct criterion_test_params *params) {
 
 
 ParameterizedTestParameters(real_data, H) {
-  const int n_params = 1;
+  enum {n_params = 5};
   struct Parameters *params = cr_malloc(n_params * sizeof(struct Parameters));
 
   int m; clock_t start, end;
@@ -77,8 +81,8 @@ ParameterizedTestParameters(real_data, H) {
   end = clock();
   printf("Matrix read in %f s\n", ((double) (end - start)) / CLOCKS_PER_SEC);
 
-  const int heights[] = {5};
-  const int *ms[] = {NULL};
+  const int heights[n_params] = {1, 2, 3, 4, 5};
+  const int *ms[n_params] = {NULL, NULL, NULL, NULL, NULL};
 
   for (int i = 0; i < n_params; i++) {
     params[i].matrix = matrix;
@@ -123,6 +127,10 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
                       svd_threshold, &ierr, &malloc, &free);
   free(matrix); matrix = NULL;
   get_time(start, wstart, "HODLR constructed!");
+
+#ifdef HODLR_REAL_DATA_PRINT_S
+  log_hodlr_s_symmetric(hodlr);
+#endif
 
   // Set up vector
   srand(42);
