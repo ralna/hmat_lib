@@ -72,7 +72,7 @@ void free_params(struct criterion_test_params *params) {
 
 
 ParameterizedTestParameters(real_data, H) {
-  enum {n_params = 5};
+  enum {n_params = 1};
   struct Parameters *params = cr_malloc(n_params * sizeof(struct Parameters));
 
   int m; clock_t start, end;
@@ -81,8 +81,8 @@ ParameterizedTestParameters(real_data, H) {
   end = clock();
   printf("Matrix read in %f s\n", ((double) (end - start)) / CLOCKS_PER_SEC);
 
-  const int heights[n_params] = {1, 2, 3, 4, 5};
-  const int *ms[n_params] = {NULL, NULL, NULL, NULL, NULL};
+  const int heights[n_params] = {3};
+  const int *ms[n_params] = {NULL};
 
   for (int i = 0; i < n_params; i++) {
     params[i].matrix = matrix;

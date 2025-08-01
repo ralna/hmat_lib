@@ -26,5 +26,40 @@ if(BUILD_TESTING)
     )
   endif()
 
+  if(BUILD_REAL_DATA_TESTS)
+    add_executable(
+      test_real_data 
+      src/test_real_data.c src/utils.c src/common_data.c src/io.c 
+      ../dev/common.c ../src/allocators.c ../src/constructors.c 
+      ../src/lapack_wrapper.c ../src/vector_algebra.c ../src/dense_algebra.c
+    )
+
+    target_link_libraries(test_real_data ${MATH_LIBRARY})
+    target_link_libraries(test_real_data openblas)
+    target_link_libraries(test_real_data criterion)
+
+    if(BUILD_OPENMP_TESTS AND OpenMP_C_FOUND)
+      target_link_libraries(test_constructors_omp OpenMP::OpenMP_C)
+    endif()
+
+    if(REALD_DATA_PRINT_S)
+      target_compile_definitions(test_real_data PRIVATE HODLR_REAL_DATA_PRINT_S)
+    endif()
+    
+    add_test(NAME test_real_data COMMAND test_real_data -j1 --verbose=0)
+
+    set_property(TEST test_real_data PROPERTY
+        ENVIRONMENT "CTEST_OUTPUT_ON_FAILURE=1"
+    )
+
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/tests/data")
+    file(
+      CREATE_LINK 
+      "${CMAKE_SOURCE_DIR}/tests/data/H" 
+      "${CMAKE_BINARY_DIR}/tests/data/H" 
+      SYMBOLIC
+    )
+  endif()
+
   add_custom_target(vtest COMMAND ${CMAKE_CTEST_COMMAND} --verbose)
 endif()
