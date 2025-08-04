@@ -465,6 +465,131 @@ ParameterizedTest(struct ParametersSComponent *params, hodlr_hodlr_algebra,
 }
 
 
+struct ParametersInnerOffDiagLowest {
+  struct NodeDiagonal *diagonal_left;
+  struct NodeOffDiagonal *off_diagonal_left;
+  struct NodeDiagonal *diagonal_right;
+  struct NodeOffDiagonal *off_diagonal_right;
+  struct NodeOffDiagonal *expected;
+  int offset_u;
+  int offset_v;
+};
+
+
+void free_iodl_params(struct criterion_test_params *params) {
+  for (size_t i = 0; i < params->length; i++) {
+    struct ParametersInnerOffDiagLowest *param = 
+      (struct ParametersInnerOffDiagLowest *) params->params + i;
+
+    cr_free(param->diagonal_left->data);
+    cr_free(param->diagonal_left);
+    cr_free(param->diagonal_right->data);
+    cr_free(param->diagonal_right);
+
+    cr_free(param->off_diagonal_left->u);
+    cr_free(param->off_diagonal_left->v);
+    cr_free(param->off_diagonal_left);
+
+    cr_free(param->off_diagonal_right->u);
+    cr_free(param->off_diagonal_right->v);
+    cr_free(param->off_diagonal_right);
+
+    cr_free(param->expected);
+  } 
+  cr_free(params->params);
+}
+
+
+ParameterizedTestParameters(hodlr_hodlr_algebra, 
+                            compute_inner_off_diagonal_lowest_level) {
+  enum {n_params = 1};
+  struct ParametersInnerOffDiagLowest *params = 
+    cr_malloc(n_params * sizeof(struct ParametersInnerOffDiagLowest));
+
+  int i = 0;
+  params[i].offset_u = 0; params[i].offset_v = 0;
+
+  params[i].diagonal_left = cr_malloc(sizeof(struct NodeDiagonal));
+  params[i].diagonal_left->m = 10;
+  params[i].diagonal_left->data = 
+    cr_calloc(params[i].diagonal_left->m, sizeof(double));
+  params[i].diagonal_right = cr_malloc(sizeof(struct NodeDiagonal));
+  params[i].diagonal_right->m = 9;
+  params[i].diagonal_right->data = 
+    cr_calloc(params[i].diagonal_left->m, sizeof(double));
+
+  params[i].off_diagonal_left = cr_malloc(sizeof(struct NodeOffDiagonal));
+  params[i].off_diagonal_left->m = params[i].diagonal_left->m;
+  params[i].off_diagonal_left->s = 1;
+  params[i].off_diagonal_left->n = params[i].diagonal_right->m;
+  params[i].off_diagonal_left->u = 
+    cr_calloc(params[i].off_diagonal_left->m * params[i].off_diagonal_left->s,
+              sizeof(double));
+  params[i].off_diagonal_left->v = 
+    cr_calloc(params[i].off_diagonal_left->n * params[i].off_diagonal_left->s,
+              sizeof(double));
+
+  params[i].off_diagonal_right = cr_malloc(sizeof(struct NodeOffDiagonal));
+  params[i].off_diagonal_right->m = params[i].diagonal_left->m;
+  params[i].off_diagonal_right->s = 1;
+  params[i].off_diagonal_right->n = params[i].diagonal_right->m;
+  params[i].off_diagonal_right->u = 
+    cr_calloc(params[i].off_diagonal_right->m * params[i].off_diagonal_right->s,
+              sizeof(double));
+  params[i].off_diagonal_right->v = 
+    cr_calloc(params[i].off_diagonal_right->n * params[i].off_diagonal_right->s,
+              sizeof(double));
+
+  params[i].expected = cr_malloc(sizeof(struct NodeOffDiagonal));
+  params[i].expected->m = params[i].diagonal_left->m;
+  params[i].expected->s = 
+    params[i].off_diagonal_left->s + params[i].off_diagonal_right->s;
+  params[i].expected->n = params[i].diagonal_right->m;
+  params[i].expected->u = 
+    cr_calloc(params[i].expected->m * params[i].expected->s,
+              sizeof(double));
+  params[i].expected->v = 
+    cr_calloc(params[i].expected->n * params[i].expected->s,
+              sizeof(double));
+
+  params[i].off_diagonal_left->u[params[i].off_diagonal_left->m - 1] = 5.0;
+  params[i].off_diagonal_left->v[0] = 1.0;
+  params[i].off_diagonal_right->u[0] = -1.0;
+  params[i].off_diagonal_right->v[params[i].off_diagonal_right->n - 1] = 4.2;
+
+  memcpy(params[i].expected->u + params[i].expected->m * params[i].off_diagonal_right->s,
+         params[i].off_diagonal_left->u, 
+         params[i].expected->m * params[i].off_diagonal_left->s * sizeof(double));
+
+  memcpy(params[i].expected->v, params[i].off_diagonal_right->v, 
+         params[i].expected->n * params[i].off_diagonal_right->s * sizeof(double));
+
+  return cr_make_param_array(struct ParametersInnerOffDiagLowest, params, 
+                             n_params, free_iodl_params);
+}
+
+
+ParameterizedTest(struct ParametersInnerOffDiagLowest *params, 
+                  hodlr_hodlr_algebra, 
+                  compute_inner_off_diagonal_lowest_level) {
+  struct NodeOffDiagonal result;
+  result.m = params->diagonal_left->m;
+  result.s = params->off_diagonal_left->s + params->off_diagonal_right->s;
+  result.n = params->diagonal_right->m;
+  result.u = malloc(result.m * result.s * sizeof(double));
+  result.v = malloc(result.n * result.s * sizeof(double));
+
+  compute_inner_off_diagonal_lowest_level(
+    params->diagonal_left, params->off_diagonal_left, params->diagonal_right, 
+    params->off_diagonal_right, &result, params->offset_u, params->offset_v
+  );
+
+  expect_off_diagonal(&result, params->expected);
+
+  free(result.u); free(result.v);
+}
+
+
 struct ParametersOffDiagContrib {
   struct NodeOffDiagonal *restrict leaf1;
   struct NodeOffDiagonal *restrict leaf2;

@@ -180,10 +180,10 @@ static inline void set_up_off_diagonal(
 
 
 static inline void compute_inner_off_diagonal_lowest_level(
-  const struct NodeDiagonal *restrict const diagonal1,
-  const struct NodeOffDiagonal *restrict const off_diagonal1,
-  const struct NodeDiagonal *restrict const diagonal2,
-  const struct NodeOffDiagonal *restrict const off_diagonal2,
+  const struct NodeDiagonal *const diagonal_left,
+  const struct NodeOffDiagonal *const off_diagonal_left,
+  const struct NodeDiagonal *const diagonal_right,
+  const struct NodeOffDiagonal *const off_diagonal_right,
   struct NodeOffDiagonal *restrict const out,
   int offset_u,
   int offset_v
@@ -191,20 +191,33 @@ static inline void compute_inner_off_diagonal_lowest_level(
   const double alpha = 1.0, beta = 0.0;
 
   // Dense x U = U* at index=0
-  dgemm_("N", "N", &diagonal1->m, &off_diagonal2->s, &diagonal1->m, &alpha,
-         diagonal1->data, &diagonal1->m, off_diagonal2->u, &off_diagonal2->m,
-         &beta, out->u + offset_u, &diagonal1->m);
-  dlacpy_("A", &off_diagonal2->n, &off_diagonal2->s, off_diagonal2->v,
-          &off_diagonal2->n, out->v + offset_v, &diagonal1->m);
+  dgemm_(
+    "N", "N", &diagonal_left->m, &off_diagonal_right->s, &diagonal_left->m, 
+    &alpha, diagonal_left->data, &diagonal_left->m, 
+    off_diagonal_right->u, &off_diagonal_right->m,
+    &beta, out->u + offset_u, &diagonal_left->m
+  );
+  dlacpy_(
+    "A", &off_diagonal_right->n, &off_diagonal_right->s, 
+    off_diagonal_right->v, &off_diagonal_right->n, 
+    out->v + offset_v, &diagonal_left->m
+  );
 
-  offset_u += diagonal1->m * off_diagonal2->s;
-  offset_v += off_diagonal2->s * diagonal2->m;
+  offset_u += diagonal_left->m * off_diagonal_right->s;
+  offset_v += off_diagonal_right->s * diagonal_right->m;
+
   // V^T x dense = V* at index=1 (represents V^T* but not actually transposed)
-  dlacpy_("A", &off_diagonal1->m, &off_diagonal1->s, off_diagonal1->u,
-          &off_diagonal1->m, out->u + offset_u, &diagonal2->m);
-  dgemm_("T", "N", &diagonal2->m, &off_diagonal1->s, &diagonal2->m, &alpha,
-         diagonal2->data, &diagonal2->m, off_diagonal1->v, &off_diagonal1->n,
-         &beta, out->v + offset_v, &diagonal2->m);
+  dlacpy_(
+    "A", &off_diagonal_left->m, &off_diagonal_left->s, 
+    off_diagonal_left->u, &off_diagonal_left->m, 
+    out->u + offset_u, &diagonal_right->m
+  );
+  dgemm_(
+    "T", "N", &diagonal_right->m, &off_diagonal_left->s, &diagonal_right->m, 
+    &alpha, diagonal_right->data, &diagonal_right->m, 
+    off_diagonal_left->v, &off_diagonal_left->n,
+    &beta, out->v + offset_v, &diagonal_right->m
+  );
 }
 
 
