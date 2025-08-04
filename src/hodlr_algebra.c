@@ -172,7 +172,7 @@ static inline void set_up_off_diagonal(
   struct NodeOffDiagonal *restrict const out,
   const int s_sum
 ) {
-  const int s_total = s_sum + off_diagonal2->s;
+  const int s_total = s_sum + off_diagonal1->s + off_diagonal2->s;
   out->u = malloc(s_total * out->m * sizeof(double));
   out->v = malloc(s_total * out->n * sizeof(double));
   out->s = s_total;
