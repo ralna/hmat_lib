@@ -71,8 +71,15 @@ void free_params(struct criterion_test_params *params) {
 }
 
 
+static inline int * to_heap(const int len, const int arr[]) {
+  int *out = cr_malloc(len * sizeof(int));
+  memcpy(out, &arr[0], len * sizeof(int));
+  return out;
+}
+
+
 ParameterizedTestParameters(real_data, H) {
-  enum {n_params = 1};
+  enum {n_params = 2};
   struct Parameters *params = cr_malloc(n_params * sizeof(struct Parameters));
 
   int m; clock_t start, end;
@@ -81,14 +88,17 @@ ParameterizedTestParameters(real_data, H) {
   end = clock();
   printf("Matrix read in %f s\n", ((double) (end - start)) / CLOCKS_PER_SEC);
 
-  const int heights[n_params] = {3};
-  const int *ms[n_params] = {NULL};
+  const int heights[n_params] = {3, 2};
+  const int *ms[n_params] = {
+    NULL,
+    to_heap(4, (int[]){3264, 3264, 3261, 3255})
+  };
 
   for (int i = 0; i < n_params; i++) {
     params[i].matrix = matrix;
     params[i].m = m;
     params[i].height = heights[i];
-    params[i].ms = ms[i];
+    params[i].ms = (int*)ms[i];
   }
 
   return cr_make_param_array(struct Parameters, params, n_params, free_params);
@@ -130,6 +140,7 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
 
 #ifdef HODLR_REAL_DATA_PRINT_S
   log_hodlr_s_symmetric(hodlr);
+  log_hodlr_fill(hodlr);
 #endif
 
   // Set up vector
