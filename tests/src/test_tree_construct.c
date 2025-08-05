@@ -220,8 +220,41 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
 }
 
 
+static inline int generate_block_size_params_uneven(
+  struct ParametersBlockSizes *params
+) {
+  enum {n_params = 2};
+  const int heights[n_params] = {2, 2};
+
+  for (int i = 0; i < n_params; i++) {
+    params[i].height = heights[i];
+    int n = (int)pow(2, heights[i]);
+    params[i].ms = cr_malloc(n * sizeof(int));
+    params[i].expected = cr_malloc((n - 1) * sizeof(int));
+  }
+
+  int idx = 0;
+  params[idx].m = 13044;
+  arrcpy(params[idx].ms, (int[]){3264, 3264, 3261, 3255}, 4);
+  arrcpy(params[idx].expected, (int[]){13044, 6528, 6516}, 3);
+  idx++;
+
+  params[idx].m = 10000;
+  arrcpy(params[idx].ms, (int[]){5000, 500, 1, 4499}, 4);
+  arrcpy(params[idx].expected, (int[]){10000, 5500, 4500}, 3);
+  idx++;
+
+  if (idx != n_params) {
+    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d\n",
+           n_params, idx);
+  }
+
+  return n_params;
+}
+
+
 ParameterizedTestParameters(constructors, block_sizes_custom) {
-  static int n_params = 26; 
+  const int n_params = 28; 
   struct ParametersBlockSizes *params = 
     cr_malloc(n_params * sizeof(struct ParametersBlockSizes));
 
@@ -293,8 +326,10 @@ ParameterizedTestParameters(constructors, block_sizes_custom) {
                  32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32},
          64);
 
+  actual += generate_block_size_params_uneven(params + actual);
+
   if (actual != n_params) {
-    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d",
+    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d\n",
            n_params, actual);
   }
 
