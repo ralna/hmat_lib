@@ -599,70 +599,101 @@ void free_compress_params(struct criterion_test_params *params) {
 
 
 struct ParametersTestCompress * generate_compress_params(int * len) {
-  int n_params = 4;
+  enum {n_params = 6};
   *len = n_params;
-  struct ParametersTestCompress *params = cr_malloc(n_params * sizeof(struct ParametersTestCompress));
+  struct ParametersTestCompress *params = 
+    cr_malloc(n_params * sizeof(struct ParametersTestCompress));
 
-  for (int i = 0; i < 2; i++) {
-    params[i].m_full = 10;
-    params[i].m = 5;
-    params[i].n = 5;
-    params[i].svd_threshold = 0.1;
-    params[i].expected_n_singular = 1;
-    params[i].full_matrix = construct_laplacian_matrix(params[i].m_full);
+  const double svd_threshold = 1e-8;
+  const int m_fulls[n_params] = {10, 11, 11, 10, 18, 7};
+  const int ms[n_params] = {5, 5, 6, 5, 5, 7};
+  const int ns[n_params] = {5, 6, 5, 5, 4, 7};
+  const int ss[n_params] = {1, 1, 2, 2, 1, 1};
+
+  for (int i = 0; i < n_params; i++) {
+    params[i].m_full = m_fulls[i];
+    params[i].m = ms[i];
+    params[i].n = ns[i];
+    params[i].svd_threshold = svd_threshold;
+    params[i].expected_n_singular = ss[i];
     params[i].u_expected = cr_calloc(params[i].m * params[i].expected_n_singular, sizeof(double));
     params[i].v_expected = cr_calloc(params[i].expected_n_singular * params[i].n, sizeof(double));
   }
 
-  params[0].matrix = params[0].full_matrix + params[0].m;
-  params[0].u_expected[0] = 1;
-  params[0].v_expected[0] = -0;
-  params[0].v_expected[4] = -1;
+  int idx = 0;
 
-  params[1].matrix = params[1].full_matrix + params[1].m_full * params[1].m;
-  params[1].u_expected[4] = 1;
-  params[1].v_expected[0] = -1;
+  // Laplacian matrix bottom left quarter
+  params[idx].full_matrix = construct_laplacian_matrix(params[idx].m_full);
+  params[idx].matrix = params[idx].full_matrix + params[idx].m;
+  params[idx].u_expected[idx] = 1.0;
+  params[idx].v_expected[idx] = -0.0;
+  params[idx].v_expected[params[idx].n - 1] = -1.0;
+  idx++;
 
-  for (int i = 2; i < 4; i++) {
-    params[i].m_full = 10;
-    params[i].m = 5;
-    params[i].n = 5;
-    params[i].svd_threshold = 0.1;
-    params[i].expected_n_singular = 2;
+  // Laplacian matrix top right quarter
+  params[idx].full_matrix = construct_laplacian_matrix(params[idx].m_full);
+  params[idx].matrix = 
+    params[idx].full_matrix + params[idx].m_full * params[idx].m;
+  params[idx].u_expected[params[idx].m - 1] = -1.0;
+  params[idx].v_expected[0] = 1.0;
+  idx++;
+
+  for (int i = idx; i < idx+2; i++) {
     params[i].full_matrix = construct_laplacian_matrix(params[i].m_full);
     params[i].full_matrix[params[i].m_full - 1] = 0.5;
     params[i].full_matrix[params[i].m_full * (params[i].m_full - 1)] = 0.5;
-
-    params[i].u_expected = cr_calloc(params[i].m * params[i].expected_n_singular, sizeof(double));
-    params[i].v_expected = cr_calloc(params[i].expected_n_singular * params[i].n, sizeof(double));
   }
 
-  params[2].matrix = params[2].full_matrix + params[2].m;
-  params[2].u_expected[0] = -1;
-  params[2].u_expected[9] = -0.5;
+  // Laplacian matrix with corners bottom left quarter
+  params[idx].matrix = params[idx].full_matrix + params[idx].n;
+  params[idx].u_expected[0] = 1.0;
+  params[idx].u_expected[2 * params[idx].m - 1] = -0.5;
 
-  params[2].v_expected[4] = 1;
-  params[2].v_expected[5] = -1;
+  params[idx].v_expected[params[idx].n - 1] = -1.0;
+  params[idx].v_expected[params[idx].n] = -1.0;
+  idx++;
 
-  params[3].matrix = params[3].full_matrix + params[3].m_full * params[3].m;
-  params[3].u_expected[4] = 1;
-  params[3].u_expected[5] = 0.5;
+  // Laplacian matrix with corners top right quarter
+  params[idx].matrix = 
+    params[idx].full_matrix + params[idx].m_full * params[idx].m;
+  params[idx].u_expected[params[idx].m - 1] = 1.0;
+  params[idx].u_expected[params[idx].m] = 0.5;
 
-  params[3].v_expected[0] = -1;
-  params[3].v_expected[9] = 1;
+  params[idx].v_expected[0] = -1.0;
+  params[idx].v_expected[2 * params[idx].n - 1] = 1.0;
+  idx++;
+
+  // Identity matrix
+  params[idx].full_matrix = construct_identity_matrix(params[idx].m_full);
+  params[idx].matrix = params[idx].full_matrix + params[idx].m;
+  params[idx].v_expected[0] = 1.0;
+  idx++;
+
+  // Zeros matrix
+  params[idx].full_matrix = cr_calloc(params[idx].m_full * params[idx].m_full, 
+                                      sizeof(double));
+  params[idx].matrix = params[idx].full_matrix;
+  params[idx].v_expected[0] = 1.0;
+  idx++;
+
+  if (idx != n_params) {
+    printf("PARAMETER SET-UP FAILED - allocated %d parameters but set %d\n",
+           n_params, idx);
+  }
 
   return params;
 }
 
 
-ParameterizedTestParameters(tree, test_compress) {
+ParameterizedTestParameters(constructors, test_compress) {
   int n_params;
   struct ParametersTestCompress *params = generate_compress_params(&n_params);
   return cr_make_param_array(struct ParametersTestCompress, params, n_params, free_compress_params);
 }
 
 
-ParameterizedTest(struct ParametersTestCompress *params, tree, test_compress) {
+ParameterizedTest(struct ParametersTestCompress *params, constructors, 
+                  test_compress) {
   struct NodeOffDiagonal result;
   int ierr = SUCCESS;
   int n_singular_values = params->m < params->n ? params->m : params->n;
@@ -679,19 +710,22 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, test_compress) {
 
   free(s_work); free(u_work); free(vt_work);
 
-  cr_expect(eq(ierr, SUCCESS));
-  cr_expect(eq(result_code, 0));
+  cr_expect(eq(int, ierr, SUCCESS));
+  cr_expect(eq(int, result_code, 0));
   if (result_code != 0 || ierr != SUCCESS) {
+    free(result.u); free(result.v);
     cr_fatal();
   } 
-  cr_expect(eq(result.m, params->m));
-  cr_expect(eq(result.s, params->expected_n_singular));
-  cr_expect(eq(result.n, params->n));
+  cr_expect(eq(int, result.m, params->m));
+  cr_expect(eq(int, result.s, params->expected_n_singular));
+  cr_expect(eq(int, result.n, params->n));
 
   expect_matrix_double_eq(result.u, params->u_expected, params->m, params->expected_n_singular,
-                       result.m, params->m, 'U');
+                          result.m, params->m, 'U');
   expect_matrix_double_eq(result.v, params->v_expected, params->n, params->expected_n_singular,
-                       result.m, params->m, 'V');
+                          result.m, params->m, 'V');
+  
+  free(result.u); free(result.v);
 }
 
 
