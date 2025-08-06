@@ -48,11 +48,12 @@ void log_hodlr_fill(const struct TreeHODLR *const hodlr) {
 
   double means[hodlr->height];
   double stds[hodlr->height];
+  double numerators[hodlr->height];
+  double denominators[hodlr->height];
   double *vals = malloc(hodlr->len_work_queue * sizeof(double));
 
   for (int level = 1; level < hodlr->height + 1; level++) {
     q_next_node_density /= 2;
-    means[level-1] = 0.0; stds[level-1] = 0.0;
 
     for (int parent = 0; parent < len_queue; parent++) {
       idx = parent * q_current_node_density;
@@ -61,7 +62,10 @@ void log_hodlr_fill(const struct TreeHODLR *const hodlr) {
       double s = (double)queue[idx]->children[1].leaf->data.off_diagonal.s;
       double n = (double)queue[idx]->children[1].leaf->data.off_diagonal.n;
 
-      const double ratio = (m * s + n * s) / (m * n);
+      const double numerator = m * s + n * s, denominator = m * n;
+      const double ratio = numerator / denominator;
+
+      numerators[level-1] = numerator; denominators[level-1] = denominator;
       vals[parent] = ratio;
       means[level-1] += ratio;
 
@@ -87,13 +91,17 @@ void log_hodlr_fill(const struct TreeHODLR *const hodlr) {
     q_current_node_density = q_next_node_density;
   }
 
+  double cumsum_num = 0.0, cumsum_denom = 0.0;
   for (int level = 1; level < hodlr->height + 1; level++) {
+    cumsum_num += numerators[level-1];
+    cumsum_denom += denominators[level-1];
+
     #ifdef _TEST_HODLR
-    cr_log_info("level=%d -> ratio = %f +- %f", level, means[level-1],
-                stds[level-1]);
+    cr_log_info("level=%d -> ratio = %f +- %f (cumulative=%f)", level, 
+                means[level-1], stds[level-1], cumsum_num / cumsum_denom);
     #else
-    printf("level=%d -> ratio = %f +- %f", 
-           level, means[level-1], stds[level-1]);
+    printf("level=%d -> ratio = %f +- %f (cumulative=%f)\n", 
+           level, means[level-1], stds[level-1], cumsum_num / cumsum_denom);
     #endif
   }
 
