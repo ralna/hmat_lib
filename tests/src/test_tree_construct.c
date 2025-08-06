@@ -28,7 +28,6 @@ static inline void check_allocd(const int actual, const int allocd) {
 
 struct ParametersBlockSizes {
   int height;
-  int m;
   int *ms;
   int *expected;
 };
@@ -53,6 +52,18 @@ static inline void arr_setup(
 }
 
 
+static inline void ms_setup(
+  struct ParametersBlockSizes *params, 
+  int *idx, 
+  int len,
+  int src[]
+) {
+  params[*idx].ms = cr_malloc(len * sizeof(int));
+  for (int i = 0; i < len; i++) params[*idx].ms[i] = src[i];
+  (*idx)++;
+}
+
+
 void free_block_params(struct criterion_test_params *params) {
   for (size_t i = 0; i < params->length; i++) {
     struct ParametersBlockSizes *param = params->params + i;
@@ -66,38 +77,27 @@ void free_block_params(struct criterion_test_params *params) {
 static int generate_block_size_params(struct ParametersBlockSizes *params) {
   const int n_params = 8+18;
 
-  int idx = 0, tidx;
-  int len_heights = 2;
-  int heights[] = {1, 2};
+  int idx = 0;
+  enum {len_heights1 = 2};
+  const int heights[len_heights1] = {1, 2};
 
-  int len_ms = 4;
-  int ms[] = {8, 9, 11, 13};
-
-  for (int height_idx = 0; height_idx < len_heights; height_idx++) {
-    for (int m_idx = 0; m_idx < len_ms; m_idx++) {
+  const int len_ms1 = 4;
+  for (int height_idx = 0; height_idx < len_heights1; height_idx++) {
+    for (int m_idx = 0; m_idx < len_ms1; m_idx++) {
       params[idx].height = heights[height_idx];
-      params[idx].m = ms[m_idx];
-
-      //const int n = (int)pow(2, heights[height_idx] + 1) - 1;
-      //params[idx].expected = cr_malloc(n * sizeof(int));
+      params[idx].ms = NULL;
       idx++;
     }
   }
 
-  len_heights = 6;
-  int heights2[] = {1, 2, 3, 4, 5, 6};
+  enum {len_heights2 = 6};
+  const int heights2[len_heights2] = {1, 2, 3, 4, 5, 6};
 
-  len_ms = 3;
-  int ms2[] = {139, 597, 2048};
-
-  for (int height_idx = 0; height_idx < len_heights; height_idx++) {
-    for (int m_idx = 0; m_idx < len_ms; m_idx++) {
+  const int len_ms2 = 3;
+  for (int height_idx = 0; height_idx < len_heights2; height_idx++) {
+    for (int m_idx = 0; m_idx < len_ms2; m_idx++) {
       params[idx].height = heights2[height_idx];
-      params[idx].m = ms2[m_idx];
       params[idx].ms = NULL;
-
-      //const int n = (int)pow(2, heights2[height_idx]) - 1;
-      //params[idx].expected = cr_malloc(n * sizeof(int));
       idx++;
     }
   }
@@ -237,7 +237,7 @@ ParameterizedTestParameters(constructors, block_sizes_halves) {
 
 ParameterizedTest(struct ParametersBlockSizes *params, constructors,
                   block_sizes_halves) {
-  cr_log_info("height=%d, m=%d", params->height, params->m);
+  cr_log_info("height=%d, m=%d", params->height, params->expected[0]);
 
   int ierr = SUCCESS;
   
@@ -249,7 +249,7 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
   }
 
   struct HODLRInternalNode **queue = 
-    compute_block_sizes_halves(hodlr, params->m);
+    compute_block_sizes_halves(hodlr, params->expected[0]);
 
   long q_next_node_density = hodlr->len_work_queue;
   long q_current_node_density = q_next_node_density;
@@ -324,26 +324,17 @@ static inline int generate_block_size_params_uneven(
 
   for (int i = 0; i < n_params; i++) {
     params[i].height = heights[i];
-    int n = (int)pow(2, heights[i]);
-    params[i].ms = cr_malloc(n * sizeof(int));
-    params[i].expected = cr_malloc((n - 1) * sizeof(int));
   }
 
-  int idx = 0;
-  params[idx].m = 13044;
-  arrcpy(params[idx].ms, (int[]){3264, 3264, 3261, 3255}, 4);
-  arrcpy(params[idx].expected, (int[]){13044, 6528, 6516}, 3);
-  idx++;
+  int idx1 = 0, idx2 = 0;
+  ms_setup(params, &idx1, 4, (int[]){3264, 3264, 3261, 3255});
+  arr_setup(params, &idx2, 7, 
+            (int[]){13044, 6528, 6516, 3264, 3264, 3261, 3255});
 
-  params[idx].m = 10000;
-  arrcpy(params[idx].ms, (int[]){5000, 500, 1, 4499}, 4);
-  arrcpy(params[idx].expected, (int[]){10000, 5500, 4500}, 3);
-  idx++;
+  ms_setup(params, &idx1, 4, (int[]){5000, 500, 1, 4499});
+  arr_setup(params, &idx2, 7, (int[]){10000, 5500, 4500, 5000, 500, 1, 4499});
 
-  if (idx != n_params) {
-    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d\n",
-           n_params, idx);
-  }
+  check_allocd(idx1, n_params); check_allocd(idx2, n_params);
 
   return n_params;
 }
@@ -356,78 +347,71 @@ ParameterizedTestParameters(constructors, block_sizes_custom) {
 
   int actual = generate_block_size_params(params);
   
-  for (int i = 0; i < n_params; i++) {
-    params[i].ms = cr_malloc((int)pow(2, params[i].height) * sizeof(int));
-  }
-  arrcpy(params[0].ms, (int[]){4, 4}, 2);
-  arrcpy(params[1].ms, (int[]){5, 4}, 2);
-  arrcpy(params[2].ms, (int[]){6, 5}, 2);
-  arrcpy(params[3].ms, (int[]){7, 6}, 2);
-  arrcpy(params[4].ms, (int[]){2, 2, 2, 2}, 4);
-  arrcpy(params[5].ms, (int[]){3, 2, 2, 2}, 4);
-  arrcpy(params[6].ms, (int[]){3, 3, 3, 2}, 4);
-  arrcpy(params[7].ms, (int[]){4, 3, 3, 3}, 4);
+  int idx = 0;
+  ms_setup(params, &idx, 2, (int[]){4, 4});
+  ms_setup(params, &idx, 2, (int[]){5, 4});
+  ms_setup(params, &idx, 2, (int[]){6, 5});
+  ms_setup(params, &idx, 2, (int[]){7, 6});
+  ms_setup(params, &idx, 4, (int[]){2, 2, 2, 2});
+  ms_setup(params, &idx, 4, (int[]){3, 2, 2, 2});
+  ms_setup(params, &idx, 4, (int[]){3, 3, 3, 2});
+  ms_setup(params, &idx, 4, (int[]){4, 3, 3, 3});
 
-  arrcpy(params[8].ms, (int[]){70, 69}, 2);
-  arrcpy(params[9].ms, (int[]){299, 298}, 2);
-  arrcpy(params[10].ms, (int[]){1024, 1024}, 2);
-  arrcpy(params[11].ms, (int[]){35, 35, 35, 34}, 4);
-  arrcpy(params[12].ms, (int[]){150, 149, 149, 149}, 4);
-  arrcpy(params[13].ms, (int[]){512, 512, 512, 512}, 4);
-  arrcpy(params[14].ms, (int[]){18, 17, 18, 17, 18, 17, 17, 17}, 8);
-  arrcpy(params[15].ms, (int[]){75, 75, 75, 74, 75, 74, 75, 74}, 8);
-  arrcpy(params[16].ms, 
-         (int[]){256, 256, 256, 256, 256, 256, 256, 256}, 8);
-  arrcpy(params[17].ms, 
-         (int[]){9, 9, 9, 8, 
-                 9, 9, 9, 8, 
-                 9, 9, 9, 8, 
-                 9, 8, 9, 8}, 16);
-  arrcpy(params[18].ms, 
-         (int[]){38, 37, 38, 37, 
-                 38, 37, 37, 37, 
-                 38, 37, 37, 37, 
-                 38, 37, 37, 37}, 16);
-  arrcpy(params[19].ms, 
-         (int[]){128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 
-                 128, 128, 128, 128}, 16);
-  arrcpy(params[20].ms, 
-         (int[]){5, 4, 5, 4, 5, 4, 4, 4, 
-                 5, 4, 5, 4, 5, 4, 4, 4, 
-                 5, 4, 5, 4, 5, 4, 4, 4, 
-                 5, 4, 4, 4, 5, 4, 4, 4}, 32);
-  arrcpy(params[21].ms, 
-         (int[]){19, 19, 19, 18, 19, 19, 19, 18,
-                 19, 19, 19, 18, 19, 18, 19, 18,
-                 19, 19, 19, 18, 19, 18, 19, 18,
-                 19, 19, 19, 18, 19, 18, 19, 18}, 32);
-  arrcpy(params[22].ms, 
-         (int[]){64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
-                 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
-                 64, 64}, 32);
-  arrcpy(params[23].ms, 
-         (int[]){3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 
-                 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 
-                 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
-                 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2}, 64);
-  arrcpy(params[24].ms, 
-         (int[]){10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 10, 9, 10, 9, 9, 9,
-                 10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9,
-                 10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9,
-                 10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9}, 64);
-  arrcpy(params[25].ms, 
-         (int[]){32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
-                 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
-                 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
-                 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32},
-         64);
+  ms_setup(params, &idx, 2, (int[]){70, 69});
+  ms_setup(params, &idx, 2, (int[]){299, 298});
+  ms_setup(params, &idx, 2, (int[]){1024, 1024});
+  ms_setup(params, &idx, 4, (int[]){35, 35, 35, 34});
+  ms_setup(params, &idx, 4, (int[]){150, 149, 149, 149});
+  ms_setup(params, &idx, 4, (int[]){512, 512, 512, 512});
+  ms_setup(params, &idx, 8, (int[]){18, 17, 18, 17, 18, 17, 17, 17});
+  ms_setup(params, &idx, 8, (int[]){75, 75, 75, 74, 75, 74, 75, 74});
+  ms_setup(params, &idx, 8, (int[]){256, 256, 256, 256, 256, 256, 256, 256});
+  ms_setup(params, &idx, 16, 
+           (int[]){9, 9, 9, 8, 
+                   9, 9, 9, 8, 
+                   9, 9, 9, 8, 
+                   9, 8, 9, 8});
+  ms_setup(params, &idx, 16, 
+           (int[]){38, 37, 38, 37, 
+                   38, 37, 37, 37, 
+                   38, 37, 37, 37, 
+                   38, 37, 37, 37});
+  ms_setup(params, &idx, 16, 
+          (int[]){128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 
+                  128, 128, 128, 128});
+  ms_setup(params, &idx, 32, 
+           (int[]){5, 4, 5, 4, 5, 4, 4, 4, 
+                   5, 4, 5, 4, 5, 4, 4, 4, 
+                   5, 4, 5, 4, 5, 4, 4, 4, 
+                   5, 4, 4, 4, 5, 4, 4, 4});
+  ms_setup(params, &idx, 32, 
+           (int[]){19, 19, 19, 18, 19, 19, 19, 18,
+                   19, 19, 19, 18, 19, 18, 19, 18,
+                   19, 19, 19, 18, 19, 18, 19, 18,
+                   19, 19, 19, 18, 19, 18, 19, 18});
+  ms_setup(params, &idx, 32, 
+           (int[]){64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+                   64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+                   64, 64});
+  ms_setup(params, &idx, 64, 
+           (int[]){3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 
+                   3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 
+                   3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
+                   3, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2});
+  ms_setup(params, &idx, 64, 
+           (int[]){10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 10, 9, 10, 9, 9, 9,
+                   10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9,
+                   10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9,
+                   10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9});
+  ms_setup(params, &idx, 64, 
+           (int[]){32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+                   32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+                   32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+                   32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32});
 
-  actual += generate_block_size_params_uneven(params + actual);
+  int new = generate_block_size_params_uneven(params + actual);
 
-  if (actual != n_params) {
-    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d\n",
-           n_params, actual);
-  }
+  check_allocd(actual + new, n_params); check_allocd(idx + new, n_params);
 
   return cr_make_param_array(struct ParametersBlockSizes, params, n_params, 
                              free_block_params);
@@ -436,7 +420,7 @@ ParameterizedTestParameters(constructors, block_sizes_custom) {
 
 ParameterizedTest(struct ParametersBlockSizes *params, constructors,
                   block_sizes_custom) {
-  cr_log_info("height=%d, m=%d", params->height, params->m);
+  cr_log_info("height=%d, m=%d", params->height, params->expected[0]);
 
   int ierr = SUCCESS;
   
@@ -477,6 +461,38 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
     }
     len_queue *= 2;
     q_current_node_density = q_next_node_density;
+  }
+
+  for (int parent = 0; parent < len_queue; parent++) {
+    const int m_larger = params->expected[eidx]; eidx++;
+    const int m_smaller = params->expected[eidx]; eidx++;
+
+    cr_expect(
+      eq(int, queue[parent]->children[0].leaf->data.diagonal.m, m_larger),
+      "@diagonal & node=%d (idx=%d)", parent, eidx-2
+    );
+    cr_expect(
+      eq(int, queue[parent]->children[3].leaf->data.diagonal.m, m_smaller),
+      "@diagonal & node=%d (idx=%d)", parent, eidx-1
+    );
+
+    cr_expect(
+      eq(int, queue[parent]->children[1].leaf->data.off_diagonal.m, m_larger),
+      "@diagonal & node=%d (idx=%d)", parent, eidx-2
+    );
+    cr_expect(
+      eq(int, queue[parent]->children[1].leaf->data.off_diagonal.n, m_smaller),
+      "@diagonal & node=%d (idx=%d)", parent, eidx-1
+    );
+
+    cr_expect(
+      eq(int, queue[parent]->children[2].leaf->data.off_diagonal.m, m_smaller),
+      "@diagonal & node=%d (idx=%d)", parent, eidx-1
+    );
+    cr_expect(
+      eq(int, queue[parent]->children[2].leaf->data.off_diagonal.n, m_larger),
+      "@diagonal & node=%d (idx=%d)", parent, eidx-2
+    );
   }
 
   free_tree_hodlr(&hodlr, &free);
