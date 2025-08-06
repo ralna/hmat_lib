@@ -599,16 +599,16 @@ void free_compress_params(struct criterion_test_params *params) {
 
 
 struct ParametersTestCompress * generate_compress_params(int * len) {
-  enum {n_params = 4};
+  enum {n_params = 6};
   *len = n_params;
   struct ParametersTestCompress *params = 
     cr_malloc(n_params * sizeof(struct ParametersTestCompress));
 
   const double svd_threshold = 1e-8;
-  const int m_fulls[n_params] = {10, 11, 11, 10};
-  const int ms[n_params] = {5, 5, 6, 5};
-  const int ns[n_params] = {5, 6, 5, 5};
-  const int ss[n_params] = {1, 1, 2, 2};
+  const int m_fulls[n_params] = {10, 11, 11, 10, 18, 7};
+  const int ms[n_params] = {5, 5, 6, 5, 5, 7};
+  const int ns[n_params] = {5, 6, 5, 5, 4, 7};
+  const int ss[n_params] = {1, 1, 2, 2, 1, 1};
 
   for (int i = 0; i < n_params; i++) {
     params[i].m_full = m_fulls[i];
@@ -625,17 +625,17 @@ struct ParametersTestCompress * generate_compress_params(int * len) {
   // Laplacian matrix bottom left quarter
   params[idx].full_matrix = construct_laplacian_matrix(params[idx].m_full);
   params[idx].matrix = params[idx].full_matrix + params[idx].m;
-  params[idx].u_expected[idx] = 1;
-  params[idx].v_expected[idx] = -0;
-  params[idx].v_expected[params[idx].n - 1] = -1;
+  params[idx].u_expected[idx] = 1.0;
+  params[idx].v_expected[idx] = -0.0;
+  params[idx].v_expected[params[idx].n - 1] = -1.0;
   idx++;
 
   // Laplacian matrix top right quarter
   params[idx].full_matrix = construct_laplacian_matrix(params[idx].m_full);
   params[idx].matrix = 
     params[idx].full_matrix + params[idx].m_full * params[idx].m;
-  params[idx].u_expected[params[idx].m - 1] = -1;
-  params[idx].v_expected[0] = 1;
+  params[idx].u_expected[params[idx].m - 1] = -1.0;
+  params[idx].v_expected[0] = 1.0;
   idx++;
 
   for (int i = idx; i < idx+2; i++) {
@@ -646,22 +646,40 @@ struct ParametersTestCompress * generate_compress_params(int * len) {
 
   // Laplacian matrix with corners bottom left quarter
   params[idx].matrix = params[idx].full_matrix + params[idx].n;
-  params[idx].u_expected[0] = 1;
+  params[idx].u_expected[0] = 1.0;
   params[idx].u_expected[2 * params[idx].m - 1] = -0.5;
 
-  params[idx].v_expected[params[idx].n - 1] = -1;
-  params[idx].v_expected[params[idx].n] = -1;
+  params[idx].v_expected[params[idx].n - 1] = -1.0;
+  params[idx].v_expected[params[idx].n] = -1.0;
   idx++;
 
   // Laplacian matrix with corners top right quarter
   params[idx].matrix = 
     params[idx].full_matrix + params[idx].m_full * params[idx].m;
-  params[idx].u_expected[params[idx].m - 1] = 1;
+  params[idx].u_expected[params[idx].m - 1] = 1.0;
   params[idx].u_expected[params[idx].m] = 0.5;
 
-  params[idx].v_expected[0] = -1;
-  params[idx].v_expected[2 * params[idx].n - 1] = 1;
+  params[idx].v_expected[0] = -1.0;
+  params[idx].v_expected[2 * params[idx].n - 1] = 1.0;
   idx++;
+
+  // Identity matrix
+  params[idx].full_matrix = construct_identity_matrix(params[idx].m_full);
+  params[idx].matrix = params[idx].full_matrix + params[idx].m;
+  params[idx].v_expected[0] = 1.0;
+  idx++;
+
+  // Zeros matrix
+  params[idx].full_matrix = cr_calloc(params[idx].m_full * params[idx].m_full, 
+                                      sizeof(double));
+  params[idx].matrix = params[idx].full_matrix;
+  params[idx].v_expected[0] = 1.0;
+  idx++;
+
+  if (idx != n_params) {
+    printf("PARAMETER SET-UP FAILED - allocated %d parameters but set %d\n",
+           n_params, idx);
+  }
 
   return params;
 }

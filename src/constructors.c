@@ -255,13 +255,13 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
   }
 
   int svd_cutoff_idx = 1;
-  for (svd_cutoff_idx=1; svd_cutoff_idx < n_singular_values; svd_cutoff_idx++) {
-    //printf("%f    ", s[svd_cutoff_idx]);
-    if (s[svd_cutoff_idx] < svd_threshold * s[0]) {
-      break;
+  if (s[0] > svd_threshold) {
+    for (svd_cutoff_idx=1; svd_cutoff_idx < n_singular_values; svd_cutoff_idx++) {
+      if (s[svd_cutoff_idx] < svd_threshold * s[0]) {
+        break;
+      }
     }
   }
-  //printf("svd cut-off=%d, m=%d\n", svd_cutoff_idx, m);
 
   double *u_top_right = malloc(m * svd_cutoff_idx * sizeof(double));
   if (u_top_right == NULL) {
