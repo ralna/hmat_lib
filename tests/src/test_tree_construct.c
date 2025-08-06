@@ -18,11 +18,18 @@
 #include "../../include/tree.h"
 
 
+static inline void check_allocd(const int actual, const int allocd) {
+  if (actual != allocd) {
+    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d",
+           allocd, actual);
+  }
+}
+
+
 struct ParametersBlockSizes {
   int height;
   int m;
   int *ms;
-  int len;
   int *expected;
 };
 
@@ -31,6 +38,18 @@ static inline void arrcpy(int *dest, int src[], int len) {
   for (int i = 0; i < len; i++) {
     dest[i] = src[i];
   }
+}
+
+
+static inline void arr_setup(
+  struct ParametersBlockSizes *params, 
+  int *idx, 
+  int len,
+  int src[]
+) {
+  params[*idx].expected = cr_malloc(len * sizeof(int));
+  for (int i = 0; i < len; i++) params[*idx].expected[i] = src[i];
+  (*idx)++;
 }
 
 
@@ -47,7 +66,7 @@ void free_block_params(struct criterion_test_params *params) {
 static int generate_block_size_params(struct ParametersBlockSizes *params) {
   const int n_params = 8+18;
 
-  int idx = 0, n = 0, tidx;
+  int idx = 0, tidx;
   int len_heights = 2;
   int heights[] = {1, 2};
 
@@ -59,9 +78,8 @@ static int generate_block_size_params(struct ParametersBlockSizes *params) {
       params[idx].height = heights[height_idx];
       params[idx].m = ms[m_idx];
 
-      n = (int)pow(2, heights[height_idx]) - 1;
-      params[idx].len = n;
-      params[idx].expected = cr_malloc(n * sizeof(int));
+      //const int n = (int)pow(2, heights[height_idx] + 1) - 1;
+      //params[idx].expected = cr_malloc(n * sizeof(int));
       idx++;
     }
   }
@@ -78,77 +96,123 @@ static int generate_block_size_params(struct ParametersBlockSizes *params) {
       params[idx].m = ms2[m_idx];
       params[idx].ms = NULL;
 
-      n = (int)pow(2, heights2[height_idx]) - 1;
-      params[idx].expected = cr_malloc(n * sizeof(int));
+      //const int n = (int)pow(2, heights2[height_idx]) - 1;
+      //params[idx].expected = cr_malloc(n * sizeof(int));
       idx++;
     }
   }
 
-  params[0].expected[0] = 8;
-  params[1].expected[0] = 9;
-  params[2].expected[0] = 11;
-  params[3].expected[0] = 13;
-  arrcpy(params[4].expected, (int[]){8, 4, 4}, 3);
-  arrcpy(params[5].expected, (int[]){9, 5, 4}, 3);
-  arrcpy(params[6].expected, (int[]){11, 6, 5}, 3);
-  arrcpy(params[7].expected, (int[]){13, 7, 6}, 3);
+  check_allocd(idx, n_params);
+  idx = 0;
 
-  params[8].expected[0] = 139;
-  params[9].expected[0] = 597;
-  params[10].expected[0] = 2048;
-  arrcpy(params[11].expected, (int[]){139, 70, 69}, 3);
-  arrcpy(params[12].expected, (int[]){597, 299, 298}, 3);
-  arrcpy(params[13].expected, (int[]){2048, 1024, 1024}, 3);
-  arrcpy(params[14].expected, (int[]){139, 70, 69, 35, 35, 35, 34}, 7);
-  arrcpy(params[15].expected, 
-         (int[]){597, 299, 298, 150, 149, 149, 149}, 7);
-  arrcpy(params[16].expected, 
-         (int[]){2048, 1024, 1024, 512, 512, 512, 512}, 7);
-  arrcpy(params[17].expected, 
-         (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17}, 
-         15);
-  arrcpy(params[18].expected, 
-         (int[]){597, 299, 298, 150, 149, 149, 149, 
-                 75, 75, 75, 74, 75, 74, 75, 74}, 15);
-  arrcpy(params[19].expected, 
-         (int[]){2048, 1024, 1024, 512, 512, 512, 512,
-                 256, 256, 256, 256, 256, 256, 256, 256}, 15);
-  arrcpy(params[20].expected, 
-        (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17,
-                  9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8}, 31);
-  arrcpy(params[21].expected, 
-        (int[]){597, 299, 298, 150, 149, 149, 149, 
-                75, 75, 75, 74, 75, 74, 75, 74,
-                38, 37, 38, 37, 38, 37, 37, 37, 
-                38, 37, 37, 37, 38, 37, 37, 37}, 31);
-  arrcpy(params[22].expected, 
-        (int[]){2048, 1024, 1024, 512, 512, 512, 512,
-                  256, 256, 256, 256, 256, 256, 256, 256,
-                  128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-                  128, 128, 128, 128}, 31);
-  arrcpy(params[23].expected, 
-        (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17,
-                  9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8,
-                  5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 5, 4,
-                  5, 4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4}, 
-        63);
-  arrcpy(params[24].expected, 
-        (int[]){597, 299, 298, 150, 149, 149, 149, 
-                75, 75, 75, 74, 75, 74, 75, 74,
-                38, 37, 38, 37, 38, 37, 37, 37, 
-                38, 37, 37, 37, 38, 37, 37, 37,
-                19, 19, 19, 18, 19, 19, 19, 18,
-                19, 19, 19, 18, 19, 18, 19, 18,
-                19, 19, 19, 18, 19, 18, 19, 18,
-                19, 19, 19, 18, 19, 18, 19, 18}, 63);
-  arrcpy(params[25].expected, 
-        (int[]){2048, 1024, 1024, 512, 512, 512, 512,
-                  256, 256, 256, 256, 256, 256, 256, 256,
-                  128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
-                  128, 128, 128, 128,
-                  64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
-                  64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
-                  64, 64}, 63);
+  arr_setup(params, &idx, 3, (int[]){8, 4, 4});
+  arr_setup(params, &idx, 3, (int[]){9, 5, 4});
+  arr_setup(params, &idx, 3, (int[]){11, 6, 5});
+  arr_setup(params, &idx, 3, (int[]){13, 7, 6});
+
+  arr_setup(params, &idx, 7, (int[]){8, 4, 4, 2, 2, 2, 2});
+  arr_setup(params, &idx, 7, (int[]){9, 5, 4, 3, 2, 2, 2});
+  arr_setup(params, &idx, 7, (int[]){11, 6, 5, 3, 3, 3, 2});
+  arr_setup(params, &idx, 7, (int[]){13, 7, 6, 4, 3, 3, 3});
+
+  arr_setup(params, &idx, 3, (int[]){139, 70, 69});
+  arr_setup(params, &idx, 3, (int[]){597, 299, 298});
+  arr_setup(params, &idx, 3, (int[]){2048, 1024, 1024});
+  arr_setup(params, &idx, 7, (int[]){139, 70, 69, 35, 35, 35, 34});
+  arr_setup(params, &idx, 7, 
+            (int[]){597, 299, 298, 150, 149, 149, 149});
+  arr_setup(params, &idx, 7, 
+            (int[]){2048, 1024, 1024, 512, 512, 512, 512});
+  arr_setup(
+    params, &idx, 15, 
+    (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17}
+  );
+  arr_setup(params, &idx, 15, 
+            (int[]){597, 299, 298, 150, 149, 149, 149, 
+                    75, 75, 75, 74, 75, 74, 75, 74});
+  arr_setup(params, &idx, 15, 
+            (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+                    256, 256, 256, 256, 256, 256, 256, 256});
+  arr_setup(params, &idx, 31, 
+            (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17,
+                9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8});
+  arr_setup(params, &idx, 31, 
+            (int[]){597, 299, 298, 150, 149, 149, 149, 
+                    75, 75, 75, 74, 75, 74, 75, 74,
+                    38, 37, 38, 37, 38, 37, 37, 37, 
+                    38, 37, 37, 37, 38, 37, 37, 37});
+  arr_setup(params, &idx, 31, 
+            (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+                    256, 256, 256, 256, 256, 256, 256, 256,
+                    128, 128, 128, 128, 128, 128, 128, 128, 
+                    128, 128, 128, 128, 128, 128, 128, 128});
+  arr_setup(params, &idx, 63, 
+            (int[]){139, 70, 69, 35, 35, 35, 34, 
+                    18, 17, 18, 17, 18, 17, 17, 17,
+                    9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8,
+                    5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 5, 4, 5, 4, 4, 4, 
+                    5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4});
+  arr_setup(params, &idx, 63, 
+            (int[]){597, 299, 298, 150, 149, 149, 149, 
+                    75, 75, 75, 74, 75, 74, 75, 74,
+                    38, 37, 38, 37, 38, 37, 37, 37, 
+                    38, 37, 37, 37, 38, 37, 37, 37,
+                    19, 19, 19, 18, 19, 19, 19, 18,
+                    19, 19, 19, 18, 19, 18, 19, 18,
+                    19, 19, 19, 18, 19, 18, 19, 18,
+                    19, 19, 19, 18, 19, 18, 19, 18});
+  arr_setup(params, &idx, 63, 
+            (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+                    256, 256, 256, 256, 256, 256, 256, 256,
+                    128, 128, 128, 128, 128, 128, 128, 128, 
+                    128, 128, 128, 128, 128, 128, 128, 128,
+                    64, 64, 64, 64, 64, 64, 64, 64, 
+                    64, 64, 64, 64, 64, 64, 64, 64, 
+                    64, 64, 64, 64, 64, 64, 64, 64, 
+                    64, 64, 64, 64, 64, 64, 64, 64});
+  arr_setup(params, &idx, 127, 
+            (int[]){139, 70, 69, 35, 35, 35, 34, 
+                    18, 17, 18, 17, 18, 17, 17, 17,
+                    9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8,
+                    5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 5, 4, 5, 4, 4, 4, 
+                    5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4,
+                    3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
+                    3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
+                    3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
+                    3, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
+            });
+  arr_setup(params, &idx, 127, 
+            (int[]){597, 299, 298, 150, 149, 149, 149, 
+                    75, 75, 75, 74, 75, 74, 75, 74,
+                    38, 37, 38, 37, 38, 37, 37, 37, 
+                    38, 37, 37, 37, 38, 37, 37, 37,
+                    19, 19, 19, 18, 19, 19, 19, 18,
+                    19, 19, 19, 18, 19, 18, 19, 18,
+                    19, 19, 19, 18, 19, 18, 19, 18,
+                    19, 19, 19, 18, 19, 18, 19, 18,
+                    10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 10, 9, 10, 9, 9, 9,
+                    10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9,
+                    10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9,
+                    10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9});
+  arr_setup(params, &idx, 127, 
+            (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+                    256, 256, 256, 256, 256, 256, 256, 256,
+                    128, 128, 128, 128, 128, 128, 128, 128, 
+                    128, 128, 128, 128, 128, 128, 128, 128,
+                    64, 64, 64, 64, 64, 64, 64, 64, 
+                    64, 64, 64, 64, 64, 64, 64, 64, 
+                    64, 64, 64, 64, 64, 64, 64, 64, 
+                    64, 64, 64, 64, 64, 64, 64, 64,
+                    32, 32, 32, 32, 32, 32, 32, 32,
+                    32, 32, 32, 32, 32, 32, 32, 32,
+                    32, 32, 32, 32, 32, 32, 32, 32,
+                    32, 32, 32, 32, 32, 32, 32, 32,
+                    32, 32, 32, 32, 32, 32, 32, 32,
+                    32, 32, 32, 32, 32, 32, 32, 32,
+                    32, 32, 32, 32, 32, 32, 32, 32,
+                    32, 32, 32, 32, 32, 32, 32, 32});
+
+  check_allocd(idx, n_params);
 
   return n_params;
 }
@@ -214,6 +278,38 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
     }
     len_queue *= 2;
     q_current_node_density = q_next_node_density;
+  }
+
+  for (int parent = 0; parent < len_queue; parent++) {
+    const int m_larger = params->expected[eidx]; eidx++;
+    const int m_smaller = params->expected[eidx]; eidx++;
+
+    cr_expect(
+      eq(int, queue[parent]->children[0].leaf->data.diagonal.m, m_larger),
+      "@diagonal & node=%d (idx=%d)", parent, eidx-2
+    );
+    cr_expect(
+      eq(int, queue[parent]->children[3].leaf->data.diagonal.m, m_smaller),
+      "@diagonal & node=%d (idx=%d)", parent, eidx-1
+    );
+
+    cr_expect(
+      eq(int, queue[parent]->children[1].leaf->data.off_diagonal.m, m_larger),
+      "@diagonal & node=%d (idx=%d)", parent, eidx-2
+    );
+    cr_expect(
+      eq(int, queue[parent]->children[1].leaf->data.off_diagonal.n, m_smaller),
+      "@diagonal & node=%d (idx=%d)", parent, eidx-1
+    );
+
+    cr_expect(
+      eq(int, queue[parent]->children[2].leaf->data.off_diagonal.m, m_smaller),
+      "@diagonal & node=%d (idx=%d)", parent, eidx-1
+    );
+    cr_expect(
+      eq(int, queue[parent]->children[2].leaf->data.off_diagonal.n, m_larger),
+      "@diagonal & node=%d (idx=%d)", parent, eidx-2
+    );
   }
 
   free_tree_hodlr(&hodlr, &free);

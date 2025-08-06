@@ -42,7 +42,6 @@ static struct HODLRInternalNode ** compute_block_sizes_halves(
   struct HODLRInternalNode **queue = hodlr->work_queue;
   long len_queue = 1, q_next_node_density = hodlr->len_work_queue;
   long q_current_node_density = q_next_node_density;
-  int m_smaller = 0, m_larger = 0, idx = 0;
   
   hodlr->root->m = m;
   queue[0] = hodlr->root;
@@ -50,10 +49,10 @@ static struct HODLRInternalNode ** compute_block_sizes_halves(
   for (int _ = 1; _ < hodlr->height; _++) {
     q_next_node_density /= 2;
     for (int parent = 0; parent < len_queue; parent++) {
-      idx = parent * q_current_node_density;
+      const int idx = parent * q_current_node_density;
       
-      m_smaller = queue[idx]->m / 2;
-      m_larger = queue[idx]->m - m_smaller;
+      const int m_smaller = queue[idx]->m / 2;
+      const int m_larger = queue[idx]->m - m_smaller;
 
       queue[idx]->children[0].internal->m = m_larger;
       queue[idx]->children[3].internal->m = m_smaller;
@@ -64,6 +63,20 @@ static struct HODLRInternalNode ** compute_block_sizes_halves(
     }
     len_queue *= 2;
     q_current_node_density = q_next_node_density;
+  }
+
+  for (int parent = 0; parent < len_queue; parent++) {
+    const int m_smaller = queue[parent]->m / 2;
+    const int m_larger = queue[parent]->m - m_smaller;
+
+    queue[parent]->children[0].leaf->data.diagonal.m = m_larger;
+    queue[parent]->children[3].leaf->data.diagonal.m = m_smaller;
+
+    queue[parent]->children[1].leaf->data.off_diagonal.m = m_larger;
+    queue[parent]->children[1].leaf->data.off_diagonal.n = m_smaller;
+
+    queue[parent]->children[2].leaf->data.off_diagonal.m = m_smaller;
+    queue[parent]->children[2].leaf->data.off_diagonal.n = m_larger;
   }
 
   return queue;
