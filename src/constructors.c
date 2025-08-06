@@ -109,11 +109,20 @@ static struct HODLRInternalNode ** compute_block_sizes_custom(
 ) {
   struct HODLRInternalNode **queue = hodlr->work_queue;
   long n_parent_nodes = hodlr->len_work_queue;
-  int m_smaller = 0, m_larger = 0, idx = 0;
 
   for (int parent = 0; parent < n_parent_nodes; parent++) {
-    queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
-    queue[parent]->m = ms[2 * parent] + ms[2 * parent + 1];
+    const int idx = 2 * parent;
+    hodlr->innermost_leaves[idx]->data.diagonal.m = ms[idx];
+    hodlr->innermost_leaves[idx + 1]->data.diagonal.m = ms[2 * parent + 1];
+
+    queue[parent] = hodlr->innermost_leaves[idx]->parent;
+    queue[parent]->m = ms[idx] + ms[2 * parent + 1];
+
+    queue[parent]->children[1].leaf->data.off_diagonal.m = ms[idx];
+    queue[parent]->children[1].leaf->data.off_diagonal.n = ms[idx + 1];
+
+    queue[parent]->children[2].leaf->data.off_diagonal.m = ms[idx + 1];
+    queue[parent]->children[2].leaf->data.off_diagonal.n = ms[idx];
   }
 
   for (int _ = hodlr->height - 1; _ > 0; _--) {
