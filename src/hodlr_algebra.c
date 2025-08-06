@@ -105,6 +105,7 @@ static inline void compute_higher_level_contributions_off_diagonal(
   int *restrict const offset_utr_vbl_out,
   int *restrict const offset_vtr_ubl_out
 ) {
+  // TODO: Is divisor always == 1?
   int which_child1 = 0, which_child2 = 0;
   int midx = 2, oidx = 0, parent_position = origin_idx;
   const double alpha = 1.0, beta = 0.0;
@@ -121,10 +122,10 @@ static inline void compute_higher_level_contributions_off_diagonal(
     } else {
       which_child1 = 2; which_child2 = 1;
     }
-    int s1 = parent1->children[which_child1].leaf->data.off_diagonal.s;
-    int s2 = parent1->children[which_child2].leaf->data.off_diagonal.s;
-    int m = parent1->children[which_child1].leaf->data.off_diagonal.m;
-    int n = parent1->children[which_child1].leaf->data.off_diagonal.n;
+    const int s1 = parent1->children[which_child1].leaf->data.off_diagonal.s;
+    const int s2 = parent1->children[which_child2].leaf->data.off_diagonal.s;
+    const int m = parent1->children[which_child1].leaf->data.off_diagonal.m;
+    const int n = parent1->children[which_child1].leaf->data.off_diagonal.n;
 
     dgemm_("T", "N", &s1, &s2, &n, &alpha,
            parent1->children[which_child1].leaf->data.off_diagonal.v, &n,

@@ -22,6 +22,14 @@
 #define STR_LEN 10
 
 
+static inline void check_n_params(const int actual, const int allocd) {
+  if (actual != allocd) {
+    printf("PARAMETER SET-UP FAILED - allocated %d parameters but set %d\n",
+           allocd, actual);
+  }
+}
+
+
 struct ParametersTestHxH {
   struct TreeHODLR *hodlr1;
   struct TreeHODLR *hodlr2;
@@ -462,6 +470,184 @@ ParameterizedTest(struct ParametersSComponent *params, hodlr_hodlr_algebra,
   );
 
   cr_assert(eq(int, actual, params->expected));
+}
+
+
+struct ParametersHigherContribOffDiag {
+  int height;
+  int origin_idx;
+  int divisor;
+  struct TreeHODLR *hodlr_left;
+  struct TreeHODLR *hodlr_right;
+  struct HODLRInternalNode *parent_left;
+  int *restrict offsets1;
+  struct HODLRInternalNode *parent_right;
+  int *restrict offsets2;
+  struct NodeOffDiagonal *expected_tr;
+  struct NodeOffDiagonal *expected_bl;
+  int expected_offset_utr;
+  int expected_offset_vtr;
+};
+
+
+static void free_hcod_params(struct criterion_test_params *params) {
+  for (size_t i = 0; i < params->length; i++) {
+    struct ParametersHigherContribOffDiag *param = 
+      (struct ParametersHigherContribOffDiag *) params->params + i;
+
+    free_tree_hodlr(&param->hodlr_left, &cr_free);
+    free_tree_hodlr(&param->hodlr_right, &cr_free);
+    cr_free(param->offsets1);
+    cr_free(param->offsets2);
+
+    cr_free(param->expected_tr->u);
+    cr_free(param->expected_tr->v);
+    cr_free(param->expected_tr);
+
+    cr_free(param->expected_bl->u);
+    cr_free(param->expected_bl->v);
+    cr_free(param->expected_bl);
+  } 
+  cr_free(params->params);
+}
+
+
+static inline int generate_hcod_params(
+  struct ParametersHigherContribOffDiag *params
+) {
+  enum {n_params = 2};
+  const int height = 5, m = 67; const double svd_threshold = 1e-8;
+  int ierr;
+  double *matrix = cr_malloc(m * m * sizeof(double));
+
+  const int heights[n_params] = {0, 1};
+  const int origins[n_params] = {0, 0};
+  const int divs[n_params] = {1, 1};
+
+  const int ms[n_params] = {34, 17};
+  const int ss[n_params] = {0, 1};
+  const int ns[n_params] = {33, 17};
+
+  for (int i = 0; i < n_params; i++) {
+    params[i].height = heights[i];
+    params[i].origin_idx = origins[i];
+    params[i].divisor = divs[i];
+
+    params[i].hodlr_left = 
+      allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
+    params[i].hodlr_right = 
+      allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
+
+    fill_full_matrix(m, 0.0, matrix);
+    dense_to_tree_hodlr(params[i].hodlr_left, m, matrix, svd_threshold, &ierr,
+                        &cr_malloc, &cr_free);
+    fill_laplacian_matrix(m, matrix);
+    dense_to_tree_hodlr(params[i].hodlr_right, m, matrix, svd_threshold, &ierr,
+                        &cr_malloc, &cr_free);
+
+    params[i].offsets1 = cr_calloc(5, sizeof(int));
+    params[i].offsets2 = cr_calloc(5, sizeof(int));
+
+    params[i].expected_tr = cr_malloc(sizeof(struct NodeOffDiagonal));
+    params[i].expected_tr->m = ms[i];
+    params[i].expected_tr->s = ss[i];
+    params[i].expected_tr->n = ns[i];
+    params[i].expected_tr->u = cr_calloc(ms[i] * ss[i], sizeof(double));
+    params[i].expected_tr->v = cr_calloc(ns[i] * ss[i], sizeof(double));
+
+    params[i].expected_bl = cr_malloc(sizeof(struct NodeOffDiagonal));
+    params[i].expected_bl->m = ns[i];
+    params[i].expected_bl->s = ss[i];
+    params[i].expected_bl->n = ms[i];
+    params[i].expected_bl->u = cr_calloc(ns[i] * ss[i], sizeof(double));
+    params[i].expected_bl->v = cr_calloc(ms[i] * ss[i], sizeof(double));
+  }
+
+  int i = 0;
+  params[i].parent_left = params[i].hodlr_left->root;
+  params[i].parent_right = params[i].hodlr_right->root;
+  params[i].expected_offset_utr = 0;
+  params[i].expected_offset_vtr = 0;
+  i++;
+
+  params[i].parent_left = params[i].hodlr_left->root->children[0].internal;
+  params[i].parent_right = params[i].hodlr_right->root->children[0].internal;
+  params[i].expected_offset_utr = ms[i] * 1;
+  params[i].expected_offset_vtr = ns[i] * 1;
+  i++;
+
+  check_n_params(i, n_params);
+
+  return n_params;
+}
+
+
+ParameterizedTestParameters(hodlr_hodlr_algebra, 
+                            compute_higher_level_contributions_off_diagonal) {
+  enum {n_params = 2};
+  struct ParametersHigherContribOffDiag *params = 
+    cr_malloc(n_params * sizeof(struct ParametersHigherContribOffDiag));
+
+  int actual = generate_hcod_params(params);
+
+  check_n_params(actual, n_params);
+
+  return cr_make_param_array(struct ParametersHigherContribOffDiag, params, 
+                             n_params, free_hcod_params);
+}
+
+
+static inline struct NodeOffDiagonal * init_actual(
+  const struct NodeOffDiagonal *expected
+) {
+  struct NodeOffDiagonal *actual = malloc(sizeof(struct NodeOffDiagonal));
+
+  actual->m = expected->m;
+  actual->s = expected->s;
+  actual->n = expected->n;
+
+  actual->u = malloc(actual->m * actual->s * sizeof(double));
+  for (int j = 0; j < actual->s; j++) {
+    for (int i = 0; i < actual->m; i++) {
+      actual->u[i + j * actual->m] = 500.0;
+    }
+  }
+
+  actual->v = malloc(actual->n * actual->s * sizeof(double));
+  for (int j = 0; j < actual->s; j++) {
+    for (int i = 0; i < actual->n; i++) {
+      actual->v[i + j * actual->n] = 500.0;
+    }
+  }
+
+  return actual;
+}
+
+
+ParameterizedTest(struct ParametersHigherContribOffDiag *params, 
+                  hodlr_hodlr_algebra, 
+                  compute_higher_level_contributions_off_diagonal) {
+  struct NodeOffDiagonal *actual_tr = init_actual(params->expected_tr);
+  struct NodeOffDiagonal *actual_bl = init_actual(params->expected_bl);
+
+  int *offsets1 = calloc(2 * params->height, sizeof(int));
+  int *offsets2 = offsets1 + params->height;
+  int actual_offset_utr = -1, actual_offset_vtr = -1;
+  double *workspace = malloc(actual_tr->s * actual_bl->s * sizeof(double));
+
+  compute_higher_level_contributions_off_diagonal(
+    params->height, params->origin_idx, params->divisor, params->parent_left,
+    offsets1, params->parent_right, offsets2, actual_tr, actual_bl, workspace,
+    &actual_offset_utr, &actual_offset_vtr
+  );
+
+  cr_expect(eq(int, actual_offset_utr, params->expected_offset_utr));
+  cr_expect(eq(int, actual_offset_vtr, params->expected_offset_vtr));
+
+  expect_off_diagonal(actual_tr, params->expected_tr);
+  expect_off_diagonal(actual_bl, params->expected_bl);
+
+  free(actual_tr); free(actual_bl); free(offsets1); free(workspace);
 }
 
 
