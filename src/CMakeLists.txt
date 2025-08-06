@@ -22,7 +22,7 @@ endif()
 
 if(ASAN)
   message(STATUS "Building test_asan...")
-  add_executable(test_asan test.c)
+  add_executable(test_asan test.c ../tests/src/io.c)
   set_target_properties(test_asan PROPERTIES
     EXCLUDE_FROM_ALL $<NOT:$<CONFIG:Debug>>
   )
@@ -31,7 +31,7 @@ if(ASAN)
   target_link_libraries(test_asan hmat_lib)
 else()
   message(STATUS "Building test_unsafe...")
-  add_executable(test_unsafe test.c)
+  add_executable(test_unsafe test.c ../tests/src/io.c)
   set_target_properties(test_unsafe PROPERTIES
     EXCLUDE_FROM_ALL $<NOT:$<CONFIG:Debug>>
   )

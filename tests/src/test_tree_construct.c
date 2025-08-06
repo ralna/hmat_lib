@@ -220,8 +220,41 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
 }
 
 
+static inline int generate_block_size_params_uneven(
+  struct ParametersBlockSizes *params
+) {
+  enum {n_params = 2};
+  const int heights[n_params] = {2, 2};
+
+  for (int i = 0; i < n_params; i++) {
+    params[i].height = heights[i];
+    int n = (int)pow(2, heights[i]);
+    params[i].ms = cr_malloc(n * sizeof(int));
+    params[i].expected = cr_malloc((n - 1) * sizeof(int));
+  }
+
+  int idx = 0;
+  params[idx].m = 13044;
+  arrcpy(params[idx].ms, (int[]){3264, 3264, 3261, 3255}, 4);
+  arrcpy(params[idx].expected, (int[]){13044, 6528, 6516}, 3);
+  idx++;
+
+  params[idx].m = 10000;
+  arrcpy(params[idx].ms, (int[]){5000, 500, 1, 4499}, 4);
+  arrcpy(params[idx].expected, (int[]){10000, 5500, 4500}, 3);
+  idx++;
+
+  if (idx != n_params) {
+    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d\n",
+           n_params, idx);
+  }
+
+  return n_params;
+}
+
+
 ParameterizedTestParameters(constructors, block_sizes_custom) {
-  static int n_params = 26; 
+  const int n_params = 28; 
   struct ParametersBlockSizes *params = 
     cr_malloc(n_params * sizeof(struct ParametersBlockSizes));
 
@@ -293,8 +326,10 @@ ParameterizedTestParameters(constructors, block_sizes_custom) {
                  32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32},
          64);
 
+  actual += generate_block_size_params_uneven(params + actual);
+
   if (actual != n_params) {
-    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d",
+    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d\n",
            n_params, actual);
   }
 
@@ -533,7 +568,7 @@ ParameterizedTest(struct ParametersCopyDiag *params, constructors,
         queue[i]->children[0].leaf->data.diagonal.m,
         queue[i]->children[0].leaf->data.diagonal.m,
         params->expected_m[idx],
-        idx
+        idx, NULL, NULL
       );
     }
     idx++;
@@ -555,7 +590,7 @@ ParameterizedTest(struct ParametersCopyDiag *params, constructors,
         queue[i]->children[3].leaf->data.diagonal.m,
         queue[i]->children[3].leaf->data.diagonal.m,
         params->expected_m[idx],
-        idx
+        idx, NULL, NULL
       );
     }
     idx++;
@@ -720,11 +755,14 @@ ParameterizedTest(struct ParametersTestCompress *params, constructors,
   cr_expect(eq(int, result.s, params->expected_n_singular));
   cr_expect(eq(int, result.n, params->n));
 
-  expect_matrix_double_eq(result.u, params->u_expected, params->m, params->expected_n_singular,
-                          result.m, params->m, 'U');
-  expect_matrix_double_eq(result.v, params->v_expected, params->n, params->expected_n_singular,
-                          result.m, params->m, 'V');
-  
+  expect_matrix_double_eq(
+    result.u, params->u_expected, params->m, params->expected_n_singular,
+    result.m, params->m, 'U', NULL, NULL
+  );
+  expect_matrix_double_eq(
+    result.v, params->v_expected, params->n, params->expected_n_singular,
+    result.m, params->m, 'V', NULL, NULL
+  );
   free(result.u); free(result.v);
 }
 
@@ -772,8 +810,11 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, recompress) {
          &node.s, &alpha, node.u, &node.m, 
          node.v, &node.n, &beta, result, &params->m);
 
+  double norm, diffd;
   expect_matrix_double_eq(result, og_matrix, node.m, node.n, 
-                       node.m, params->m_full, 'A');
+                       node.m, params->m_full, 'A', &norm, &diffd);
+  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diffd),
+              sqrtf(diffd) / sqrtf(norm));
 
   free(og_data); free(result);
 }
