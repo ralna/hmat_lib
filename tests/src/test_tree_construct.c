@@ -2,6 +2,7 @@
 #define _TEST_HODLR 1
 #endif
 
+#include <stdio.h>
 #include <math.h>
 
 #include <criterion/criterion.h>
@@ -20,9 +21,22 @@
 
 static inline void check_allocd(const int actual, const int allocd) {
   if (actual != allocd) {
-    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d",
+    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d\n",
            allocd, actual);
   }
+}
+
+
+#define CREATE_SETUP_FUNC(STRUCT, FIELD) \
+static inline void FIELD##_setup( \
+  struct STRUCT *params, \
+  int *idx, \
+  int len, \
+  int src[] \
+) { \
+  params[*idx].FIELD = cr_malloc(len * sizeof(int)); \
+  for (int i = 0; i < len; i++) params[*idx].FIELD[i] = src[i]; \
+  (*idx)++; \
 }
 
 
@@ -40,28 +54,8 @@ static inline void arrcpy(int *dest, int src[], int len) {
 }
 
 
-static inline void arr_setup(
-  struct ParametersBlockSizes *params, 
-  int *idx, 
-  int len,
-  int src[]
-) {
-  params[*idx].expected = cr_malloc(len * sizeof(int));
-  for (int i = 0; i < len; i++) params[*idx].expected[i] = src[i];
-  (*idx)++;
-}
-
-
-static inline void ms_setup(
-  struct ParametersBlockSizes *params, 
-  int *idx, 
-  int len,
-  int src[]
-) {
-  params[*idx].ms = cr_malloc(len * sizeof(int));
-  for (int i = 0; i < len; i++) params[*idx].ms[i] = src[i];
-  (*idx)++;
-}
+CREATE_SETUP_FUNC(ParametersBlockSizes, expected)
+CREATE_SETUP_FUNC(ParametersBlockSizes, ms)
 
 
 void free_block_params(struct criterion_test_params *params) {
@@ -105,112 +99,112 @@ static int generate_block_size_params(struct ParametersBlockSizes *params) {
   check_allocd(idx, n_params);
   idx = 0;
 
-  arr_setup(params, &idx, 3, (int[]){8, 4, 4});
-  arr_setup(params, &idx, 3, (int[]){9, 5, 4});
-  arr_setup(params, &idx, 3, (int[]){11, 6, 5});
-  arr_setup(params, &idx, 3, (int[]){13, 7, 6});
+  expected_setup(params, &idx, 3, (int[]){8, 4, 4});
+  expected_setup(params, &idx, 3, (int[]){9, 5, 4});
+  expected_setup(params, &idx, 3, (int[]){11, 6, 5});
+  expected_setup(params, &idx, 3, (int[]){13, 7, 6});
 
-  arr_setup(params, &idx, 7, (int[]){8, 4, 4, 2, 2, 2, 2});
-  arr_setup(params, &idx, 7, (int[]){9, 5, 4, 3, 2, 2, 2});
-  arr_setup(params, &idx, 7, (int[]){11, 6, 5, 3, 3, 3, 2});
-  arr_setup(params, &idx, 7, (int[]){13, 7, 6, 4, 3, 3, 3});
+  expected_setup(params, &idx, 7, (int[]){8, 4, 4, 2, 2, 2, 2});
+  expected_setup(params, &idx, 7, (int[]){9, 5, 4, 3, 2, 2, 2});
+  expected_setup(params, &idx, 7, (int[]){11, 6, 5, 3, 3, 3, 2});
+  expected_setup(params, &idx, 7, (int[]){13, 7, 6, 4, 3, 3, 3});
 
-  arr_setup(params, &idx, 3, (int[]){139, 70, 69});
-  arr_setup(params, &idx, 3, (int[]){597, 299, 298});
-  arr_setup(params, &idx, 3, (int[]){2048, 1024, 1024});
-  arr_setup(params, &idx, 7, (int[]){139, 70, 69, 35, 35, 35, 34});
-  arr_setup(params, &idx, 7, 
-            (int[]){597, 299, 298, 150, 149, 149, 149});
-  arr_setup(params, &idx, 7, 
-            (int[]){2048, 1024, 1024, 512, 512, 512, 512});
-  arr_setup(
+  expected_setup(params, &idx, 3, (int[]){139, 70, 69});
+  expected_setup(params, &idx, 3, (int[]){597, 299, 298});
+  expected_setup(params, &idx, 3, (int[]){2048, 1024, 1024});
+  expected_setup(params, &idx, 7, (int[]){139, 70, 69, 35, 35, 35, 34});
+  expected_setup(params, &idx, 7, 
+                 (int[]){597, 299, 298, 150, 149, 149, 149});
+  expected_setup(params, &idx, 7, 
+                 (int[]){2048, 1024, 1024, 512, 512, 512, 512});
+  expected_setup(
     params, &idx, 15, 
     (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17}
   );
-  arr_setup(params, &idx, 15, 
-            (int[]){597, 299, 298, 150, 149, 149, 149, 
-                    75, 75, 75, 74, 75, 74, 75, 74});
-  arr_setup(params, &idx, 15, 
-            (int[]){2048, 1024, 1024, 512, 512, 512, 512,
-                    256, 256, 256, 256, 256, 256, 256, 256});
-  arr_setup(params, &idx, 31, 
-            (int[]){139, 70, 69, 35, 35, 35, 34, 18, 17, 18, 17, 18, 17, 17, 17,
-                9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8});
-  arr_setup(params, &idx, 31, 
-            (int[]){597, 299, 298, 150, 149, 149, 149, 
-                    75, 75, 75, 74, 75, 74, 75, 74,
-                    38, 37, 38, 37, 38, 37, 37, 37, 
-                    38, 37, 37, 37, 38, 37, 37, 37});
-  arr_setup(params, &idx, 31, 
-            (int[]){2048, 1024, 1024, 512, 512, 512, 512,
-                    256, 256, 256, 256, 256, 256, 256, 256,
-                    128, 128, 128, 128, 128, 128, 128, 128, 
-                    128, 128, 128, 128, 128, 128, 128, 128});
-  arr_setup(params, &idx, 63, 
-            (int[]){139, 70, 69, 35, 35, 35, 34, 
-                    18, 17, 18, 17, 18, 17, 17, 17,
-                    9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8,
-                    5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 5, 4, 5, 4, 4, 4, 
-                    5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4});
-  arr_setup(params, &idx, 63, 
-            (int[]){597, 299, 298, 150, 149, 149, 149, 
-                    75, 75, 75, 74, 75, 74, 75, 74,
-                    38, 37, 38, 37, 38, 37, 37, 37, 
-                    38, 37, 37, 37, 38, 37, 37, 37,
-                    19, 19, 19, 18, 19, 19, 19, 18,
-                    19, 19, 19, 18, 19, 18, 19, 18,
-                    19, 19, 19, 18, 19, 18, 19, 18,
-                    19, 19, 19, 18, 19, 18, 19, 18});
-  arr_setup(params, &idx, 63, 
-            (int[]){2048, 1024, 1024, 512, 512, 512, 512,
-                    256, 256, 256, 256, 256, 256, 256, 256,
-                    128, 128, 128, 128, 128, 128, 128, 128, 
-                    128, 128, 128, 128, 128, 128, 128, 128,
-                    64, 64, 64, 64, 64, 64, 64, 64, 
-                    64, 64, 64, 64, 64, 64, 64, 64, 
-                    64, 64, 64, 64, 64, 64, 64, 64, 
-                    64, 64, 64, 64, 64, 64, 64, 64});
-  arr_setup(params, &idx, 127, 
-            (int[]){139, 70, 69, 35, 35, 35, 34, 
-                    18, 17, 18, 17, 18, 17, 17, 17,
-                    9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8,
-                    5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 5, 4, 5, 4, 4, 4, 
-                    5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4,
-                    3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
-                    3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
-                    3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
-                    3, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
-            });
-  arr_setup(params, &idx, 127, 
-            (int[]){597, 299, 298, 150, 149, 149, 149, 
-                    75, 75, 75, 74, 75, 74, 75, 74,
-                    38, 37, 38, 37, 38, 37, 37, 37, 
-                    38, 37, 37, 37, 38, 37, 37, 37,
-                    19, 19, 19, 18, 19, 19, 19, 18,
-                    19, 19, 19, 18, 19, 18, 19, 18,
-                    19, 19, 19, 18, 19, 18, 19, 18,
-                    19, 19, 19, 18, 19, 18, 19, 18,
-                    10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 10, 9, 10, 9, 9, 9,
-                    10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9,
-                    10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9,
-                    10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9});
-  arr_setup(params, &idx, 127, 
-            (int[]){2048, 1024, 1024, 512, 512, 512, 512,
-                    256, 256, 256, 256, 256, 256, 256, 256,
-                    128, 128, 128, 128, 128, 128, 128, 128, 
-                    128, 128, 128, 128, 128, 128, 128, 128,
-                    64, 64, 64, 64, 64, 64, 64, 64, 
-                    64, 64, 64, 64, 64, 64, 64, 64, 
-                    64, 64, 64, 64, 64, 64, 64, 64, 
-                    64, 64, 64, 64, 64, 64, 64, 64,
-                    32, 32, 32, 32, 32, 32, 32, 32,
-                    32, 32, 32, 32, 32, 32, 32, 32,
-                    32, 32, 32, 32, 32, 32, 32, 32,
-                    32, 32, 32, 32, 32, 32, 32, 32,
-                    32, 32, 32, 32, 32, 32, 32, 32,
-                    32, 32, 32, 32, 32, 32, 32, 32,
-                    32, 32, 32, 32, 32, 32, 32, 32,
-                    32, 32, 32, 32, 32, 32, 32, 32});
+  expected_setup(params, &idx, 15, 
+                 (int[]){597, 299, 298, 150, 149, 149, 149, 
+                         75, 75, 75, 74, 75, 74, 75, 74});
+  expected_setup(params, &idx, 15, 
+                 (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+                         256, 256, 256, 256, 256, 256, 256, 256});
+  expected_setup(params, &idx, 31, 
+                 (int[]){139, 70, 69, 35, 35, 35, 34, 
+                         18, 17, 18, 17, 18, 17, 17, 17,
+                         9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8});
+  expected_setup(params, &idx, 31, 
+                 (int[]){597, 299, 298, 150, 149, 149, 149, 
+                         75, 75, 75, 74, 75, 74, 75, 74,
+                         38, 37, 38, 37, 38, 37, 37, 37, 
+                         38, 37, 37, 37, 38, 37, 37, 37});
+  expected_setup(params, &idx, 31, 
+                 (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+                         256, 256, 256, 256, 256, 256, 256, 256,
+                         128, 128, 128, 128, 128, 128, 128, 128, 
+                         128, 128, 128, 128, 128, 128, 128, 128});
+  expected_setup(params, &idx, 63, 
+                 (int[]){139, 70, 69, 35, 35, 35, 34, 
+                         18, 17, 18, 17, 18, 17, 17, 17,
+                         9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8,
+                         5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 5, 4, 5, 4, 4, 4, 
+                         5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4});
+  expected_setup(params, &idx, 63, 
+                 (int[]){597, 299, 298, 150, 149, 149, 149, 
+                         75, 75, 75, 74, 75, 74, 75, 74,
+                         38, 37, 38, 37, 38, 37, 37, 37, 
+                         38, 37, 37, 37, 38, 37, 37, 37,
+                         19, 19, 19, 18, 19, 19, 19, 18,
+                         19, 19, 19, 18, 19, 18, 19, 18,
+                         19, 19, 19, 18, 19, 18, 19, 18,
+                         19, 19, 19, 18, 19, 18, 19, 18});
+  expected_setup(params, &idx, 63, 
+                 (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+                         256, 256, 256, 256, 256, 256, 256, 256,
+                         128, 128, 128, 128, 128, 128, 128, 128, 
+                         128, 128, 128, 128, 128, 128, 128, 128,
+                         64, 64, 64, 64, 64, 64, 64, 64, 
+                         64, 64, 64, 64, 64, 64, 64, 64, 
+                         64, 64, 64, 64, 64, 64, 64, 64, 
+                         64, 64, 64, 64, 64, 64, 64, 64});
+  expected_setup(params, &idx, 127, 
+                 (int[]){139, 70, 69, 35, 35, 35, 34, 
+                         18, 17, 18, 17, 18, 17, 17, 17,
+                         9, 9, 9, 8, 9, 9, 9, 8, 9, 9, 9, 8, 9, 8, 9, 8,
+                         5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 5, 4, 5, 4, 4, 4, 
+                         5, 4, 5, 4, 5, 4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4,
+                         3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
+                         3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
+                         3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2,
+                         3, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2});
+  expected_setup(params, &idx, 127, 
+                 (int[]){597, 299, 298, 150, 149, 149, 149, 
+                         75, 75, 75, 74, 75, 74, 75, 74,
+                         38, 37, 38, 37, 38, 37, 37, 37, 
+                         38, 37, 37, 37, 38, 37, 37, 37,
+                         19, 19, 19, 18, 19, 19, 19, 18,
+                         19, 19, 19, 18, 19, 18, 19, 18,
+                         19, 19, 19, 18, 19, 18, 19, 18,
+                         19, 19, 19, 18, 19, 18, 19, 18,
+                         10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 10, 9, 10, 9, 9, 9,
+                         10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9,
+                         10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9,
+                         10, 9, 10, 9, 10, 9, 9, 9, 10, 9, 9, 9, 10, 9, 9, 9});
+  expected_setup(params, &idx, 127, 
+                 (int[]){2048, 1024, 1024, 512, 512, 512, 512,
+                         256, 256, 256, 256, 256, 256, 256, 256,
+                         128, 128, 128, 128, 128, 128, 128, 128, 
+                         128, 128, 128, 128, 128, 128, 128, 128,
+                         64, 64, 64, 64, 64, 64, 64, 64, 
+                         64, 64, 64, 64, 64, 64, 64, 64, 
+                         64, 64, 64, 64, 64, 64, 64, 64, 
+                         64, 64, 64, 64, 64, 64, 64, 64,
+                         32, 32, 32, 32, 32, 32, 32, 32,
+                         32, 32, 32, 32, 32, 32, 32, 32,
+                         32, 32, 32, 32, 32, 32, 32, 32,
+                         32, 32, 32, 32, 32, 32, 32, 32,
+                         32, 32, 32, 32, 32, 32, 32, 32,
+                         32, 32, 32, 32, 32, 32, 32, 32,
+                         32, 32, 32, 32, 32, 32, 32, 32,
+                         32, 32, 32, 32, 32, 32, 32, 32});
 
   check_allocd(idx, n_params);
 
@@ -328,11 +322,11 @@ static inline int generate_block_size_params_uneven(
 
   int idx1 = 0, idx2 = 0;
   ms_setup(params, &idx1, 4, (int[]){3264, 3264, 3261, 3255});
-  arr_setup(params, &idx2, 7, 
+  expected_setup(params, &idx2, 7, 
             (int[]){13044, 6528, 6516, 3264, 3264, 3261, 3255});
 
   ms_setup(params, &idx1, 4, (int[]){5000, 500, 1, 4499});
-  arr_setup(params, &idx2, 7, (int[]){10000, 5500, 4500, 5000, 500, 1, 4499});
+  expected_setup(params, &idx2, 7, (int[]){10000, 5500, 4500, 5000, 500, 1, 4499});
 
   check_allocd(idx1, n_params); check_allocd(idx2, n_params);
 
@@ -504,7 +498,7 @@ struct ParametersCopyDiag {
   double *matrix;
   long len;
   double **expected_data;
-  int *expected_m;
+  int *block_ms;
 };
 
 
@@ -517,7 +511,7 @@ void free_copy_diag_params(struct criterion_test_params *params) {
       cr_free(param->expected_data[j]);
     }
     cr_free(param->expected_data);
-    cr_free(param->expected_m);
+    cr_free(param->block_ms);
   }
   cr_free(params->params);
 }
@@ -542,98 +536,110 @@ static double * construct_diagonal_increasing(const int m, double start) {
 }
 
 
-static int fill_copy_diagonal_const(struct ParametersCopyDiag *params,
-                                    double *(*func)(int)) {
-  const int len_ms = 3;
-  const int ms[] = {21, 33, 64};
-
-  const int len_lens = 3;
-  const int lens[] = {2, 4, 8};
-
-  int idx = 0, m = 0, len = 0, m_smaller = 0, first_two = 0;
-  for (int midx = 0; midx < len_ms; midx++) {
-    for (int lidx = 0; lidx < len_lens; lidx++) {
-      m = ms[midx];
-      len = lens[lidx];
-
-      params[idx].m = m;
-      params[idx].len = len;
-      params[idx].matrix = func(m);
-
-      m_smaller = m / len;
-      params[idx].expected_m = cr_malloc(len * sizeof(int));
-      first_two = 2 * m_smaller + (m - len * m_smaller);
-      params[idx].expected_m[1] = first_two / 2;
-      params[idx].expected_m[0] = first_two - params[idx].expected_m[1];
-      for (int i = 2; i < len; i++) {
-        params[idx].expected_m[i] = m_smaller;
-      }
-
-      params[idx].expected_data = cr_malloc(len * sizeof(double *));
-      for (int i = 0; i < len; i++) {
-        params[idx].expected_data[i] = func(params[idx].expected_m[i]);
-      }
-      idx++;
-    }
-  }
-  return len_ms * len_lens;
+static inline double * laplacian_wrapper(int m, double _) {
+  return construct_laplacian_matrix(m);
 }
 
 
-static int fill_copy_diagonal_var(struct ParametersCopyDiag *params,
-                                  double *(*func)(int, double)) {
+static inline int generate_copy_diagonal_params_halves(
+  struct ParametersCopyDiag *params,
+  double *(*func)(int, double)
+) {
   const int len_ms = 3;
   const int ms[] = {21, 33, 64};
 
   const int len_lens = 3;
   const int lens[] = {2, 4, 8};
 
-  int idx = 0, m = 0, len = 0, m_smaller = 0, first_two = 0;
-  double start = 0.0;
+  int idx = 0;
 
   for (int midx = 0; midx < len_ms; midx++) {
     for (int lidx = 0; lidx < len_lens; lidx++) {
-      start = 0.0;
-      m = ms[midx];
-      len = lens[lidx];
+      const int m = ms[midx];
+      const int len = lens[lidx];
 
       params[idx].m = m;
       params[idx].len = len;
       params[idx].matrix = func(m, 0.0);
 
-      m_smaller = m / len;
-      params[idx].expected_m = cr_malloc(len * sizeof(int));
-      first_two = 2 * m_smaller + (m - len * m_smaller);
-      params[idx].expected_m[1] = first_two / 2;
-      params[idx].expected_m[0] = first_two - params[idx].expected_m[1];
+      const int m_smaller = m / len;
+      params[idx].block_ms = cr_malloc(len * sizeof(int));
+
+      const int first_two = 2 * m_smaller + (m - len * m_smaller);
+      params[idx].block_ms[1] = first_two / 2;
+      params[idx].block_ms[0] = first_two - params[idx].block_ms[1];
       for (int i = 2; i < len; i++) {
-        params[idx].expected_m[i] = m_smaller;
+        params[idx].block_ms[i] = m_smaller;
       }
 
+      double start = 0.0;
       params[idx].expected_data = cr_malloc(len * sizeof(double *));
       for (int i = 0; i < len; i++) {
-        params[idx].expected_data[i] = func(params[idx].expected_m[i], start);
-        start += params[idx].expected_m[i];
+        params[idx].expected_data[i] = func(params[idx].block_ms[i], start);
+        start += params[idx].block_ms[i];
       }
       idx++;
     }
   }
+
+  check_allocd(idx, len_ms * len_lens);
   return len_ms * len_lens;
 }
 
 
+CREATE_SETUP_FUNC(ParametersCopyDiag, block_ms)
+
+
+static inline int generate_copy_diagonal_params_custom(
+  struct ParametersCopyDiag *params
+) {
+  enum {n_params = 4};
+
+  const int ms[n_params] = {10, 22, 42, 128};
+  const long lens[n_params] = {2, 4, 8, 16};
+
+  int idx = 0;
+  block_ms_setup(params, &idx, 2, (int[]){6, 4});
+  block_ms_setup(params, &idx, 4, (int[]){20, 1, 1, 0});
+  block_ms_setup(params, &idx, 8, (int[]){3, 21, 6, 1, 4, 3, 3, 1});
+  block_ms_setup(params, &idx, 16, 
+                   (int[]){4, 16, 8, 4, 8, 4, 4, 8, 16, 8, 8, 8, 16, 4, 8, 4});
+
+  check_allocd(idx, n_params);
+
+  for (int i = 0; i < n_params; i++) {
+    params[i].m = ms[i];
+    params[i].len = lens[i];
+    params[i].matrix = construct_laplacian_matrix(ms[i]);
+
+    params[i].expected_data = cr_malloc(lens[i] * sizeof(double *));
+    for (int block = 0; block < lens[i]; block++) {
+      params[i].expected_data[block] = 
+        construct_laplacian_matrix(params[i].block_ms[block]);
+    }
+  }
+
+  return n_params;
+}
+
+
 ParameterizedTestParameters(constructors, copy_diagonal) {
-  const int n_params = 2*9; int actual_n_params = 0;
+  const int n_params = 2*9 + 4;
   struct ParametersCopyDiag *params = 
     cr_malloc(n_params * sizeof(struct ParametersCopyDiag));
 
-  actual_n_params += fill_copy_diagonal_const(params, &construct_laplacian_matrix);
-  actual_n_params += fill_copy_diagonal_var(params + actual_n_params, 
-                                            &construct_diagonal_increasing);
+  int actual_n_params = 
+    generate_copy_diagonal_params_halves(params, &laplacian_wrapper);
 
-  if (n_params != actual_n_params) {
-    printf("PARAMETER SETUP FAILED\n");
-  }
+  actual_n_params += generate_copy_diagonal_params_halves(
+    params + actual_n_params, &construct_diagonal_increasing
+  );
+
+  actual_n_params += 
+    generate_copy_diagonal_params_custom(params + actual_n_params);
+
+  check_allocd(actual_n_params, n_params);
+
   return cr_make_param_array(struct ParametersCopyDiag, params, n_params, 
                              free_copy_diag_params);
 }
@@ -651,8 +657,10 @@ ParameterizedTest(struct ParametersCopyDiag *params, constructors,
   for (int i = 0; i < n_parent_nodes; i++) {
     queue[i] = malloc(sizeof(struct HODLRInternalNode));
     queue[i]->children[0].leaf = malloc(sizeof(struct HODLRLeafNode));
+    queue[i]->children[0].leaf->data.diagonal.m = params->block_ms[2 * i];
+
     queue[i]->children[3].leaf = malloc(sizeof(struct HODLRLeafNode));
-    queue[i]->m = params->expected_m[2 * i] + params->expected_m[2 * i + 1];
+    queue[i]->children[3].leaf->data.diagonal.m = params->block_ms[2 * i + 1];
   }
 
   int ierr = SUCCESS, idx = 0;
@@ -662,60 +670,30 @@ ParameterizedTest(struct ParametersCopyDiag *params, constructors,
   cr_expect(eq(int, ierr, SUCCESS));
   
   for (int i = 0; i < n_parent_nodes; i++) {
-    if (queue[i]->children[0].leaf->data.diagonal.data == NULL) {
-      cr_fail("Data matrix for node %d (parent=%d, leaf=0) is NULL", idx, i);
-      break;
-    }
-    
-    if (queue[i]->children[0].leaf->data.diagonal.m != params->expected_m[idx]) {
-      cr_fail("Node %d (parent=%d, leaf=0) has different dimensions - "
-              "expected=%d, actual=%d", idx, i, 
-              queue[i]->children[0].leaf->data.diagonal.m, 
-              params->expected_m[idx]);
-    } else {
+    for (int child = 0; child < 4; child += 3) {
+      if (queue[i]->children[child].leaf->data.diagonal.data == NULL) {
+        cr_fail("Data matrix for node %d (parent=%d, leaf=0) is NULL", idx, i);
+        free(queue[i]->children[child].leaf);
+        continue;
+      }
+      
       expect_matrix_double_eq(
-        queue[i]->children[0].leaf->data.diagonal.data,
+        queue[i]->children[child].leaf->data.diagonal.data,
         params->expected_data[idx],
-        queue[i]->children[0].leaf->data.diagonal.m,
-        queue[i]->children[0].leaf->data.diagonal.m,
-        queue[i]->children[0].leaf->data.diagonal.m,
-        params->expected_m[idx],
+        queue[i]->children[child].leaf->data.diagonal.m,
+        queue[i]->children[child].leaf->data.diagonal.m,
+        queue[i]->children[child].leaf->data.diagonal.m,
+        params->block_ms[idx],
         idx, NULL, NULL
       );
-    }
-    idx++;
+      idx++;
 
-    if (queue[i]->children[3].leaf->data.diagonal.data == NULL) {
-      cr_fail("Data matrix for node %d (parent=%d, leaf=3) is NULL", idx, i);
-      break;
-    }
-    if (queue[i]->children[3].leaf->data.diagonal.m != params->expected_m[idx]) {
-      cr_fail("Node %d (parent=%d, leaf=0) has different dimensions - "
-              "expected=%d, actual=%d", idx, i, 
-              queue[i]->children[3].leaf->data.diagonal.m, 
-              params->expected_m[idx]);
-    } else {
-      expect_matrix_double_eq(
-        queue[i]->children[3].leaf->data.diagonal.data,
-        params->expected_data[idx],
-        queue[i]->children[3].leaf->data.diagonal.m,
-        queue[i]->children[3].leaf->data.diagonal.m,
-        queue[i]->children[3].leaf->data.diagonal.m,
-        params->expected_m[idx],
-        idx, NULL, NULL
-      );
-    }
-    idx++;
-  }
-
-  // Free 
-  for (int i = 0; i < n_parent_nodes; i++) {
-    for (int leaf = 0; leaf < 4; leaf+=3) {
-      free(queue[i]->children[leaf].leaf->data.diagonal.data);
-      free(queue[i]->children[leaf].leaf);
+      free(queue[i]->children[child].leaf->data.diagonal.data);
+      free(queue[i]->children[child].leaf);
     }
     free(queue[i]);
   }
+
   free(queue);
 }
 
