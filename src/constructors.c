@@ -585,12 +585,31 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
     *ierr = INPUT_ERROR;
     return 0;
   }
-  int m_smaller = m / 2;
-  int m_larger = m - m_smaller;
-  
   *ierr = SUCCESS;
 
-  int result = 0;
+  struct HODLRInternalNode **queue;
+  if (ms == NULL) {
+    queue = compute_block_sizes_halves(hodlr, m);
+  } else {
+    queue = compute_block_sizes_custom(hodlr, ms);
+    if (hodlr->root->m != m) {
+      *ierr = INPUT_ERROR;
+      return 0;
+    }
+  }
+
+#ifndef _TEST_HODLR
+  copy_diagonal_blocks(matrix, m, queue, hodlr->len_work_queue, ierr);
+#else
+  copy_diagonal_blocks(matrix, m, queue, hodlr->len_work_queue, ierr, malloc);
+#endif
+
+  if (*ierr != SUCCESS) {
+    return 0;
+  }
+
+  const int m_larger = hodlr->root->children[1].leaf->data.off_diagonal.m;
+  const int m_smaller = hodlr->root->children[1].leaf->data.off_diagonal.n;
 
   double *s = malloc(hodlr->height * m * sizeof(double));
   if (s == NULL) {
@@ -603,34 +622,9 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
     free(s);
     return 0;
   }
-
   double *vt = u + (4 * m_larger * m_smaller);
 
-  long n_parent_nodes = hodlr->len_work_queue; 
-
-  struct HODLRInternalNode **queue;
-  if (ms == NULL) {
-    queue = compute_block_sizes_halves(hodlr, m);
-  } else {
-    queue = compute_block_sizes_custom(hodlr, ms);
-    if (hodlr->root->m != m) {
-      *ierr = INPUT_ERROR;
-      free(s); free(u);
-      return 0;
-    }
-  }
-
-#ifndef _TEST_HODLR
-  copy_diagonal_blocks(matrix, m, queue, n_parent_nodes, ierr);
-#else
-  copy_diagonal_blocks(matrix, m, queue, n_parent_nodes, ierr, malloc);
-#endif
-
-  if (*ierr != SUCCESS) {
-    free(s); free(u);
-    return 0;
-  }
-
+  int result = 0;
   #pragma omp parallel
   {
     #pragma omp single
