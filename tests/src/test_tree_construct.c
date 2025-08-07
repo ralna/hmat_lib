@@ -44,6 +44,55 @@ static inline void FIELD##_setup( \
 }
 
 
+static inline void expect_block_sizes(
+  const int m_larger,
+  const int m_smaller,
+  struct HODLRInternalNode **queue,
+  const int level,
+  const int node,
+  const int eidx,
+  const bool internal
+) {
+  if (internal == true) {
+    cr_expect(
+      eq(int, queue[node]->children[0].internal->m, m_larger),
+      "internal @level=%d & node=%d (idx=%d)", level, node, eidx-2
+    );
+    cr_expect(
+      eq(int, queue[node]->children[3].internal->m, m_smaller),
+      "internal @level=%d & node=%d (idx=%d)", level, node, eidx-1
+    );
+  } else {
+    cr_expect(
+      eq(int, queue[node]->children[0].leaf->data.diagonal.m, m_larger),
+      "diagonal @level=%d & node=%d (idx=%d)", level, node, eidx-2
+    );
+    cr_expect(
+      eq(int, queue[node]->children[3].leaf->data.diagonal.m, m_smaller),
+      "diagonal @level=%d & node=%d (idx=%d)", level, node, eidx-1
+    );
+  }
+
+  cr_expect(
+    eq(int, queue[node]->children[1].leaf->data.off_diagonal.m, m_larger),
+    "off-diagonal @level=%d & node=%d (idx=%d)", level, node, eidx-2
+  );
+  cr_expect(
+    eq(int, queue[node]->children[1].leaf->data.off_diagonal.n, m_smaller),
+    "off-diagonal @level=%d & node=%d (idx=%d)", level, node, eidx-1
+  );
+
+  cr_expect(
+    eq(int, queue[node]->children[2].leaf->data.off_diagonal.m, m_smaller),
+    "off-diagonal @level=%d & node=%d (idx=%d)", level, node, eidx-1
+  );
+  cr_expect(
+    eq(int, queue[node]->children[2].leaf->data.off_diagonal.n, m_larger),
+    "off-diagonal @level=%d & node=%d (idx=%d)", level, node, eidx-2
+  );
+}
+
+
 struct ParametersBlockSizes {
   int height;
   int *ms;
@@ -261,14 +310,9 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
     q_next_node_density /= 2;
     for (int parent = 0; parent < len_queue; parent++) {
       qidx = parent * q_current_node_density;
-      cr_expect(eq(int, queue[qidx]->children[0].internal->m, 
-                   params->expected[eidx]),
-                "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
-      eidx++;
-      cr_expect(eq(int, queue[qidx]->children[3].internal->m, 
-                   params->expected[eidx]),
-                "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
-      eidx++;
+      expect_block_sizes(params->expected[eidx], params->expected[eidx+1], 
+                         queue, height, qidx, eidx+2, true);
+      eidx += 2;
 
       queue[(2 * parent + 1) * q_next_node_density] = 
         queue[qidx]->children[3].internal;
@@ -281,33 +325,7 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
   for (int parent = 0; parent < len_queue; parent++) {
     const int m_larger = params->expected[eidx]; eidx++;
     const int m_smaller = params->expected[eidx]; eidx++;
-
-    cr_expect(
-      eq(int, queue[parent]->children[0].leaf->data.diagonal.m, m_larger),
-      "@diagonal & node=%d (idx=%d)", parent, eidx-2
-    );
-    cr_expect(
-      eq(int, queue[parent]->children[3].leaf->data.diagonal.m, m_smaller),
-      "@diagonal & node=%d (idx=%d)", parent, eidx-1
-    );
-
-    cr_expect(
-      eq(int, queue[parent]->children[1].leaf->data.off_diagonal.m, m_larger),
-      "@diagonal & node=%d (idx=%d)", parent, eidx-2
-    );
-    cr_expect(
-      eq(int, queue[parent]->children[1].leaf->data.off_diagonal.n, m_smaller),
-      "@diagonal & node=%d (idx=%d)", parent, eidx-1
-    );
-
-    cr_expect(
-      eq(int, queue[parent]->children[2].leaf->data.off_diagonal.m, m_smaller),
-      "@diagonal & node=%d (idx=%d)", parent, eidx-1
-    );
-    cr_expect(
-      eq(int, queue[parent]->children[2].leaf->data.off_diagonal.n, m_larger),
-      "@diagonal & node=%d (idx=%d)", parent, eidx-2
-    );
+    expect_block_sizes(m_larger, m_smaller, queue, -1, parent, eidx, false);
   }
 
   free_tree_hodlr(&hodlr, &free);
@@ -444,14 +462,9 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
     q_next_node_density /= 2;
     for (int parent = 0; parent < len_queue; parent++) {
       qidx = parent * q_current_node_density;
-      cr_expect(eq(int, queue[qidx]->children[0].internal->m, 
-                   params->expected[eidx]),
-                "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
-      eidx++;
-      cr_expect(eq(int, queue[qidx]->children[3].internal->m, 
-                   params->expected[eidx]),
-                "@depth=%d & node=%d (idx=%d)", height, qidx, eidx);
-      eidx++;
+      expect_block_sizes(params->expected[eidx], params->expected[eidx+1], 
+                         queue, height, qidx, eidx+2, true);
+      eidx += 2;
 
       queue[(2 * parent + 1) * q_next_node_density] = 
         queue[qidx]->children[3].internal;
@@ -464,33 +477,7 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
   for (int parent = 0; parent < len_queue; parent++) {
     const int m_larger = params->expected[eidx]; eidx++;
     const int m_smaller = params->expected[eidx]; eidx++;
-
-    cr_expect(
-      eq(int, queue[parent]->children[0].leaf->data.diagonal.m, m_larger),
-      "@diagonal & node=%d (idx=%d)", parent, eidx-2
-    );
-    cr_expect(
-      eq(int, queue[parent]->children[3].leaf->data.diagonal.m, m_smaller),
-      "@diagonal & node=%d (idx=%d)", parent, eidx-1
-    );
-
-    cr_expect(
-      eq(int, queue[parent]->children[1].leaf->data.off_diagonal.m, m_larger),
-      "@diagonal & node=%d (idx=%d)", parent, eidx-2
-    );
-    cr_expect(
-      eq(int, queue[parent]->children[1].leaf->data.off_diagonal.n, m_smaller),
-      "@diagonal & node=%d (idx=%d)", parent, eidx-1
-    );
-
-    cr_expect(
-      eq(int, queue[parent]->children[2].leaf->data.off_diagonal.m, m_smaller),
-      "@diagonal & node=%d (idx=%d)", parent, eidx-1
-    );
-    cr_expect(
-      eq(int, queue[parent]->children[2].leaf->data.off_diagonal.n, m_larger),
-      "@diagonal & node=%d (idx=%d)", parent, eidx-2
-    );
+    expect_block_sizes(m_larger, m_smaller, queue, -1, parent, eidx, false);
   }
 
   free_tree_hodlr(&hodlr, &free);
