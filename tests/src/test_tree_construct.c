@@ -2,8 +2,9 @@
 #define _TEST_HODLR 1
 #endif
 
-#include <stdio.h>
 #include <math.h>
+#include <stdio.h>
+#include <string.h>
 
 #include <criterion/criterion.h>
 #include <criterion/parameterized.h>
@@ -17,6 +18,9 @@
 #include "../../include/error.h"
 #include "../../include/blas_wrapper.h"
 #include "../../include/tree.h"
+
+
+#define STR_LEN 10
 
 
 static inline void check_allocd(const int actual, const int allocd) {
@@ -708,6 +712,7 @@ struct ParametersTestCompress {
   double *u_expected;
   double *v_expected;
   double *full_matrix;
+  char name[STR_LEN];
 };
 
 
@@ -724,16 +729,16 @@ void free_compress_params(struct criterion_test_params *params) {
 
 
 struct ParametersTestCompress * generate_compress_params(int * len) {
-  enum {n_params = 6};
+  enum {n_params = 7};
   *len = n_params;
   struct ParametersTestCompress *params = 
     cr_malloc(n_params * sizeof(struct ParametersTestCompress));
 
   const double svd_threshold = 1e-8;
-  const int m_fulls[n_params] = {10, 11, 11, 10, 18, 7};
-  const int ms[n_params] = {5, 5, 6, 5, 5, 7};
-  const int ns[n_params] = {5, 6, 5, 5, 4, 7};
-  const int ss[n_params] = {1, 1, 2, 2, 1, 1};
+  const int m_fulls[n_params] = {10, 11, 11, 10, 18, 7, 13};
+  const int ms[n_params] = {5, 5, 6, 5, 5, 7, 4};
+  const int ns[n_params] = {5, 6, 5, 5, 4, 7, 9};
+  const int ss[n_params] = {1, 1, 2, 2, 1, 1, 1};
 
   for (int i = 0; i < n_params; i++) {
     params[i].m_full = m_fulls[i];
@@ -741,21 +746,25 @@ struct ParametersTestCompress * generate_compress_params(int * len) {
     params[i].n = ns[i];
     params[i].svd_threshold = svd_threshold;
     params[i].expected_n_singular = ss[i];
-    params[i].u_expected = cr_calloc(params[i].m * params[i].expected_n_singular, sizeof(double));
-    params[i].v_expected = cr_calloc(params[i].expected_n_singular * params[i].n, sizeof(double));
+    params[i].u_expected = 
+      cr_calloc(params[i].m * params[i].expected_n_singular, sizeof(double));
+    params[i].v_expected = 
+      cr_calloc(params[i].expected_n_singular * params[i].n, sizeof(double));
   }
 
   int idx = 0;
 
   // Laplacian matrix bottom left quarter
+  strncat(params[idx].name, "L_bl", STR_LEN);
   params[idx].full_matrix = construct_laplacian_matrix(params[idx].m_full);
   params[idx].matrix = params[idx].full_matrix + params[idx].m;
-  params[idx].u_expected[idx] = 1.0;
-  params[idx].v_expected[idx] = -0.0;
+  params[idx].u_expected[0] = 1.0;
+  params[idx].v_expected[0] = -0.0;
   params[idx].v_expected[params[idx].n - 1] = -1.0;
   idx++;
 
   // Laplacian matrix top right quarter
+  strncat(params[idx].name, "L_tr", STR_LEN);
   params[idx].full_matrix = construct_laplacian_matrix(params[idx].m_full);
   params[idx].matrix = 
     params[idx].full_matrix + params[idx].m_full * params[idx].m;
@@ -770,6 +779,7 @@ struct ParametersTestCompress * generate_compress_params(int * len) {
   }
 
   // Laplacian matrix with corners bottom left quarter
+  strncat(params[idx].name, "L0.5S_bl", STR_LEN);
   params[idx].matrix = params[idx].full_matrix + params[idx].n;
   params[idx].u_expected[0] = 1.0;
   params[idx].u_expected[2 * params[idx].m - 1] = -0.5;
@@ -779,6 +789,7 @@ struct ParametersTestCompress * generate_compress_params(int * len) {
   idx++;
 
   // Laplacian matrix with corners top right quarter
+  strncat(params[idx].name, "L0.5S_tr", STR_LEN);
   params[idx].matrix = 
     params[idx].full_matrix + params[idx].m_full * params[idx].m;
   params[idx].u_expected[params[idx].m - 1] = 1.0;
@@ -789,22 +800,29 @@ struct ParametersTestCompress * generate_compress_params(int * len) {
   idx++;
 
   // Identity matrix
+  strncat(params[idx].name, "I", STR_LEN);
   params[idx].full_matrix = construct_identity_matrix(params[idx].m_full);
   params[idx].matrix = params[idx].full_matrix + params[idx].m;
   params[idx].v_expected[0] = 1.0;
   idx++;
 
   // Zeros matrix
+  strncat(params[idx].name, "0", STR_LEN);
   params[idx].full_matrix = cr_calloc(params[idx].m_full * params[idx].m_full, 
                                       sizeof(double));
   params[idx].matrix = params[idx].full_matrix;
   params[idx].v_expected[0] = 1.0;
   idx++;
 
-  if (idx != n_params) {
-    printf("PARAMETER SET-UP FAILED - allocated %d parameters but set %d\n",
-           n_params, idx);
-  }
+  // Laplacian matrix bottom left quarter uneven
+  strncat(params[idx].name, "L_skew", STR_LEN);
+  params[idx].full_matrix = construct_laplacian_matrix(params[idx].m_full);
+  params[idx].matrix = params[idx].full_matrix + params[idx].n;
+  params[idx].u_expected[0] = 1.0;
+  params[idx].v_expected[params[idx].n - 1] = -1.0;
+  idx++;
+
+  check_allocd(idx, n_params);
 
   return params;
 }
@@ -813,22 +831,28 @@ struct ParametersTestCompress * generate_compress_params(int * len) {
 ParameterizedTestParameters(constructors, test_compress) {
   int n_params;
   struct ParametersTestCompress *params = generate_compress_params(&n_params);
-  return cr_make_param_array(struct ParametersTestCompress, params, n_params, free_compress_params);
+  return cr_make_param_array(struct ParametersTestCompress, params, n_params, 
+                             free_compress_params);
 }
 
 
 ParameterizedTest(struct ParametersTestCompress *params, constructors, 
                   test_compress) {
+  cr_log_info("%s: m=%d, n=%d, expected s=%d", 
+              params->name, params->m, params->n, params->expected_n_singular);
+
   struct NodeOffDiagonal result;
+  result.m = params->m; result.n = params->n;
+
   int ierr = SUCCESS;
-  int n_singular_values = params->m < params->n ? params->m : params->n;
+  const int n_singular_values = params->m < params->n ? params->m : params->n;
   
   double *s_work = malloc(n_singular_values * sizeof(double));
   double *u_work = malloc(params->m * n_singular_values * sizeof(double));
   double *vt_work = malloc(params->n * n_singular_values * sizeof(double));
 
   int result_code = compress_off_diagonal(
-      &result, params->m, params->n, n_singular_values, params->m_full, 
+      &result, n_singular_values, params->m_full, 
       params->matrix, s_work, u_work, vt_work, params->svd_threshold, &ierr,
       &malloc
   );
@@ -841,9 +865,7 @@ ParameterizedTest(struct ParametersTestCompress *params, constructors,
     free(result.u); free(result.v);
     cr_fatal();
   } 
-  cr_expect(eq(int, result.m, params->m));
   cr_expect(eq(int, result.s, params->expected_n_singular));
-  cr_expect(eq(int, result.n, params->n));
 
   expect_matrix_double_eq(
     result.u, params->u_expected, params->m, params->expected_n_singular,
@@ -857,19 +879,26 @@ ParameterizedTest(struct ParametersTestCompress *params, constructors,
 }
 
 
-ParameterizedTestParameters(tree, recompress) {
+ParameterizedTestParameters(constructors, recompress) {
   int n_params;
   struct ParametersTestCompress *params = generate_compress_params(&n_params);
-  return cr_make_param_array(struct ParametersTestCompress, params, n_params, free_compress_params);
+  return cr_make_param_array(struct ParametersTestCompress, params, n_params, 
+                             free_compress_params);
 }
 
 
-ParameterizedTest(struct ParametersTestCompress *params, tree, recompress) {
-  struct NodeOffDiagonal node;
-  int ierr = SUCCESS;
-  double alpha = 1, beta = 0;
+ParameterizedTest(struct ParametersTestCompress *params, 
+                  constructors, recompress) {
+  cr_log_info("%s: m=%d, n=%d, expected s=%d", 
+              params->name, params->m, params->n, params->expected_n_singular);
 
-  int n_singular_values = params->m < params->n ? params->m : params->n;
+  struct NodeOffDiagonal node;
+  node.m = params->m; node.n = params->n;
+
+  int ierr = SUCCESS;
+  const double alpha = 1, beta = 0;
+
+  const int n_singular_values = params->m < params->n ? params->m : params->n;
   
   int diff = params->matrix - params->full_matrix;
   double *og_data = malloc(params->m_full * params->m_full * sizeof(double));
@@ -881,15 +910,15 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, recompress) {
   double *vt_work = malloc(params->n * n_singular_values * sizeof(double));
 
   int result_code = compress_off_diagonal(
-      &node, params->m, params->n, n_singular_values, params->m_full, 
+      &node, n_singular_values, params->m_full, 
       params->matrix, s_work, u_work, vt_work, params->svd_threshold,
       &ierr, &malloc
   );
   
   free(s_work); free(u_work); free(vt_work);
   
-  cr_expect(eq(ierr, SUCCESS));
-  cr_expect(eq(result_code, 0));
+  cr_expect(eq(int, ierr, SUCCESS));
+  cr_expect(eq(int, result_code, 0));
   if (result_code != 0 || ierr != SUCCESS) {
     free(og_data);
     cr_fatal();
@@ -899,24 +928,15 @@ ParameterizedTest(struct ParametersTestCompress *params, tree, recompress) {
   dgemm_("N", "T", &node.m, &node.n, 
          &node.s, &alpha, node.u, &node.m, 
          node.v, &node.n, &beta, result, &params->m);
+  free(node.u); free(node.v);
 
   double norm, diffd;
   expect_matrix_double_eq(result, og_matrix, node.m, node.n, 
-                       node.m, params->m_full, 'A', &norm, &diffd);
+                          node.m, params->m_full, 'A', &norm, &diffd);
   cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diffd),
               sqrtf(diffd) / sqrtf(norm));
 
   free(og_data); free(result);
-}
-
-
-Test(tree, allocate_fail) {
-  int ierr;
-
-  struct TreeHODLR *hodlr = allocate_tree(0, &ierr);
-
-  cr_expect(eq(ierr, INPUT_ERROR));
-  cr_expect(eq(hodlr, NULL));
 }
 
 
@@ -1048,8 +1068,8 @@ ParameterizedTest(struct ParametersTestDense *params,
 
   struct TreeHODLR *result = allocate_tree_monolithic(params->height, &ierr,
                                                       &malloc, &free);
-  cr_expect(eq(ierr, SUCCESS));
-  cr_expect(ne(result, NULL));
+  cr_expect(eq(int, ierr, SUCCESS));
+  cr_expect(ne(ptr, result, NULL));
   if (ierr != SUCCESS) {
     cr_fatal("Tree HODLR allocation failed");
   }
@@ -1059,7 +1079,7 @@ ParameterizedTest(struct ParametersTestDense *params,
     &malloc, &free
   );
   
-  cr_expect(eq(ierr, SUCCESS));
+  cr_expect(eq(int, ierr, SUCCESS));
   cr_expect(zero(svd));
   if (ierr != SUCCESS) {
     free_tree_hodlr(&result, &free);
