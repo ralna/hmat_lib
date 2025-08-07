@@ -1,20 +1,9 @@
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "../include/lapack_wrapper.h"
+#include "../include/blas_wrapper.h"
 #include "../include/tree.h"
 #include "../include/error.h"
-
-
-static void print_matrix(int m, int n, double *matrix, int lda) {
-  for (int i=0; i<m; i++) {
-    for (int j=0; j < n; j++) {
-      printf("%f    ", matrix[j * lda + i]);
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
 
 
 /**
@@ -153,55 +142,47 @@ static struct HODLRInternalNode ** compute_block_sizes_custom(
  * :param matrix: Pointer to the array holding the dense matrix from which to 
  *                copy data. Must be an ``m`` x ``m`` square 2D column-major 
  *                matrix. Must not be NULL; otherwise is undefined.
- * :param m: The number of rows and columns of ``matrix``.
+ * :param matrix_ld: The number of rows and columns of ``matrix``.
  * :param queue: Pointer to an array of internal nodes. Must be of length 
- *               ``n_parent_nodes``
+ *               ``len_queue`` and fully filled by the lowest-level internal
+ *               nodes.
+ * :param len_queue: The length of the ``len_queue`` array.
+ * :param ierr: Error code corresponding to :c:enum:`ErrorCode`. On 
+ *              successful completion of the function, 
+ *              :c:enum:`ErrorCode.SUCCESS` is returned. Otherwise,
+ *              a corresponding error code is set.
+ *              Must NOT be ``NULL`` pointer - passing in ``NULL``
+ *              as ``ierr`` is undefined behaviour.
  */
 static void copy_diagonal_blocks(double *restrict matrix,
-                                 int m,
+                                 int matrix_ld,
                                  struct HODLRInternalNode **restrict queue,
-                                 long n_parent_nodes,
+                                 long len_queue,
                                  int *restrict ierr
 #ifdef _TEST_HODLR
                                  , void *(*malloc)(size_t size)
 #endif
                                  ) {
-  int m_larger = 0, m_smaller = 0, offset = 0;
-  double *data = NULL;
+  int offset = 0;
 
-  for (int parent = 0; parent < n_parent_nodes; parent++) {
-    m_smaller = queue[parent]->m / 2;
-    m_larger = queue[parent]->m - m_smaller;
+  for (int parent = 0; parent < len_queue; parent++) {
+    for (int child = 0; child < 4; child += 3) {
+      const int m = queue[parent]->children[child].leaf->data.diagonal.m;
 
-    data = malloc(m_larger * m_larger * sizeof(double));
-    if (data == NULL) {
-      *ierr = ALLOCATION_FAILURE;
-      return;
-    }
-    for (int j = 0; j < m_larger; j++) {
-      for (int i = 0; i < m_larger; i++) {
-        data[i + j * m_larger] = matrix[i + offset + (j + offset) * m];
+      double *data = malloc(m * m * sizeof(double));
+      if (data == NULL) {
+        *ierr = ALLOCATION_FAILURE;
+        return;
       }
-    }
-    queue[parent]->children[0].leaf->data.diagonal.data = data;
-    queue[parent]->children[0].leaf->data.diagonal.m = m_larger;
-
-    offset += m_larger;
-
-    data = malloc(m_smaller * m_smaller * sizeof(double));
-    if (data == NULL) {
-      *ierr = ALLOCATION_FAILURE;
-      return;
-    }
-    for (int j = 0; j < m_smaller; j++) {
-      for (int i = 0; i < m_smaller; i++) {
-        data[i + j * m_smaller] = matrix[i + offset + (j + offset) * m];
+      for (int j = 0; j < m; j++) {
+        for (int i = 0; i < m; i++) {
+          data[i + j * m] = matrix[i + offset + (j + offset) * matrix_ld];
+        }
       }
-    }
-    queue[parent]->children[3].leaf->data.diagonal.data = data;
-    queue[parent]->children[3].leaf->data.diagonal.m = m_smaller;
+      queue[parent]->children[child].leaf->data.diagonal.data = data;
 
-    offset += m_smaller;
+      offset += m;
+    }
   }
 }
 
