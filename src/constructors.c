@@ -194,9 +194,8 @@ static void copy_diagonal_blocks(double *restrict matrix,
  * and saves the the significant parts of the U and V matrices
  * on a off-diagonal node.
  *
- * :param node: The node to which to save the results.
- * :param m: The number of rows of the ``lapack_matrix`` matrix.
- * :param n: The number of columns of the ``lapack_matrix`` matrix.
+ * :param node: The node to which to save the results. Must have its ``m`` and
+ *              ``n`` values set.
  * :param n_singular_values: The number of singular values returned
  *                           by the compact SVD. I.e. the smaller
  *                           value between ``m`` and ``n``.
@@ -234,8 +233,6 @@ static void copy_diagonal_blocks(double *restrict matrix,
  * :return: The return code from the SVD routine.
  */
 static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
-                                 const int m, 
-                                 const int n, 
                                  const int n_singular_values,
                                  const int matrix_leading_dim,
                                  double *restrict lapack_matrix,
@@ -248,11 +245,9 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
                                  , void *(*malloc)(size_t size)
 #endif
                                  ) {
-  //printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
-  //print_matrix(matrix_leading_dim, matrix_leading_dim, lapack_matrix - 5);
+  const int m = node->m, n = node->n;
   int result = svd_double(m, n, n_singular_values, matrix_leading_dim, 
                           lapack_matrix, s, u, vt, ierr);
-  //printf("svd result %d\n", result);
   if (*ierr != SUCCESS) {
     return result;
   }
@@ -274,11 +269,9 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
   }
   for (int i=0; i<svd_cutoff_idx; i++) {
     for (int j=0; j<m; j++) {
-      //printf("i=%d, j=%d, idx=%d\n", i, j, j + i * m);
       u_top_right[j + i * m] = u[j + i * m] * s[i];
     }
   }
-  //print_matrix(svd_cutoff_idx, m, u_top_right);
 
   double *v_store = malloc(svd_cutoff_idx * n * sizeof(double));
   if (v_store == NULL) {
@@ -291,14 +284,10 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
       v_store[j + i * n] = vt[i + j * n_singular_values];
     }
   }
-  //print_matrix(n, svd_cutoff_idx, v_store);
 
   node->u = u_top_right;
   node->v = v_store;
-
-  node->m = m;
   node->s = svd_cutoff_idx;
-  node->n = n;
 
   return result;
 }
@@ -369,8 +358,6 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
                            ) {
   long n_parent_nodes = hodlr->len_work_queue;
   int offset_matrix = 0, offset_s = 0, offset_u = 0;
-  int m_smaller = 0, m_larger = 0;
-  double *sub_matrix_pointer = NULL;
   struct NodeOffDiagonal *node = NULL;
   int result = 0, final_result = 0;
 
@@ -380,21 +367,20 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
   
     for (int parent = 0; parent < n_parent_nodes; parent++) {
       for (int child = 2 * parent; child < 2 * parent + 2; child++) {
-        m_smaller = queue[child]->m / 2;
-        m_larger = queue[child]->m - m_smaller;
-
-        sub_matrix_pointer = matrix + offset_matrix + m * (offset_matrix + m_larger);
         node = &(queue[child]->children[1].leaf->data.off_diagonal);
+        const int m_larger = node->m, m_smaller = node->n;
+
+        double *sub_matrix_pointer = 
+          matrix + offset_matrix + m * (offset_matrix + m_larger);
 
 #ifndef _TEST_HODLR
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
 #else
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
+#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
 #endif
         {
           result = compress_off_diagonal(
-            node, 
-            m_larger, m_smaller, m_smaller, m, sub_matrix_pointer,
+            node, m_smaller, m, sub_matrix_pointer,
             s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
 #ifdef _TEST_HODLR
             , malloc
@@ -420,14 +406,13 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
         node = &(queue[child]->children[2].leaf->data.off_diagonal);
 
 #ifndef _TEST_HODLR
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
 #else
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
+#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
 #endif
         {
           result = compress_off_diagonal(
-            node, 
-            m_smaller, m_larger, m_smaller, m, sub_matrix_pointer, 
+            node, m_smaller, m, sub_matrix_pointer, 
             s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
 #ifdef _TEST_HODLR
             , malloc
@@ -454,20 +439,18 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
     }
   }
 
-  m_smaller = queue[0]->m / 2;
-  m_larger = queue[0]->m - m_smaller;
+  node = &(queue[0]->children[1].leaf->data.off_diagonal);
+  const int m_larger = node->m, m_smaller = node->n;
 
-  sub_matrix_pointer = matrix + m * m_larger;
-  node = &(queue[0]->children[1].leaf->data.off_diagonal); 
+  double *sub_matrix_pointer = matrix + m * m_larger;
 #ifndef _TEST_HODLR
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
 #else
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
+#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
 #endif
   {
     result = compress_off_diagonal(
-      node, 
-      m_larger, m_smaller, m_smaller, m, sub_matrix_pointer,
+      node, m_smaller, m, sub_matrix_pointer,
       s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
 #ifdef _TEST_HODLR
       , malloc
@@ -491,14 +474,13 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
   node = &(queue[0]->children[2].leaf->data.off_diagonal);
 
 #ifndef _TEST_HODLR
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
 #else
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
+#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
 #endif
   {
     result = compress_off_diagonal(
-      node, 
-      m_smaller, m_larger, m_smaller, m, sub_matrix_pointer, 
+      node, m_smaller, m, sub_matrix_pointer, 
       s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
 #ifdef _TEST_HODLR
       , malloc

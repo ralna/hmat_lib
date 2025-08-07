@@ -43,6 +43,16 @@ Test(allocators, initialise_internal) {
 }
 
 
+Test(tree, allocate_fail) {
+  int ierr;
+
+  struct TreeHODLR *hodlr = allocate_tree(0, &ierr);
+
+  cr_expect(eq(ierr, INPUT_ERROR));
+  cr_expect(eq(hodlr, NULL));
+}
+
+
 struct ParametersArraySizes {
   int height;
 
