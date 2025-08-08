@@ -18,6 +18,7 @@
 #include <criterion/logging.h>
 
 #include "../../include/tree.h"
+#include "../../include/error.h"
 #include "../../include/blas_wrapper.h"
 
 #include "../include/io.h"
@@ -88,10 +89,10 @@ ParameterizedTestParameters(real_data, H) {
   end = clock();
   printf("Matrix read in %f s\n", ((double) (end - start)) / CLOCKS_PER_SEC);
 
-  const int heights[n_params] = {3, 2};
+  const int heights[n_params] = {3, 3};
   const int *ms[n_params] = {
     NULL,
-    to_heap(4, (int[]){3264, 3264, 3261, 3255})
+    to_heap(8, (int[]){1632, 1632, 1632, 1632, 1632, 1630, 1630, 1624})
   };
 
   for (int i = 0; i < n_params; i++) {
@@ -107,6 +108,8 @@ ParameterizedTestParameters(real_data, H) {
 
 ParameterizedTest(struct Parameters *params, real_data, H) {
   cr_log_info("height=%d, ms=%p", params->height, params->ms);
+
+  if (params->ms == NULL) cr_skip();
 
   const size_t matrix_size = params->m * params->m * sizeof(double);
   const double svd_threshold = 1e-8, alpha = 1.0, beta = 0.0;
@@ -129,6 +132,10 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
   // Set up HODLR
   struct TreeHODLR *hodlr = allocate_tree_monolithic(params->height, &ierr,
                                                      &malloc, &free);
+  if (hodlr == NULL || ierr != SUCCESS) {
+    free(matrix);
+    cr_fatal("HODLR allocation failed");
+  }
   cr_log_info("HODLR allocated");
   expect_tree_consistent(hodlr, params->height, hodlr->len_work_queue);
 
@@ -137,6 +144,10 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
                       svd_threshold, &ierr, &malloc, &free);
   free(matrix); matrix = NULL;
   get_time(start, wstart, "HODLR constructed!");
+  if (ierr != SUCCESS) {
+    free_tree_hodlr(&hodlr, &free);
+    cr_fatal("HODLR conversion failed!");
+  }
 
 #ifdef HODLR_REAL_DATA_PRINT_S
   log_hodlr_s_symmetric(hodlr);

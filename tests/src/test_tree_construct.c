@@ -25,8 +25,8 @@
 
 static inline void check_allocd(const int actual, const int allocd) {
   if (actual != allocd) {
-    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d\n",
-           allocd, actual);
+    cr_log_error("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d\n",
+                 allocd, actual);
   }
 }
 
@@ -98,13 +98,6 @@ struct ParametersBlockSizes {
   int *ms;
   int *expected;
 };
-
-
-static inline void arrcpy(int *dest, int src[], int len) {
-  for (int i = 0; i < len; i++) {
-    dest[i] = src[i];
-  }
-}
 
 
 CREATE_SETUP_FUNC(ParametersBlockSizes, expected)
@@ -266,16 +259,13 @@ static int generate_block_size_params(struct ParametersBlockSizes *params) {
 
 
 ParameterizedTestParameters(constructors, block_sizes_halves) {
-  static int n_params = 26; 
+  const int n_params = 26; 
   struct ParametersBlockSizes *params = 
     cr_malloc(n_params * sizeof(struct ParametersBlockSizes));
 
   int actual = generate_block_size_params(params);
 
-  if (actual != n_params) {
-    printf("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d",
-           n_params, actual);
-  }
+  check_allocd(actual, n_params);
 
   return cr_make_param_array(struct ParametersBlockSizes, params, n_params, 
                              free_block_params);
@@ -297,6 +287,11 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
 
   struct HODLRInternalNode **queue = 
     compute_block_sizes_halves(hodlr, params->expected[0]);
+
+  for (int parent = 0; parent < hodlr->len_work_queue; parent++) {
+    cr_expect(eq(ptr, queue[parent], 
+                 hodlr->innermost_leaves[2 * parent]->parent));
+  }
 
   long q_next_node_density = hodlr->len_work_queue;
   long q_current_node_density = q_next_node_density;
@@ -335,8 +330,8 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
 static inline int generate_block_size_params_uneven(
   struct ParametersBlockSizes *params
 ) {
-  enum {n_params = 2};
-  const int heights[n_params] = {2, 2};
+  enum {n_params = 3};
+  const int heights[n_params] = {2, 2, 3};
 
   for (int i = 0; i < n_params; i++) {
     params[i].height = heights[i];
@@ -345,10 +340,16 @@ static inline int generate_block_size_params_uneven(
   int idx1 = 0, idx2 = 0;
   ms_setup(params, &idx1, 4, (int[]){3264, 3264, 3261, 3255});
   expected_setup(params, &idx2, 7, 
-            (int[]){13044, 6528, 6516, 3264, 3264, 3261, 3255});
+                 (int[]){13044, 6528, 6516, 3264, 3264, 3261, 3255});
 
   ms_setup(params, &idx1, 4, (int[]){5000, 500, 1, 4499});
-  expected_setup(params, &idx2, 7, (int[]){10000, 5500, 4500, 5000, 500, 1, 4499});
+  expected_setup(params, &idx2, 7, 
+                 (int[]){10000, 5500, 4500, 5000, 500, 1, 4499});
+
+  ms_setup(params, &idx1, 8,
+           (int[]){10, 11, 1, 9, 5, 20, 7, 6});
+  expected_setup(params, &idx2, 15,
+                 (int[]){69, 31, 38, 21, 10, 25, 13, 10, 11, 1, 9, 5, 20, 7, 6});
 
   check_allocd(idx1, n_params); check_allocd(idx2, n_params);
 
@@ -357,7 +358,7 @@ static inline int generate_block_size_params_uneven(
 
 
 ParameterizedTestParameters(constructors, block_sizes_custom) {
-  const int n_params = 28; 
+  const int n_params = 26+3; 
   struct ParametersBlockSizes *params = 
     cr_malloc(n_params * sizeof(struct ParametersBlockSizes));
 
@@ -449,6 +450,11 @@ ParameterizedTest(struct ParametersBlockSizes *params, constructors,
 
   struct HODLRInternalNode **queue = 
     compute_block_sizes_custom(hodlr, params->ms);
+
+  for (int parent = 0; parent < hodlr->len_work_queue; parent++) {
+    cr_expect(eq(ptr, queue[parent], 
+                 hodlr->innermost_leaves[2 * parent]->parent));
+  }
 
   long q_next_node_density = hodlr->len_work_queue;
   long q_current_node_density = q_next_node_density;
@@ -930,6 +936,7 @@ ParameterizedTest(struct ParametersTestCompress *params,
 struct ParametersTestDense {
   double *matrix;
   int m;
+  int *ms;
   int height;
   double svd_threshold;
   struct TreeHODLR *expected;
@@ -941,101 +948,87 @@ void free_dense_params(struct criterion_test_params *params) {
     struct ParametersTestDense *param = 
       (struct ParametersTestDense *)params->params + i;
     cr_free(param->matrix);
-    free_tree_hodlr(&param->expected, &cr_free);
+    cr_free(param->ms);
+
+    cr_free(param->expected->innermost_leaves[0]->data.diagonal.data);
+    cr_free(param->expected->innermost_leaves);
+    cr_free(param->expected->work_queue);
+    cr_free(param->expected->memory_internal_ptr);
+    cr_free(param->expected->memory_leaf_ptr);
+    cr_free(param->expected);
   }
   cr_free(params->params);
 }
 
 
 static inline void set_up_off_diagonal(struct NodeOffDiagonal *node,
-                                       const int m,
-                                       const int n,
+                                       int *restrict m,
+                                       int *restrict n,
                                        const int s) {
-  node->m = m; node->n = n; node->s = s;
-  node->u = cr_calloc(m * s, sizeof(double));
-  node->v = cr_calloc(n * s, sizeof(double));
+  node->s = s;
+  node->u = cr_calloc(node->m * s, sizeof(double));
+  node->v = cr_calloc(node->n * s, sizeof(double));
+  *m = node->m; *n = node->n;
+}
+
+
+static inline int * arrcpy(const int len, const int src[]) {
+  int *dest = cr_malloc(len * sizeof(int));
+  for (int i = 0; i < len; i++) {
+    dest[i] = src[i];
+  }
+  return dest;
 }
 
 
 struct ParametersTestDense * generate_dense_params(int * len) {
-  const int n_params = 5; int ierr = SUCCESS;
+  enum {n_params = 10}; int ierr = SUCCESS;
   *len = n_params;
-  struct ParametersTestDense *params = cr_malloc(n_params * sizeof(struct ParametersTestDense));
+  struct ParametersTestDense *params = 
+    cr_malloc(n_params * sizeof(struct ParametersTestDense));
   
   int idx = 0;
-  const int m = 69; int m_larger, m_smaller;
-  for (int height = 1; height < 6; height++) {
-    params[idx].height = height;
-    params[idx].m = m;
-    params[idx].matrix = construct_laplacian_matrix(m);
-    params[idx].matrix[m - 1] = 0.5;
-    params[idx].matrix[m * (m - 1)] = 0.5;
-    params[idx].svd_threshold = 1e-8;
-    params[idx].expected = 
-      allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
-    compute_block_sizes_halves(params[idx].expected, m);
+  const int m = 69;
+  const int *ms[n_params] = {
+    NULL, NULL, NULL, NULL, NULL,
+    arrcpy(2, (int[]){29, 40}),
+    arrcpy(4, (int[]){21, 10, 5, 33}),
+    arrcpy(8, (int[]){10, 11, 1, 9, 5, 20, 7, 6}),
+    arrcpy(16, (int[]){2, 8, 7, 4, 1, 5, 4, 2, 3, 10, 5, 6, 5, 2, 3, 2}),
+    arrcpy(32, (int[]){1, 1, 5, 3, 2, 5, 2, 2, 1, 1, 4, 2, 2, 1, 1, 2, 
+                       1, 4, 3, 3, 1, 3, 5, 1, 2, 3, 1, 1, 2, 1, 1, 2}),
+  };
+  for (int mult = 0; mult < 2; mult++) {
+    for (int height = 1; height < 6; height++) {
+      params[idx].height = height;
+      params[idx].m = m;
+      params[idx].ms = (int*)ms[idx];
+      params[idx].matrix = construct_laplacian_matrix(m);
+      params[idx].matrix[m - 1] = 0.5;
+      params[idx].matrix[m * (m - 1)] = 0.5;
+      params[idx].svd_threshold = 1e-8;
+      params[idx].expected = 
+        allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
 
-    struct HODLRInternalNode **queue = params[idx].expected->work_queue;
-    int n_parent_nodes = params[idx].expected->len_work_queue;
-
-    // Diagonal blocks
-    for (int parent = 0; parent < n_parent_nodes; parent++) {
-      queue[parent] = params[idx].expected->innermost_leaves[2 * parent]->parent;
-      
-      m_smaller = queue[parent]->m / 2;
-      m_larger = queue[parent]->m - m_smaller;
-
-      params[idx].expected->innermost_leaves[2 * parent]->data.diagonal.m = m_larger;
-      params[idx].expected->innermost_leaves[2 * parent]->data.diagonal.data 
-        = construct_laplacian_matrix(m_larger);
-
-      params[idx].expected->innermost_leaves[2 * parent + 1]->data.diagonal.m 
-        = m_smaller;
-      params[idx].expected->innermost_leaves[2 * parent + 1]->data.diagonal.data 
-        = construct_laplacian_matrix(m_smaller);   
-    }
-
-    for (int level = height; level > 1; level--) {
-      for (int node = 0; node < n_parent_nodes; node++) {
-        m_smaller = queue[node]->m / 2;
-        m_larger = queue[node]->m - m_smaller;
-        
-        set_up_off_diagonal(&queue[node]->children[1].leaf->data.off_diagonal, 
-                            m_larger, m_smaller, 1);
-        queue[node]->children[1].leaf->data.off_diagonal.u[m_larger-1] = 1.0;
-        queue[node]->children[1].leaf->data.off_diagonal.v[0] = -1.0;
-  
-        set_up_off_diagonal(&queue[node]->children[2].leaf->data.off_diagonal, 
-                            m_smaller, m_larger, 1);
-        queue[node]->children[2].leaf->data.off_diagonal.u[0] = 1.0;
-        queue[node]->children[2].leaf->data.off_diagonal.v[m_larger-1] = -1.0;
-
-        queue[node / 2] = queue[node]->parent;
+      if (ms[idx] == NULL) {
+        compute_block_sizes_halves(params[idx].expected, m);
+      } else {
+        compute_block_sizes_custom(params[idx].expected, ms[idx]);
       }
-      n_parent_nodes /= 2;
+
+      double *matrix = construct_laplacian_matrix(m);
+      matrix[m - 1] = 0.5;
+      matrix[m * (m - 1)] = 0.5;
+      construct_fake_hodlr(params[idx].expected, matrix, 1, NULL);
+
+      params[idx].expected->root->children[1].leaf->data.off_diagonal.s = 2;
+      params[idx].expected->root->children[2].leaf->data.off_diagonal.s = 2;
+
+      idx++;
     }
-
-    m_smaller = m / 2; m_larger = m - m_smaller;
-    set_up_off_diagonal(
-      &queue[0]->children[1].leaf->data.off_diagonal,
-      m_larger, m_smaller, 2    
-    );
-    queue[0]->children[1].leaf->data.off_diagonal.u[m_larger-1] = 1.0;
-    queue[0]->children[1].leaf->data.off_diagonal.u[m_larger] = 0.5;
-    queue[0]->children[1].leaf->data.off_diagonal.v[0] = -1.0;
-    queue[0]->children[1].leaf->data.off_diagonal.v[2 * m_smaller - 1] = 1.0;
-
-    set_up_off_diagonal(
-      &queue[0]->children[2].leaf->data.off_diagonal,
-      m_smaller, m_larger, 2
-    );
-    queue[0]->children[2].leaf->data.off_diagonal.u[0] = 1.0;
-    queue[0]->children[2].leaf->data.off_diagonal.u[2 * m_smaller - 1] = -0.5;
-    queue[0]->children[2].leaf->data.off_diagonal.v[m_larger-1] = -1.0;
-    queue[0]->children[2].leaf->data.off_diagonal.v[m_larger] = -1.0;
-
-    idx++;
   }
+
+  check_allocd(idx, n_params);
   
   return params;
 }
@@ -1051,7 +1044,7 @@ ParameterizedTestParameters(constructors, dense_to_tree) {
 ParameterizedTest(struct ParametersTestDense *params, 
                   constructors, dense_to_tree) {
   int ierr;
-  cr_log_info("height=%d, m=%d", params->height, params->m);
+  cr_log_info("height=%d, m=%d, ms=%p", params->height, params->m, params->ms);
 
   struct TreeHODLR *result = allocate_tree_monolithic(params->height, &ierr,
                                                       &malloc, &free);
@@ -1062,8 +1055,8 @@ ParameterizedTest(struct ParametersTestDense *params,
   }
 
   int svd = dense_to_tree_hodlr(
-    result, params->m, NULL, params->matrix, params->svd_threshold, &ierr, 
-    &malloc, &free
+    result, params->m, params->ms, params->matrix, params->svd_threshold, 
+    &ierr, &malloc, &free
   );
   
   cr_expect(eq(int, ierr, SUCCESS));
@@ -1073,6 +1066,11 @@ ParameterizedTest(struct ParametersTestDense *params,
     cr_fatal();
   }
 
-  expect_tree_hodlr(result, params->expected);
-  free_tree_hodlr(&result, &free);
+  const int m = result->root->children[1].leaf->data.off_diagonal.m;
+  const int n = result->root->children[1].leaf->data.off_diagonal.n;
+  double *workspace = malloc(m * n * sizeof(double));
+
+  expect_hodlr_fake(result, params->expected, workspace);
+
+  free_tree_hodlr(&result, &free); free(workspace);
 }

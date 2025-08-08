@@ -136,7 +136,7 @@ static struct HODLRInternalNode ** compute_block_sizes_custom(
     }
   }
 
-  for (int parent = 0; parent < n_parent_nodes; parent++) {
+  for (int parent = 0; parent < hodlr->len_work_queue; parent++) {
     queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
   }
 
@@ -572,7 +572,7 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
  */
 int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr, 
                         const int m,
-                        const int *ms,
+                        const int *restrict const ms,
                         double *restrict matrix, 
                         const double svd_threshold,
                         int *ierr
