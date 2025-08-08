@@ -20,7 +20,11 @@ int expect_tree_consistent(struct TreeHODLR *hodlr,
 
 
 int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected);
-  
+
+void expect_hodlr_fake(const struct TreeHODLR *actual, 
+                       const struct TreeHODLR *expected,
+                       double *workspace);
+ 
 void log_matrix(const double *matrix, const int m, const int n, const int lda);
 
 void expect_matrix_double_eq(const double *actual, 
