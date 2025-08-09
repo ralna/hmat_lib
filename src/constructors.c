@@ -1,20 +1,9 @@
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "../include/lapack_wrapper.h"
+#include "../include/blas_wrapper.h"
 #include "../include/tree.h"
 #include "../include/error.h"
-
-
-static void print_matrix(int m, int n, double *matrix, int lda) {
-  for (int i=0; i<m; i++) {
-    for (int j=0; j < n; j++) {
-      printf("%f    ", matrix[j * lda + i]);
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
 
 
 /**
@@ -42,7 +31,6 @@ static struct HODLRInternalNode ** compute_block_sizes_halves(
   struct HODLRInternalNode **queue = hodlr->work_queue;
   long len_queue = 1, q_next_node_density = hodlr->len_work_queue;
   long q_current_node_density = q_next_node_density;
-  int m_smaller = 0, m_larger = 0, idx = 0;
   
   hodlr->root->m = m;
   queue[0] = hodlr->root;
@@ -50,13 +38,19 @@ static struct HODLRInternalNode ** compute_block_sizes_halves(
   for (int _ = 1; _ < hodlr->height; _++) {
     q_next_node_density /= 2;
     for (int parent = 0; parent < len_queue; parent++) {
-      idx = parent * q_current_node_density;
+      const int idx = parent * q_current_node_density;
       
-      m_smaller = queue[idx]->m / 2;
-      m_larger = queue[idx]->m - m_smaller;
+      const int m_smaller = queue[idx]->m / 2;
+      const int m_larger = queue[idx]->m - m_smaller;
 
       queue[idx]->children[0].internal->m = m_larger;
       queue[idx]->children[3].internal->m = m_smaller;
+
+      queue[idx]->children[1].leaf->data.off_diagonal.m = m_larger;
+      queue[idx]->children[1].leaf->data.off_diagonal.n = m_smaller;
+
+      queue[idx]->children[2].leaf->data.off_diagonal.m = m_smaller;
+      queue[idx]->children[2].leaf->data.off_diagonal.n = m_larger;
 
       queue[(2 * parent + 1) * q_next_node_density] = 
         queue[idx]->children[3].internal;
@@ -64,6 +58,20 @@ static struct HODLRInternalNode ** compute_block_sizes_halves(
     }
     len_queue *= 2;
     q_current_node_density = q_next_node_density;
+  }
+
+  for (int parent = 0; parent < len_queue; parent++) {
+    const int m_smaller = queue[parent]->m / 2;
+    const int m_larger = queue[parent]->m - m_smaller;
+
+    queue[parent]->children[0].leaf->data.diagonal.m = m_larger;
+    queue[parent]->children[3].leaf->data.diagonal.m = m_smaller;
+
+    queue[parent]->children[1].leaf->data.off_diagonal.m = m_larger;
+    queue[parent]->children[1].leaf->data.off_diagonal.n = m_smaller;
+
+    queue[parent]->children[2].leaf->data.off_diagonal.m = m_smaller;
+    queue[parent]->children[2].leaf->data.off_diagonal.n = m_larger;
   }
 
   return queue;
@@ -96,23 +104,39 @@ static struct HODLRInternalNode ** compute_block_sizes_custom(
 ) {
   struct HODLRInternalNode **queue = hodlr->work_queue;
   long n_parent_nodes = hodlr->len_work_queue;
-  int m_smaller = 0, m_larger = 0, idx = 0;
 
   for (int parent = 0; parent < n_parent_nodes; parent++) {
-    queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
-    queue[parent]->m = ms[2 * parent] + ms[2 * parent + 1];
+    const int idx = 2 * parent;
+    hodlr->innermost_leaves[idx]->data.diagonal.m = ms[idx];
+    hodlr->innermost_leaves[idx + 1]->data.diagonal.m = ms[2 * parent + 1];
+
+    queue[parent] = hodlr->innermost_leaves[idx]->parent;
+    queue[parent]->m = ms[idx] + ms[2 * parent + 1];
+
+    queue[parent]->children[1].leaf->data.off_diagonal.m = ms[idx];
+    queue[parent]->children[1].leaf->data.off_diagonal.n = ms[idx + 1];
+
+    queue[parent]->children[2].leaf->data.off_diagonal.m = ms[idx + 1];
+    queue[parent]->children[2].leaf->data.off_diagonal.n = ms[idx];
   }
 
   for (int _ = hodlr->height - 1; _ > 0; _--) {
     n_parent_nodes /= 2;
     for (int parent = 0; parent < n_parent_nodes; parent++) {
-      queue[2 * parent]->parent->m = queue[2 * parent]->m 
-                                   + queue[2 * parent + 1]->m;
+      const int m1 = queue[2 * parent]->m, m2 =queue[2 * parent + 1]->m;
+      queue[2 * parent]->parent->m = m1 + m2;
+
       queue[parent] = queue[2 * parent]->parent;
+
+      queue[parent]->children[1].leaf->data.off_diagonal.m = m1;
+      queue[parent]->children[1].leaf->data.off_diagonal.n = m2;
+
+      queue[parent]->children[2].leaf->data.off_diagonal.m = m2;
+      queue[parent]->children[2].leaf->data.off_diagonal.n = m1;
     }
   }
 
-  for (int parent = 0; parent < n_parent_nodes; parent++) {
+  for (int parent = 0; parent < hodlr->len_work_queue; parent++) {
     queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
   }
 
@@ -131,55 +155,47 @@ static struct HODLRInternalNode ** compute_block_sizes_custom(
  * :param matrix: Pointer to the array holding the dense matrix from which to 
  *                copy data. Must be an ``m`` x ``m`` square 2D column-major 
  *                matrix. Must not be NULL; otherwise is undefined.
- * :param m: The number of rows and columns of ``matrix``.
+ * :param matrix_ld: The number of rows and columns of ``matrix``.
  * :param queue: Pointer to an array of internal nodes. Must be of length 
- *               ``n_parent_nodes``
+ *               ``len_queue`` and fully filled by the lowest-level internal
+ *               nodes.
+ * :param len_queue: The length of the ``len_queue`` array.
+ * :param ierr: Error code corresponding to :c:enum:`ErrorCode`. On 
+ *              successful completion of the function, 
+ *              :c:enum:`ErrorCode.SUCCESS` is returned. Otherwise,
+ *              a corresponding error code is set.
+ *              Must NOT be ``NULL`` pointer - passing in ``NULL``
+ *              as ``ierr`` is undefined behaviour.
  */
 static void copy_diagonal_blocks(double *restrict matrix,
-                                 int m,
+                                 int matrix_ld,
                                  struct HODLRInternalNode **restrict queue,
-                                 long n_parent_nodes,
+                                 long len_queue,
                                  int *restrict ierr
 #ifdef _TEST_HODLR
                                  , void *(*malloc)(size_t size)
 #endif
                                  ) {
-  int m_larger = 0, m_smaller = 0, offset = 0;
-  double *data = NULL;
+  int offset = 0;
 
-  for (int parent = 0; parent < n_parent_nodes; parent++) {
-    m_smaller = queue[parent]->m / 2;
-    m_larger = queue[parent]->m - m_smaller;
+  for (int parent = 0; parent < len_queue; parent++) {
+    for (int child = 0; child < 4; child += 3) {
+      const int m = queue[parent]->children[child].leaf->data.diagonal.m;
 
-    data = malloc(m_larger * m_larger * sizeof(double));
-    if (data == NULL) {
-      *ierr = ALLOCATION_FAILURE;
-      return;
-    }
-    for (int j = 0; j < m_larger; j++) {
-      for (int i = 0; i < m_larger; i++) {
-        data[i + j * m_larger] = matrix[i + offset + (j + offset) * m];
+      double *data = malloc(m * m * sizeof(double));
+      if (data == NULL) {
+        *ierr = ALLOCATION_FAILURE;
+        return;
       }
-    }
-    queue[parent]->children[0].leaf->data.diagonal.data = data;
-    queue[parent]->children[0].leaf->data.diagonal.m = m_larger;
-
-    offset += m_larger;
-
-    data = malloc(m_smaller * m_smaller * sizeof(double));
-    if (data == NULL) {
-      *ierr = ALLOCATION_FAILURE;
-      return;
-    }
-    for (int j = 0; j < m_smaller; j++) {
-      for (int i = 0; i < m_smaller; i++) {
-        data[i + j * m_smaller] = matrix[i + offset + (j + offset) * m];
+      for (int j = 0; j < m; j++) {
+        for (int i = 0; i < m; i++) {
+          data[i + j * m] = matrix[i + offset + (j + offset) * matrix_ld];
+        }
       }
-    }
-    queue[parent]->children[3].leaf->data.diagonal.data = data;
-    queue[parent]->children[3].leaf->data.diagonal.m = m_smaller;
+      queue[parent]->children[child].leaf->data.diagonal.data = data;
 
-    offset += m_smaller;
+      offset += m;
+    }
   }
 }
 
@@ -191,9 +207,8 @@ static void copy_diagonal_blocks(double *restrict matrix,
  * and saves the the significant parts of the U and V matrices
  * on a off-diagonal node.
  *
- * :param node: The node to which to save the results.
- * :param m: The number of rows of the ``lapack_matrix`` matrix.
- * :param n: The number of columns of the ``lapack_matrix`` matrix.
+ * :param node: The node to which to save the results. Must have its ``m`` and
+ *              ``n`` values set.
  * :param n_singular_values: The number of singular values returned
  *                           by the compact SVD. I.e. the smaller
  *                           value between ``m`` and ``n``.
@@ -231,8 +246,6 @@ static void copy_diagonal_blocks(double *restrict matrix,
  * :return: The return code from the SVD routine.
  */
 static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
-                                 const int m, 
-                                 const int n, 
                                  const int n_singular_values,
                                  const int matrix_leading_dim,
                                  double *restrict lapack_matrix,
@@ -245,11 +258,9 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
                                  , void *(*malloc)(size_t size)
 #endif
                                  ) {
-  //printf("m=%d, n=%d, nsv=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
-  //print_matrix(matrix_leading_dim, matrix_leading_dim, lapack_matrix - 5);
+  const int m = node->m, n = node->n;
   int result = svd_double(m, n, n_singular_values, matrix_leading_dim, 
                           lapack_matrix, s, u, vt, ierr);
-  //printf("svd result %d\n", result);
   if (*ierr != SUCCESS) {
     return result;
   }
@@ -271,11 +282,9 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
   }
   for (int i=0; i<svd_cutoff_idx; i++) {
     for (int j=0; j<m; j++) {
-      //printf("i=%d, j=%d, idx=%d\n", i, j, j + i * m);
       u_top_right[j + i * m] = u[j + i * m] * s[i];
     }
   }
-  //print_matrix(svd_cutoff_idx, m, u_top_right);
 
   double *v_store = malloc(svd_cutoff_idx * n * sizeof(double));
   if (v_store == NULL) {
@@ -288,19 +297,16 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
       v_store[j + i * n] = vt[i + j * n_singular_values];
     }
   }
-  //print_matrix(n, svd_cutoff_idx, v_store);
 
   node->u = u_top_right;
   node->v = v_store;
-
-  node->m = m;
   node->s = svd_cutoff_idx;
-  node->n = n;
 
   return result;
 }
 
 
+#include <stdio.h>
 /**
  * Compresses a dense matrix into the HODLR format.
  *
@@ -354,7 +360,7 @@ static int compress_off_diagonal(struct NodeOffDiagonal *restrict node,
 static int compress_matrix(struct TreeHODLR *restrict hodlr,
                            struct HODLRInternalNode **restrict queue,
                            double *restrict matrix,
-                           const int m,
+                           const int matrix_ld,
                            double *restrict s,
                            double *restrict u,
                            double *restrict vt,
@@ -366,151 +372,84 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
                            ) {
   long n_parent_nodes = hodlr->len_work_queue;
   int offset_matrix = 0, offset_s = 0, offset_u = 0;
-  int m_smaller = 0, m_larger = 0;
-  double *sub_matrix_pointer = NULL;
   struct NodeOffDiagonal *node = NULL;
   int result = 0, final_result = 0;
 
-  for (int _ = hodlr->height-1; _ > 0; _--) {
-    n_parent_nodes /= 2;
+  for (int _ = hodlr->height; _ > 0; _--) {
     offset_matrix = 0;
   
     for (int parent = 0; parent < n_parent_nodes; parent++) {
-      for (int child = 2 * parent; child < 2 * parent + 2; child++) {
-        m_smaller = queue[child]->m / 2;
-        m_larger = queue[child]->m - m_smaller;
+      node = &(queue[parent]->children[1].leaf->data.off_diagonal);
+      const int m = node->m, n = node->n;
+      const int m_smaller = (m < n) ? m : n;
 
-        sub_matrix_pointer = matrix + offset_matrix + m * (offset_matrix + m_larger);
-        node = &(queue[child]->children[1].leaf->data.off_diagonal);
-
-#ifndef _TEST_HODLR
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
-#else
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
-#endif
-        {
-          result = compress_off_diagonal(
-            node, 
-            m_larger, m_smaller, m_smaller, m, sub_matrix_pointer,
-            s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
-#ifdef _TEST_HODLR
-            , malloc
-#endif
-          );
-
-          if (*ierr != SUCCESS) {
-            //handle_error(ierr, result);
-            #pragma omp atomic write
-            final_result = result;
-
-            #pragma omp cancel taskgroup
-
-            #if !defined(_OPENMP)
-            return result;
-            #endif
-          }
-        }
-        offset_s += m_smaller; offset_u += m_larger * m_smaller;
-    
-        // Off-diagonal block in the bottom left corner
-        sub_matrix_pointer = matrix + m * offset_matrix + offset_matrix + m_larger;
-        node = &(queue[child]->children[2].leaf->data.off_diagonal);
+      double *sub_matrix_pointer = 
+        matrix + offset_matrix + matrix_ld * (offset_matrix + m);
 
 #ifndef _TEST_HODLR
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
+#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, matrix_ld)
 #else
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
+#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, matrix_ld, malloc)
 #endif
-        {
-          result = compress_off_diagonal(
-            node, 
-            m_smaller, m_larger, m_smaller, m, sub_matrix_pointer, 
-            s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
+      {
+        result = compress_off_diagonal(
+          node, m_smaller, matrix_ld, sub_matrix_pointer,
+          s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
 #ifdef _TEST_HODLR
-            , malloc
+          , malloc
 #endif
-          );
-          if (*ierr != SUCCESS) {
-            // error out
-            #pragma omp atomic write
-            final_result = result;
-            #pragma omp cancel taskgroup
+        );
 
-            #if !defined(_OPENMP)
-            return result;
-            #endif
-          }
+        if (*ierr != SUCCESS) {
+          //handle_error(ierr, result);
+          #pragma omp atomic write
+          final_result = result;
+
+          #pragma omp cancel taskgroup
+
+          #if !defined(_OPENMP)
+          return result;
+          #endif
         }
+      }
+      offset_s += m_smaller; offset_u += m * n;
+  
+      // Off-diagonal block in the bottom left corner
+      sub_matrix_pointer = matrix + matrix_ld * offset_matrix + offset_matrix + m;
+      node = &(queue[parent]->children[2].leaf->data.off_diagonal);
 
-        offset_s += m_larger; offset_u += m_larger * m_smaller;
+#ifndef _TEST_HODLR
+#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, matrix_ld)
+#else
+#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, matrix_ld, malloc)
+#endif
+      {
+        result = compress_off_diagonal(
+          node, m_smaller, matrix_ld, sub_matrix_pointer, 
+          s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
+#ifdef _TEST_HODLR
+          , malloc
+#endif
+        );
+        if (*ierr != SUCCESS) {
+          // error out
+          #pragma omp atomic write
+          final_result = result;
+          #pragma omp cancel taskgroup
 
-        offset_matrix += m_larger + m_smaller;
+          #if !defined(_OPENMP)
+          return result;
+          #endif
+        }
       }
 
-      queue[parent] = queue[2 * parent + 1]->parent;
+      offset_s += m_smaller; offset_u += m * n;
+
+      offset_matrix += m + n;
+
+      queue[parent / 2] = queue[parent]->parent;
     }
-  }
-
-  m_smaller = queue[0]->m / 2;
-  m_larger = queue[0]->m - m_smaller;
-
-  sub_matrix_pointer = matrix + m * m_larger;
-  node = &(queue[0]->children[1].leaf->data.off_diagonal); 
-#ifndef _TEST_HODLR
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
-#else
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
-#endif
-  {
-    result = compress_off_diagonal(
-      node, 
-      m_larger, m_smaller, m_smaller, m, sub_matrix_pointer,
-      s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
-#ifdef _TEST_HODLR
-      , malloc
-#endif
-    );
-    if (*ierr != SUCCESS) {
-      //handle_error(ierr, result);  // 
-      #pragma omp atomic write
-      final_result = result;
-      #pragma omp cancel taskgroup
-            
-      #if !defined(_OPENMP)
-      return result;
-      #endif
-    }
-  }
-  offset_s += m_smaller; offset_u += m_larger * m_smaller;
-
-  // Off-diagonal block in the bottom left corner
-  sub_matrix_pointer = matrix + m_larger;
-  node = &(queue[0]->children[2].leaf->data.off_diagonal);
-
-#ifndef _TEST_HODLR
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m)
-#else
-#pragma omp task default(none) private(result) firstprivate(node, m_larger, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, m, malloc)
-#endif
-  {
-    result = compress_off_diagonal(
-      node, 
-      m_smaller, m_larger, m_smaller, m, sub_matrix_pointer, 
-      s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
-#ifdef _TEST_HODLR
-      , malloc
-#endif
-    );
-    if (*ierr != SUCCESS) {
-      // error out
-      #pragma omp atomic write
-      final_result = result;
-      #pragma omp cancel taskgroup
-
-      #if !defined(_OPENMP)
-      return result;
-      #endif
-    }
+    n_parent_nodes /= 2;
   }
 
   return final_result;
@@ -574,7 +513,7 @@ static int compress_matrix(struct TreeHODLR *restrict hodlr,
  */
 int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr, 
                         const int m,
-                        const int *ms,
+                        const int *restrict const ms,
                         double *restrict matrix, 
                         const double svd_threshold,
                         int *ierr
@@ -587,12 +526,31 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
     *ierr = INPUT_ERROR;
     return 0;
   }
-  int m_smaller = m / 2;
-  int m_larger = m - m_smaller;
-  
   *ierr = SUCCESS;
 
-  int result = 0;
+  struct HODLRInternalNode **queue;
+  if (ms == NULL) {
+    queue = compute_block_sizes_halves(hodlr, m);
+  } else {
+    queue = compute_block_sizes_custom(hodlr, ms);
+    if (hodlr->root->m != m) {
+      *ierr = INPUT_ERROR;
+      return 0;
+    }
+  }
+
+#ifndef _TEST_HODLR
+  copy_diagonal_blocks(matrix, m, queue, hodlr->len_work_queue, ierr);
+#else
+  copy_diagonal_blocks(matrix, m, queue, hodlr->len_work_queue, ierr, malloc);
+#endif
+
+  if (*ierr != SUCCESS) {
+    return 0;
+  }
+
+  const int m_larger = hodlr->root->children[1].leaf->data.off_diagonal.m;
+  const int m_smaller = hodlr->root->children[1].leaf->data.off_diagonal.n;
 
   double *s = malloc(hodlr->height * m * sizeof(double));
   if (s == NULL) {
@@ -605,34 +563,9 @@ int dense_to_tree_hodlr(struct TreeHODLR *restrict hodlr,
     free(s);
     return 0;
   }
-
   double *vt = u + (4 * m_larger * m_smaller);
 
-  long n_parent_nodes = hodlr->len_work_queue; 
-
-  struct HODLRInternalNode **queue;
-  if (ms == NULL) {
-    queue = compute_block_sizes_halves(hodlr, m);
-  } else {
-    queue = compute_block_sizes_custom(hodlr, ms);
-    if (hodlr->root->m != m) {
-      *ierr = INPUT_ERROR;
-      free(s); free(u);
-      return 0;
-    }
-  }
-
-#ifndef _TEST_HODLR
-  copy_diagonal_blocks(matrix, m, queue, n_parent_nodes, ierr);
-#else
-  copy_diagonal_blocks(matrix, m, queue, n_parent_nodes, ierr, malloc);
-#endif
-
-  if (*ierr != SUCCESS) {
-    free(s); free(u);
-    return 0;
-  }
-
+  int result = 0;
   #pragma omp parallel
   {
     #pragma omp single

@@ -2,6 +2,7 @@
 #include <criterion/criterion.h>
 
 #include "../include/common_data.h"
+#include "../../include/tree.h"
 
 
 double * construct_laplacian_matrix(int m) {
@@ -80,6 +81,73 @@ void fill_random_matrix(const int m, const int n, double *matrix) {
   for (int j = 0; j < n; j++) {
     for (int i = 0; i < m; i++) {
       matrix[i + j * m] = (double)rand() / RAND_MAX;
+    }
+  }
+}
+
+
+void construct_fake_hodlr(struct TreeHODLR *restrict const hodlr, 
+                          double *restrict const matrix,
+                          const int s,
+                          const int *restrict const ss) {
+  struct HODLRInternalNode **queue = hodlr->work_queue;
+  long n_parent_nodes = hodlr->len_work_queue;
+  const int matrix_ld = hodlr->root->m;
+
+  int offset = 0, idx = 0;
+  for (int parent = 0; parent < n_parent_nodes; parent++) {
+    queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
+    
+    const int m = hodlr->innermost_leaves[2 * parent]->data.diagonal.m;
+    const int n = hodlr->innermost_leaves[2 * parent + 1]->data.diagonal.m;
+
+    hodlr->innermost_leaves[2 * parent]->data.diagonal.data = 
+      matrix + offset + offset * matrix_ld;
+
+    queue[parent]->children[1].leaf->data.off_diagonal.u =
+      matrix + offset + (offset + m) * matrix_ld;
+
+    queue[parent]->children[2].leaf->data.off_diagonal.u =
+      matrix + offset + m + offset * matrix_ld;
+
+    if (ss == NULL) {
+      queue[parent]->children[1].leaf->data.off_diagonal.s = s;
+      queue[parent]->children[2].leaf->data.off_diagonal.s = s;
+    } else {
+      queue[parent]->children[1].leaf->data.off_diagonal.s = ss[idx]; idx++;
+      queue[parent]->children[2].leaf->data.off_diagonal.s = ss[idx]; idx++;
+    }
+
+    offset += m;
+    hodlr->innermost_leaves[2 * parent + 1]->data.diagonal.data = 
+      matrix + offset + offset * matrix_ld;
+
+    offset += n;
+  }
+
+  for (int level = hodlr->height; level > 1; level--) {
+    n_parent_nodes /= 2;
+    int offset = 0;
+
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      const int m = queue[2 * parent]->m, n = queue[2 * parent + 1]->m;
+      queue[parent] = queue[2 * parent]->parent;
+
+      queue[parent]->children[1].leaf->data.off_diagonal.u =
+        matrix + offset + (offset + m) * matrix_ld;
+
+      queue[parent]->children[2].leaf->data.off_diagonal.u =
+        matrix + offset + m + offset * matrix_ld;
+
+      if (ss == NULL) {
+        queue[parent]->children[1].leaf->data.off_diagonal.s = s;
+        queue[parent]->children[2].leaf->data.off_diagonal.s = s;
+      } else {
+        queue[parent]->children[1].leaf->data.off_diagonal.s = ss[idx]; idx++;
+        queue[parent]->children[2].leaf->data.off_diagonal.s = ss[idx]; idx++;
+      }
+
+      offset += m + n;
     }
   }
 }

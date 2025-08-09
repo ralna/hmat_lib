@@ -39,7 +39,7 @@ if(BUILD_TESTING)
     target_link_libraries(test_real_data criterion)
 
     if(BUILD_OPENMP_TESTS AND OpenMP_C_FOUND)
-      target_link_libraries(test_constructors_omp OpenMP::OpenMP_C)
+      target_link_libraries(test_real_data OpenMP::OpenMP_C)
     endif()
 
     if(REALD_DATA_PRINT_S)
