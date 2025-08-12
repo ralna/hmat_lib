@@ -52,9 +52,12 @@ void compute_multiply_hodlr_dense_workspace(
 
   struct HODLRInternalNode **queue = hodlr->work_queue;
 
+  const int m0 = hodlr->root->children[1].leaf->data.off_diagonal.m ;
+  const int n0 = hodlr->root->children[1].leaf->data.off_diagonal.m ;
+  const int largest_m = (m0 > n0) ? m0 : n0;
+
   workspace_sizes[0] = 1;
-  workspace_sizes[1] = hodlr->root->children[1].leaf->data.off_diagonal.m 
-                       * matrix_a;
+  workspace_sizes[1] = largest_m * matrix_a;
 
   for (int i = 0; i < n_parent_nodes; i++) {
     queue[i] = hodlr->innermost_leaves[2 * i]->parent;

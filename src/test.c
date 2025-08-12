@@ -138,9 +138,10 @@ void construct_laplacian_matrix(int m, double *matrix) {
 
 
 int main(int argc, char **argv) {
-  int m = 10;
+  int m = 21;
   double svd_threshold = 1e-8;
-  int depth = 2, ierr;
+  int depth = 3, ierr;
+  int ms[8] = {1, 4, 3, 2, 2, 4, 4, 1};
 
   int idx; double *matrix;
 
@@ -167,7 +168,7 @@ int main(int argc, char **argv) {
   struct TreeHODLR *hodlr = allocate_tree(depth, &ierr);
   printf("HODLR matrix allocated, converting from dense...\n");
 
-  dense_to_tree_hodlr(hodlr, m, NULL, matrix, svd_threshold, &ierr);
+  dense_to_tree_hodlr(hodlr, m, &ms[0], matrix, svd_threshold, &ierr);
   printf("HODLR matrix computed, printing...\n");
 
   print_tree_hodlr(hodlr);
