@@ -267,7 +267,7 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
     e = &params->expected->innermost_leaves[i]->data.diagonal;
 
     expect_matrix_double_eq_safe(
-      r->data, e->data, r->m, r->m, e->m, e->m, r->m, e->m, i
+      r->data, e->data, r->m, r->m, e->m, e->m, r->m, e->m, i, "", NULL, NULL
     );
   }
 
@@ -323,11 +323,13 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
   for (int parent = 0; parent < result->len_work_queue; parent++) {
     expect_off_diagonal(
       &result->innermost_leaves[2 * parent]->parent->children[1].leaf->data.off_diagonal,
-      &params->expected->innermost_leaves[2 * parent]->parent->children[1].leaf->data.off_diagonal
+      &params->expected->innermost_leaves[2 * parent]->parent->children[1].leaf->data.off_diagonal,
+      ""
     );
     expect_off_diagonal(
       &result->innermost_leaves[2 * parent]->parent->children[2].leaf->data.off_diagonal,
-      &params->expected->innermost_leaves[2 * parent]->parent->children[2].leaf->data.off_diagonal
+      &params->expected->innermost_leaves[2 * parent]->parent->children[2].leaf->data.off_diagonal,
+      ""
     );
   }
 
@@ -539,11 +541,11 @@ static inline int generate_hcod_params(
       allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
 
     fill_full_matrix(m, 0.0, matrix);
-    dense_to_tree_hodlr(params[i].hodlr_left, m, matrix, svd_threshold, &ierr,
-                        &cr_malloc, &cr_free);
+    dense_to_tree_hodlr(params[i].hodlr_left, m, NULL, matrix, svd_threshold, 
+                        &ierr, &cr_malloc, &cr_free);
     fill_laplacian_matrix(m, matrix);
-    dense_to_tree_hodlr(params[i].hodlr_right, m, matrix, svd_threshold, &ierr,
-                        &cr_malloc, &cr_free);
+    dense_to_tree_hodlr(params[i].hodlr_right, m, NULL, matrix, svd_threshold, 
+                        &ierr, &cr_malloc, &cr_free);
 
     params[i].offsets1 = cr_calloc(5, sizeof(int));
     params[i].offsets2 = cr_calloc(5, sizeof(int));
@@ -644,8 +646,8 @@ ParameterizedTest(struct ParametersHigherContribOffDiag *params,
   cr_expect(eq(int, actual_offset_utr, params->expected_offset_utr));
   cr_expect(eq(int, actual_offset_vtr, params->expected_offset_vtr));
 
-  expect_off_diagonal(actual_tr, params->expected_tr);
-  expect_off_diagonal(actual_bl, params->expected_bl);
+  expect_off_diagonal(actual_tr, params->expected_tr, "");
+  expect_off_diagonal(actual_bl, params->expected_bl, "");
 
   free(actual_tr); free(actual_bl); free(offsets1); free(workspace);
 }
@@ -770,7 +772,7 @@ ParameterizedTest(struct ParametersInnerOffDiagLowest *params,
     params->off_diagonal_right, &result, params->offset_u, params->offset_v
   );
 
-  expect_off_diagonal(&result, params->expected);
+  expect_off_diagonal(&result, params->expected, "");
 
   free(result.u); free(result.v);
 }
@@ -933,7 +935,7 @@ ParameterizedTest(struct ParametersOffDiagContrib *params, hodlr_hodlr_algebra,
 
   expect_matrix_double_eq(
     params->out, params->expected, params->m, params->m, params->m, params->m,
-    'M'
+    'M', NULL, NULL
   );
 
   free(workspace); free(workspace2);
