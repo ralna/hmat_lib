@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -6,18 +5,6 @@
 #include "../include/tree.h"
 #include "../include/utils.h"
 #include "../include/blas_wrapper.h"
-
-
-static void print_matrix(const int m, const int n, 
-                         const double *matrix, const int lda) {
-  for (int i=0; i<m; i++) {
-    for (int j=0; j < n; j++) {
-      printf("%f    ", matrix[j * lda + i]);
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
 
 
 /**
