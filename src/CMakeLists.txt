@@ -10,7 +10,7 @@
 # else()
 #    add_library(hmat_lib STATIC algebra.cxx)
 # endif()
-add_library(hmat_lib allocators.c constructors.c dense_algebra.c lapack_wrapper.c vector_algebra.c)
+add_library(hmat_lib allocators.c constructors.c dense_algebra.c lapack_wrapper.c vector_algebra.c utils.c)
 
 target_link_libraries(hmat_lib ${MATH_LIBRARY})
 target_link_libraries(hmat_lib openblas)
