@@ -1037,7 +1037,8 @@ struct ParametersTestDense * generate_dense_params(int * len) {
 ParameterizedTestParameters(constructors, dense_to_tree) {
   int n_params;
   struct ParametersTestDense *params = generate_dense_params(&n_params);
-  return cr_make_param_array(struct ParametersTestDense, params, n_params, free_dense_params);
+  return cr_make_param_array(struct ParametersTestDense, params, n_params, 
+                             free_dense_params);
 }
 
 
@@ -1074,3 +1075,4 @@ ParameterizedTest(struct ParametersTestDense *params,
 
   free_tree_hodlr(&result, &free); free(workspace);
 }
+
