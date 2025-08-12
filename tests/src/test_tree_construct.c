@@ -3,6 +3,7 @@
 #endif
 
 #include <math.h>
+#include <stdio.h>
 
 #include <criterion/criterion.h>
 #include <criterion/parameterized.h>
