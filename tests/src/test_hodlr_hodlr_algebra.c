@@ -292,8 +292,7 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
               params->hodlr2->height);
 
   int ierr = SUCCESS;
-  int *offsets = calloc(2 * params->expected->height, sizeof(int));
-  int *offsets2 = offsets + params->expected->height;
+  int *offsets = calloc(params->expected->height, sizeof(int));
   
   int s1 = get_highest_s(params->hodlr1);
   int s2 = get_highest_s(params->hodlr2);
@@ -303,15 +302,14 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
     params->expected->height, &ierr, &malloc, &free
   );
 
-  struct HODLRInternalNode **queue = result->work_queue;
   for (int parent = 0; parent < result->len_work_queue; parent++) {
     compute_inner_off_diagonal(
       result->height, parent, 
-      params->hodlr1->innermost_leaves[2 * parent]->parent, offsets,
-      params->hodlr2->innermost_leaves[2 * parent]->parent, offsets2,
+      params->hodlr1->innermost_leaves[2 * parent]->parent,
+      params->hodlr2->innermost_leaves[2 * parent]->parent,
       &result->innermost_leaves[2 * parent]->parent->children[1].leaf->data.off_diagonal,
       &result->innermost_leaves[2 * parent]->parent->children[2].leaf->data.off_diagonal,
-      workspace
+      offsets, workspace
     );
   
     if (ierr != SUCCESS) {
@@ -482,11 +480,11 @@ struct ParametersHigherContribOffDiag {
   struct TreeHODLR *hodlr_left;
   struct TreeHODLR *hodlr_right;
   struct HODLRInternalNode *parent_left;
-  int *restrict offsets1;
   struct HODLRInternalNode *parent_right;
-  int *restrict offsets2;
   struct NodeOffDiagonal *expected_tr;
   struct NodeOffDiagonal *expected_bl;
+  int *restrict offsets;
+  int *restrict expected_offsets;
   int expected_offset_utr;
   int expected_offset_vtr;
 };
@@ -499,15 +497,13 @@ static void free_hcod_params(struct criterion_test_params *params) {
 
     free_tree_hodlr(&param->hodlr_left, &cr_free);
     free_tree_hodlr(&param->hodlr_right, &cr_free);
-    cr_free(param->offsets1);
-    cr_free(param->offsets2);
+    cr_free(param->offsets);
+    cr_free(param->expected_offsets);
 
     cr_free(param->expected_tr->u);
-    cr_free(param->expected_tr->v);
     cr_free(param->expected_tr);
 
     cr_free(param->expected_bl->u);
-    cr_free(param->expected_bl->v);
     cr_free(param->expected_bl);
   } 
   cr_free(params->params);
@@ -517,18 +513,18 @@ static void free_hcod_params(struct criterion_test_params *params) {
 static inline int generate_hcod_params(
   struct ParametersHigherContribOffDiag *params
 ) {
-  enum {n_params = 2};
+  enum {n_params = 5};
   const int height = 5, m = 67; const double svd_threshold = 1e-8;
   int ierr;
   double *matrix = cr_malloc(m * m * sizeof(double));
 
-  const int heights[n_params] = {0, 1};
-  const int origins[n_params] = {0, 0};
-  const int divs[n_params] = {1, 1};
+  const int heights[n_params] = {0, 1, 2, 3, 4};
+  const int origins[n_params] = {0, 0, 0, 2, 13};
+  const int divs[n_params] = {1, 1, 1, 1, 1};
 
-  const int ms[n_params] = {34, 17};
-  const int ss[n_params] = {0, 1};
-  const int ns[n_params] = {33, 17};
+  const int ms[n_params] = {34, 17, 9, 4, 2};
+  const int ss[n_params] = {0, 1, 2, 3, 4};
+  const int ns[n_params] = {33, 17, 8, 4, 2};
 
   for (int i = 0; i < n_params; i++) {
     params[i].height = heights[i];
@@ -547,35 +543,63 @@ static inline int generate_hcod_params(
     dense_to_tree_hodlr(params[i].hodlr_right, m, NULL, matrix, svd_threshold, 
                         &ierr, &cr_malloc, &cr_free);
 
-    params[i].offsets1 = cr_calloc(5, sizeof(int));
-    params[i].offsets2 = cr_calloc(5, sizeof(int));
+    params[i].offsets = cr_calloc(height, sizeof(int));
+    params[i].expected_offsets = cr_calloc(height, sizeof(int));
 
     params[i].expected_tr = cr_malloc(sizeof(struct NodeOffDiagonal));
     params[i].expected_tr->m = ms[i];
     params[i].expected_tr->s = ss[i];
     params[i].expected_tr->n = ns[i];
-    params[i].expected_tr->u = cr_calloc(ms[i] * ss[i], sizeof(double));
-    params[i].expected_tr->v = cr_calloc(ns[i] * ss[i], sizeof(double));
+    params[i].expected_tr->u = cr_calloc(ms[i] * ns[i], sizeof(double));
 
     params[i].expected_bl = cr_malloc(sizeof(struct NodeOffDiagonal));
     params[i].expected_bl->m = ns[i];
     params[i].expected_bl->s = ss[i];
     params[i].expected_bl->n = ms[i];
-    params[i].expected_bl->u = cr_calloc(ns[i] * ss[i], sizeof(double));
-    params[i].expected_bl->v = cr_calloc(ms[i] * ss[i], sizeof(double));
+    params[i].expected_bl->u = cr_calloc(ns[i] * ns[i], sizeof(double));
+
+    params[i].expected_offset_utr = heights[i] * (ms[i] * 1);
+    params[i].expected_offset_vtr = heights[i] * (ns[i] * 1);
+
+    for (int j = 0; j < heights[i]; j++) {
+      params[i].offsets[j] = -50;
+      params[i].expected_offsets[j] = ms[i] + ns[i];
+    }
   }
 
   int i = 0;
+  params[i].parent_left = params[i].hodlr_left->root->parent;
+  params[i].parent_right = params[i].hodlr_right->root->parent;
+  i++;
+
   params[i].parent_left = params[i].hodlr_left->root;
   params[i].parent_right = params[i].hodlr_right->root;
-  params[i].expected_offset_utr = 0;
-  params[i].expected_offset_vtr = 0;
   i++;
 
   params[i].parent_left = params[i].hodlr_left->root->children[0].internal;
   params[i].parent_right = params[i].hodlr_right->root->children[0].internal;
-  params[i].expected_offset_utr = ms[i] * 1;
-  params[i].expected_offset_vtr = ns[i] * 1;
+  i++;
+
+  params[i].parent_left = 
+    params[i].hodlr_left->root->children[0].internal->children[3].internal;
+  params[i].parent_right = 
+    params[i].hodlr_right->root->children[0].internal->children[3].internal;
+  params[i].offsets[2] = 17;
+  params[i].expected_offsets[2] += 17;
+  i++;
+
+  params[i].parent_left = 
+    params[i].hodlr_left->root->children[3].internal->children[3].internal->
+      children[0].internal;
+  params[i].parent_right = 
+    params[i].hodlr_right->root->children[3].internal->children[3].internal->
+      children[0].internal;
+  params[i].offsets[1] = 4;
+  params[i].expected_offsets[1] += 4;
+  params[i].offsets[2] = 4;
+  params[i].expected_offsets[2] += 4;
+  params[i].offsets[3] = 17+4;
+  params[i].expected_offsets[3] += 17+4;
   i++;
 
   check_n_params(i, n_params);
@@ -586,7 +610,7 @@ static inline int generate_hcod_params(
 
 ParameterizedTestParameters(hodlr_hodlr_algebra, 
                             compute_higher_level_contributions_off_diagonal) {
-  enum {n_params = 2};
+  enum {n_params = 5};
   struct ParametersHigherContribOffDiag *params = 
     cr_malloc(n_params * sizeof(struct ParametersHigherContribOffDiag));
 
@@ -629,27 +653,42 @@ static inline struct NodeOffDiagonal * init_actual(
 ParameterizedTest(struct ParametersHigherContribOffDiag *params, 
                   hodlr_hodlr_algebra, 
                   compute_higher_level_contributions_off_diagonal) {
+  cr_log_info("height=%d, origin_idx=%d, m=%d, n=%d, s=%d",
+              params->height, params->origin_idx, params->expected_tr->m,
+              params->expected_tr->n, params->expected_tr->s);
+
   struct NodeOffDiagonal *actual_tr = init_actual(params->expected_tr);
   struct NodeOffDiagonal *actual_bl = init_actual(params->expected_bl);
 
-  int *offsets1 = calloc(2 * params->height, sizeof(int));
-  int *offsets2 = offsets1 + params->height;
   int actual_offset_utr = -1, actual_offset_vtr = -1;
   double *workspace = malloc(actual_tr->s * actual_bl->s * sizeof(double));
 
   compute_higher_level_contributions_off_diagonal(
     params->height, params->origin_idx, params->divisor, params->parent_left,
-    offsets1, params->parent_right, offsets2, actual_tr, actual_bl, workspace,
+    params->parent_right, actual_tr, actual_bl, params->offsets, workspace,
     &actual_offset_utr, &actual_offset_vtr
   );
+  free(workspace);
 
   cr_expect(eq(int, actual_offset_utr, params->expected_offset_utr));
   cr_expect(eq(int, actual_offset_vtr, params->expected_offset_vtr));
 
-  expect_off_diagonal(actual_tr, params->expected_tr, "");
-  expect_off_diagonal(actual_bl, params->expected_bl, "");
+  for (int i = 0; i < params->hodlr_left->height; i++) {
+    cr_expect(eq(int, params->offsets[i], params->expected_offsets[i]),
+              "offset idx=%d", i);
+  }
 
-  free(actual_tr); free(actual_bl); free(offsets1); free(workspace);
+  double *workspace2 = malloc(actual_tr->m * actual_tr->n * sizeof(double)); 
+  expect_off_diagonal_recompress(
+    actual_tr, params->expected_tr, actual_tr->m, workspace2
+  );
+  expect_off_diagonal_recompress(
+    actual_bl, params->expected_bl, actual_bl->m, workspace2
+  );
+
+  free(actual_tr->u); free(actual_tr->v); free(actual_tr); 
+  free(actual_bl->u); free(actual_bl->v); free(actual_bl); 
+  free(workspace2); 
 }
 
 
@@ -899,7 +938,7 @@ ParameterizedTestParameters(hodlr_hodlr_algebra, add_off_diag_contrib) {
   const int n_params = 3 * np_per_func;
   struct ParametersOffDiagContrib *params = 
     cr_malloc(n_params * sizeof(struct ParametersOffDiagContrib));
-  int actual = 0, previous = 0;
+  int actual = 0;
 
   actual += create_params_add_off_diag_contrib(params, zeros, '0');
   actual += create_params_add_off_diag_contrib(params + actual, 
