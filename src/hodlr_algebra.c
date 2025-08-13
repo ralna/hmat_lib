@@ -229,8 +229,10 @@ static inline void compute_inner_off_diagonal(
   const struct HODLRInternalNode *restrict const parent2,
   struct NodeOffDiagonal *restrict const out_tr,
   struct NodeOffDiagonal *restrict const out_bl,
+  const double svd_threshold,
   int *restrict offsets,
-  double *restrict workspace
+  double *restrict workspace,
+  int *restrict ierr
 ) {
   const int s_sum = compute_workspace_size_s_component(
     parent1, height, parent_position
@@ -270,7 +272,13 @@ static inline void compute_inner_off_diagonal(
     out_bl, offset_vtr_ubl, offset_utr_vbl
   );
 
-
+  int m_larger, m_smaller;
+  if (out_tr->m > out_tr->n) {
+    m_larger = out_tr->m; m_smaller = out_tr->n;
+  } else {
+    m_larger = out_tr->n; m_smaller = out_tr->m;
+  }
+  recompress(out_tr, m_larger, m_smaller, svd_threshold, ierr);
 }
 
 
@@ -464,6 +472,7 @@ void multiply_hodlr_hodlr(
   const struct TreeHODLR *restrict const hodlr1,
   const struct TreeHODLR *restrict const hodlr2,
   struct TreeHODLR *restrict out,
+  const double svd_threshold,
   int *restrict ierr
 ) {
   double *workspace, *workspace2;
@@ -495,7 +504,7 @@ void multiply_hodlr_hodlr(
       out->height, parent, q1[parent], q2[parent],
       &queue[parent]->children[1].leaf->data.off_diagonal,
       &queue[parent]->children[2].leaf->data.off_diagonal,
-      offsets, workspace
+      svd_threshold, offsets, workspace, ierr
     );
 
     queue[parent / 2] = queue[parent]->parent;

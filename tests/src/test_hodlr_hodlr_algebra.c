@@ -288,7 +288,7 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
               params->hodlr1_name, params->hodlr1->height, params->hodlr2_name, 
               params->hodlr2->height);
 
-  int ierr = SUCCESS;
+  int ierr = SUCCESS; const double svd_threshold = 1e-8;
   int *offsets = calloc(params->expected->height, sizeof(int));
   
   int s1 = get_highest_s(params->hodlr1);
@@ -316,7 +316,7 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
       params->hodlr1->innermost_leaves[2 * parent]->parent,
       params->hodlr2->innermost_leaves[2 * parent]->parent,
       top_right, bottom_left,
-      offsets, workspace
+      svd_threshold, offsets, workspace, &ierr
     );
   
     if (ierr != SUCCESS) {
