@@ -210,10 +210,7 @@ struct ParametersTestHxH * generate_hodlr_hodlr_params(int * len) {
   actual += laplacian_matrix(params);
   actual += identity_matrix(params + actual);
 
-  if (actual != n_params) {
-    printf("PARAMETER SET-UP FAILED - allocated %d parameters but set %d\n",
-           n_params, actual);
-  }
+  check_n_params(actual, n_params);
 
   return params;
 }
@@ -301,33 +298,42 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
   struct TreeHODLR *result = allocate_tree_monolithic(
     params->expected->height, &ierr, &malloc, &free
   );
+  copy_block_sizes(params->expected, result, false);
+
+  const size_t sbuff = 50 * sizeof(char);
+  char *buffer = malloc(sbuff);
 
   for (int parent = 0; parent < result->len_work_queue; parent++) {
+    struct NodeOffDiagonal *top_right = 
+      &result->innermost_leaves[2 * parent]->parent->children[1].leaf->
+        data.off_diagonal;
+    struct NodeOffDiagonal *bottom_left = 
+      &result->innermost_leaves[2 * parent]->parent->children[2].leaf->
+        data.off_diagonal;
+
     compute_inner_off_diagonal(
       result->height, parent, 
       params->hodlr1->innermost_leaves[2 * parent]->parent,
       params->hodlr2->innermost_leaves[2 * parent]->parent,
-      &result->innermost_leaves[2 * parent]->parent->children[1].leaf->data.off_diagonal,
-      &result->innermost_leaves[2 * parent]->parent->children[2].leaf->data.off_diagonal,
+      top_right, bottom_left,
       offsets, workspace
     );
   
     if (ierr != SUCCESS) {
-      free(offsets); free(workspace);
       cr_fail("Returned ierr (%d) different from SUCCESS (%d)", ierr, SUCCESS);
     }
-  }
 
-  for (int parent = 0; parent < result->len_work_queue; parent++) {
+    snprintf(buffer, sbuff, "idx=%d top right", parent);
     expect_off_diagonal(
-      &result->innermost_leaves[2 * parent]->parent->children[1].leaf->data.off_diagonal,
+      top_right,
       &params->expected->innermost_leaves[2 * parent]->parent->children[1].leaf->data.off_diagonal,
-      ""
+      buffer
     );
+    snprintf(buffer, sbuff, "idx=%d bottom left", parent);
     expect_off_diagonal(
-      &result->innermost_leaves[2 * parent]->parent->children[2].leaf->data.off_diagonal,
+      bottom_left,
       &params->expected->innermost_leaves[2 * parent]->parent->children[2].leaf->data.off_diagonal,
-      ""
+      buffer
     );
   }
 

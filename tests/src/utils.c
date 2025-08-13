@@ -537,6 +537,72 @@ int expect_vector_double_eq_custom(
 }
 
 
+void copy_block_sizes(
+  const struct TreeHODLR *restrict const src,
+  struct TreeHODLR *restrict const dest,
+  const bool copy_s
+) {
+  if (src->height != dest->height) {
+    cr_fail("copy_block_sizes: heights do not match (src=%d, dest=%d)",
+            src->height, dest->height);
+  }
+
+  struct HODLRInternalNode **queue_s = src->work_queue;
+  struct HODLRInternalNode **queue_d = dest->work_queue;
+
+  long n_parent_nodes = src->len_work_queue;
+
+  for (int parent = 0; parent < n_parent_nodes; parent++) {
+    queue_s[parent] = src->innermost_leaves[2 * parent]->parent;
+    queue_d[parent] = dest->innermost_leaves[2 * parent]->parent;
+
+    queue_d[parent]->m = queue_s[parent]->m;
+
+    queue_d[parent]->children[0].leaf->data.diagonal.m =
+      queue_s[parent]->children[0].leaf->data.diagonal.m;
+    queue_d[parent]->children[3].leaf->data.diagonal.m =
+      queue_s[parent]->children[3].leaf->data.diagonal.m;
+
+    queue_d[parent]->children[1].leaf->data.off_diagonal.m =
+      queue_s[parent]->children[1].leaf->data.off_diagonal.m;
+    queue_d[parent]->children[1].leaf->data.off_diagonal.n =
+      queue_s[parent]->children[1].leaf->data.off_diagonal.n;
+
+    queue_d[parent]->children[2].leaf->data.off_diagonal.m =
+      queue_s[parent]->children[2].leaf->data.off_diagonal.m;
+    queue_d[parent]->children[2].leaf->data.off_diagonal.n =
+      queue_s[parent]->children[2].leaf->data.off_diagonal.n;
+
+    if (copy_s == true) {
+      queue_d[parent]->children[1].leaf->data.off_diagonal.s =
+        queue_s[parent]->children[1].leaf->data.off_diagonal.s;
+      queue_d[parent]->children[2].leaf->data.off_diagonal.s =
+        queue_s[parent]->children[2].leaf->data.off_diagonal.s;
+    }
+  }
+
+  for (int _ = src->height - 1; _ > 0; _--) {
+    n_parent_nodes /= 2;
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      queue_d[parent] = queue_d[2 * parent]->parent;
+      queue_s[parent] = queue_s[2 * parent]->parent;
+
+      queue_d[parent]->parent->m = queue_s[parent]->parent->m;
+
+      queue_d[parent]->children[1].leaf->data.off_diagonal.m =
+        queue_s[parent]->children[1].leaf->data.off_diagonal.m;
+      queue_d[parent]->children[1].leaf->data.off_diagonal.n =
+        queue_s[parent]->children[1].leaf->data.off_diagonal.n;
+
+      queue_d[parent]->children[2].leaf->data.off_diagonal.m =
+        queue_s[parent]->children[2].leaf->data.off_diagonal.m;
+      queue_d[parent]->children[2].leaf->data.off_diagonal.n =
+        queue_s[parent]->children[2].leaf->data.off_diagonal.n;
+    }
+  }
+}
+
+
 void fill_leaf_node_ints(struct TreeHODLR *hodlr, const int m, int *ss) {
   struct HODLRInternalNode ** queue = hodlr->work_queue;
 
