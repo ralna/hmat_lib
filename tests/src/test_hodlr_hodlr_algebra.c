@@ -32,7 +32,7 @@ static inline void check_n_params(const int actual, const int allocd) {
 
 struct ParametersTestHxH {
   struct TreeHODLR *hodlr1;
-  struct TreeHODLR *hodlr2;
+struct TreeHODLR *hodlr2;
   struct TreeHODLR *expected;
   char hodlr1_name[STR_LEN];
   char hodlr2_name[STR_LEN];
@@ -820,6 +820,132 @@ ParameterizedTest(struct ParametersInnerOffDiagLowest *params,
   expect_off_diagonal(&result, params->expected, "");
 
   free(result.u); free(result.v);
+}
+
+
+struct ParametersRecompress {
+  struct NodeOffDiagonal *restrict node;
+  struct NodeOffDiagonal *restrict expected;
+  double svd_threshold;
+};
+
+
+void free_recompress_params(struct criterion_test_params *params) {
+  for (size_t i = 0; i < params->length; i++) {
+    struct ParametersRecompress *param = 
+      (struct ParametersRecompress *) params->params + i;
+    
+    cr_free(param->node); 
+    cr_free(param->expected);
+  }
+  cr_free(params->params);
+}
+
+
+ParameterizedTestParameters(hodlr_hodlr_algebra, recompress) {
+  enum {n_params = 4};
+  struct ParametersRecompress *params = 
+    cr_malloc(n_params * sizeof(struct ParametersRecompress));
+
+  const int ms[n_params] = {10, 10, 9, 6};
+  const int ss[n_params] = {2, 3, 4, 2};
+  const int ns[n_params] = {10, 9, 10, 6};
+  const int ss_exp[n_params] = {1, 1, 1, 1};
+
+  for (int i = 0; i < n_params; i++) {
+    params[i].node = cr_malloc(sizeof(struct NodeOffDiagonal));
+    params[i].expected = cr_malloc(sizeof(struct NodeOffDiagonal));
+
+    params[i].node->m = ms[i]; params[i].expected->m = ms[i];
+    params[i].node->n = ns[i]; params[i].expected->n = ns[i];
+    params[i].node->s = ss[i];
+    params[i].expected->s = ss_exp[i];
+
+    params[i].node->u = cr_calloc(ms[i] * ss[i], sizeof(double));
+    params[i].node->v = cr_calloc(ns[i] * ss[i], sizeof(double));
+
+    params[i].expected->u = cr_calloc(ms[i] * ss_exp[i], sizeof(double));
+    params[i].expected->v = cr_calloc(ns[i] * ss_exp[i], sizeof(double));
+  }
+
+  int i = 0;
+  params[i].node->u[0] = 1.0;
+  params[i].node->v[0] = 1.0;
+  params[i].expected->u[0] = 1.0;
+  params[i].expected->v[0] = 1.0;
+  i++;
+
+  params[i].node->u[params[i].node->m - 1] = 1.0;
+  params[i].node->v[0] = 1.0;
+  params[i].expected->u[params[i].node->m - 1] = -1.0;
+  params[i].expected->v[0] = -1.0;
+  i++;
+
+  params[i].node->u[0] = 1.0;
+  params[i].node->v[params[i].node->n - 1] = 1.0;
+  params[i].expected->u[0] = 1.0;
+  params[i].expected->v[params[i].node->n - 1] = 1.0;
+  i++;
+
+  params[i].node->u[0] = 1.0;
+  params[i].node->u[params[i].node->m] = 1.0;
+  params[i].node->v[params[i].node->n - 1] = 1.0;
+  params[i].node->v[2 * params[i].node->n - 1] = 1.0;
+  params[i].expected->u[0] = 2.0;
+  params[i].expected->v[params[i].node->n - 1] = 1.0;
+  i++;
+
+
+  check_n_params(i, n_params);
+
+  return cr_make_param_array(struct ParametersRecompress, params, n_params, 
+                             free_recompress_params);
+}
+
+
+static inline struct NodeOffDiagonal * copy_node(
+  const struct NodeOffDiagonal *const src
+) {
+  struct NodeOffDiagonal *new = malloc(sizeof(struct NodeOffDiagonal));
+
+  new->m = src->m; new->n = src->n; new->s = src->s;
+
+  new->u = malloc(new->m * new->s * sizeof(double));
+  memcpy(new->u, src->u, new->m * new->s * sizeof(double));
+
+  new->v = malloc(new->n * new->s * sizeof(double));
+  memcpy(new->v, src->v, new->n * new->s * sizeof(double));
+
+  return new;
+}
+
+
+ParameterizedTest(struct ParametersRecompress *params, hodlr_hodlr_algebra, 
+                  recompress) {
+  int ierr = SUCCESS; 
+  const double svd_threshold = 1e-8;
+
+  int m_larger, m_smaller;
+  if (params->node->m > params->node->n) {
+    m_larger = params->node->m; m_smaller = params->node->n;
+  } else {
+    m_larger = params->node->n; m_smaller = params->node->m;
+  }
+
+  struct NodeOffDiagonal *node = copy_node(params->node);
+
+  int result = recompress(node, m_larger, m_smaller, svd_threshold, &ierr);
+
+  cr_expect(eq(int, ierr, SUCCESS));
+  cr_expect(eq(int, result, 0));
+  if (ierr != SUCCESS || result != 0) {
+    free(node->u); free(node->v); free(node);
+    cr_fatal();
+  }
+
+  expect_off_diagonal(node, params->expected, "");
+
+  free(node->u); free(node->v); free(node);
 }
 
 

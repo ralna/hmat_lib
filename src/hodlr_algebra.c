@@ -59,12 +59,13 @@ static inline int recompress(
   double *v_new = calloc(node->n * svd_cutoff_idx, sizeof(double));
   for (int j = 0; j < svd_cutoff_idx; j++ ) {
     for (int i = 0; i < node->s; i++) {
-      v_new[i + j * node->n] = zt[i + j * node->s];
+      v_new[i + j * node->n] = zt[j + i * node->s];
     }
   }
 
-  dgemqrt_("R", "T", &svd_cutoff_idx, &node->n, &node->s, &nb, node->v,
-           &node->n, tv, &nb, v_new, &node->n, workspace, ierr);
+  dgemqrt_("L", "N", &node->n, &svd_cutoff_idx, &node->s, &nb, 
+           node->v, &node->n, tv, &nb, v_new, &node->n, workspace, ierr);
+
   free(node->v);
   node->v = v_new;
   node->s = svd_cutoff_idx;
