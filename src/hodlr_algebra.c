@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <stdio.h>
 
 #include "../include/tree.h"
 #include "../include/error.h"
@@ -7,14 +6,15 @@
 #include "../include/lapack_wrapper.h"
 
 
-static inline void recompress(
+static inline int recompress(
   struct NodeOffDiagonal *restrict const node,
   const int m_larger,
   const int m_smaller,
   const double svd_threshold,
   int *restrict const ierr
 ) {
-  const int nb = m_smaller < 32 ? m_smaller : 32; int info;
+  const int nb = node->s < 32 ? node->s : 32;
+  int info;
   double *tu = malloc(2 * nb * m_smaller * sizeof(double));
   double *tv = tu + nb * m_smaller;
 
@@ -63,13 +63,16 @@ static inline void recompress(
     }
   }
 
-  dgemqrt_("R", "T", &node->n, &svd_cutoff_idx, &node->s, &nb, node->v,
+  dgemqrt_("R", "T", &svd_cutoff_idx, &node->n, &node->s, &nb, node->v,
            &node->n, tv, &nb, v_new, &node->n, workspace, ierr);
   free(node->v);
   node->v = v_new;
+  node->s = svd_cutoff_idx;
 
   // copy w into mxk array with zeros 
   free(tu); free(workspace); free(r1); free(s); free(w); free(zt);
+
+  return result;
 }
 
 
