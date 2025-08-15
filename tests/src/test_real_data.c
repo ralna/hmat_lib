@@ -109,8 +109,6 @@ ParameterizedTestParameters(real_data, H) {
 ParameterizedTest(struct Parameters *params, real_data, H) {
   cr_log_info("height=%d, ms=%p", params->height, params->ms);
 
-  if (params->ms == NULL) cr_skip();
-
   const size_t matrix_size = params->m * params->m * sizeof(double);
   const double svd_threshold = 1e-8, alpha = 1.0, beta = 0.0;
   int ierr = 0; const int m = params->m, inc = 1;

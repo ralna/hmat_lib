@@ -42,7 +42,7 @@ if(BUILD_TESTING)
       target_link_libraries(test_real_data OpenMP::OpenMP_C)
     endif()
 
-    if(REALD_DATA_PRINT_S)
+    if(REAL_DATA_PRINT_S)
       target_compile_definitions(test_real_data PRIVATE HODLR_REAL_DATA_PRINT_S)
     endif()
     
