@@ -8,6 +8,7 @@
 
 #include "../include/utils.h"
 #include "../../include/tree.h"
+#include "../../include/blas_wrapper.h"
 
 static double DELTA = 1e-10;
 
@@ -212,6 +213,91 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
 }
 
 
+
+void expect_off_diagonal_recompress(
+  const struct NodeOffDiagonal *restrict const actual,
+  const struct NodeOffDiagonal *restrict const expected,
+  const int ld_expected,
+  double *restrict const workspace
+) {
+  cr_expect(eq(int, actual->s, expected->s));
+
+  const double alpha = 1.0, beta = 0.0;
+  dgemm_("N", "T", &actual->m, &actual->n, &actual->s, &alpha,
+         actual->u, &actual->m, actual->v, &actual->n, &beta,
+         workspace, &actual->m);
+
+  expect_matrix_double_eq_safe(
+    workspace, expected->u, actual->m, actual->n, expected->m, expected->n,
+    actual->m, ld_expected, 'O', "", NULL, NULL
+  );
+}
+
+
+void expect_hodlr_fake(const struct TreeHODLR *restrict const actual, 
+                       const struct TreeHODLR *restrict const expected,
+                       double *restrict const workspace) {
+  struct HODLRInternalNode **queue_a = actual->work_queue;
+  struct HODLRInternalNode **queue_e = expected->work_queue;
+
+  long n_parent_nodes = actual->len_work_queue;
+  const int ld_expected = expected->root->m;
+
+  int offset = 0;
+  for (int parent = 0; parent < n_parent_nodes; parent++) {
+    queue_a[parent] = actual->innermost_leaves[2 * parent]->parent;
+    queue_e[parent] = expected->innermost_leaves[2 * parent]->parent;
+
+    const int ma = actual->innermost_leaves[2 * parent]->data.diagonal.m;
+    const int na = actual->innermost_leaves[2 * parent + 1]->data.diagonal.m;
+
+    const int me = expected->innermost_leaves[2 * parent]->data.diagonal.m;
+    const int ne = expected->innermost_leaves[2 * parent + 1]->data.diagonal.m;
+
+    expect_matrix_double_eq_safe(
+      actual->innermost_leaves[2 * parent]->data.diagonal.data, 
+      expected->innermost_leaves[2 * parent]->data.diagonal.data, 
+      ma, ma, me, me, ma, ld_expected, 'D', "", NULL, NULL
+    );
+    expect_matrix_double_eq_safe(
+      actual->innermost_leaves[2 * parent + 1]->data.diagonal.data, 
+      expected->innermost_leaves[2 * parent + 1]->data.diagonal.data, 
+      na, na, ne, ne, na, ld_expected, 'D', "", NULL, NULL
+    );
+
+    expect_off_diagonal_recompress(
+      &queue_a[parent]->children[1].leaf->data.off_diagonal,
+      &queue_e[parent]->children[1].leaf->data.off_diagonal,
+      ld_expected, workspace
+    );
+
+    expect_off_diagonal_recompress(
+      &queue_a[parent]->children[2].leaf->data.off_diagonal,
+      &queue_e[parent]->children[2].leaf->data.off_diagonal,
+      ld_expected, workspace
+    );
+  }
+
+  for (int level = actual->height; level > 1; level--) {
+    n_parent_nodes /= 2;
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      queue_a[parent] = queue_a[2 * parent]->parent;
+      queue_e[parent] = queue_e[2 * parent]->parent;
+
+      expect_off_diagonal_recompress(
+        &queue_a[parent]->children[1].leaf->data.off_diagonal,
+        &queue_e[parent]->children[1].leaf->data.off_diagonal,
+        ld_expected, workspace
+      );
+
+      expect_off_diagonal_recompress(
+        &queue_a[parent]->children[2].leaf->data.off_diagonal,
+        &queue_e[parent]->children[2].leaf->data.off_diagonal,
+        ld_expected, workspace
+      );
+    }
+  }
+}
 
 
 void log_matrix(const double *matrix, const int m, const int n, const int lda) {

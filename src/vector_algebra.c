@@ -143,7 +143,10 @@ double * multiply_vector(const struct TreeHODLR *restrict hodlr,
   const double alpha = 1, beta = 0;
   long n_parent_nodes = hodlr->len_work_queue;
 
-  const int largest_m = hodlr->root->children[1].leaf->data.off_diagonal.m ;
+  const int m0 = hodlr->root->children[1].leaf->data.off_diagonal.m ;
+  const int n0 = hodlr->root->children[1].leaf->data.off_diagonal.m ;
+  const int largest_m = (m0 > n0) ? m0 : n0;
+
   double *workspace = malloc(2 * largest_m * sizeof(double));
   double *workspace2 = workspace + largest_m;
 

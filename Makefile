@@ -67,7 +67,7 @@ constructors.o: ${SRC_DIR}/constructors.c lapack_wrapper.o
 		-c ${SRC_DIR}/constructors.c \
 		-o ${BUILD_DIR}/constructors.o \
 		-I ${INCLUDE_DIR} ${WARNINGS} ${EXTRA_FLAGS} \
-		${OPENMP}
+		${OMP}
 
 vector_algebra.o: ${SRC_DIR}/vector_algebra.c
 	${COMPILER} \
