@@ -2,7 +2,6 @@
 #define _TEST_HODLR 1
 #endif
 
-<<<<<<< HEAD
 #include <math.h>
 #include <stdio.h>
 
@@ -344,8 +343,12 @@ ParameterizedTest(struct ParametersTestOffdiagxV *params, vector_algebra,
     params->parent, params->vector, params->out, workspace, 1, params->offset
   );
 
+  double norm, diff;
   expect_vector_double_eq_safe(params->out, params->expected, params->len, 
-                               params->len, 'V');
+                               params->len, 'V', &norm, &diff);
+  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
+              sqrtf(diff) / sqrtf(norm));
+
 
   free(workspace);
 }
