@@ -870,16 +870,14 @@ void free_recompress_params(struct criterion_test_params *params) {
 }
 
 
-ParameterizedTestParameters(hodlr_hodlr_algebra, recompress) {
-  enum {n_params = 4};
-  struct ParametersRecompress *params = 
-    cr_malloc(n_params * sizeof(struct ParametersRecompress));
-
-  const int ms[n_params] = {10, 10, 9, 6};
-  const int ss[n_params] = {2, 3, 4, 2};
-  const int ns[n_params] = {10, 9, 10, 6};
-  const int ss_exp[n_params] = {1, 1, 1, 1};
-
+static inline void alloc_recompress_params(
+  struct ParametersRecompress *const params,
+  const int n_params,
+  const int ms[],
+  const int ns[],
+  const int ss[],
+  const int ss_exp[]
+) {
   for (int i = 0; i < n_params; i++) {
     params[i].node = cr_malloc(sizeof(struct NodeOffDiagonal));
     params[i].expected = cr_malloc(sizeof(struct NodeOffDiagonal));
@@ -895,6 +893,20 @@ ParameterizedTestParameters(hodlr_hodlr_algebra, recompress) {
     params[i].expected->u = cr_calloc(ms[i] * ss_exp[i], sizeof(double));
     params[i].expected->v = cr_calloc(ns[i] * ss_exp[i], sizeof(double));
   }
+}
+
+
+static inline int generate_recompress_zero_params(
+  struct ParametersRecompress *const params
+) {
+  enum {n_params = 4};
+
+  const int ms[n_params] = {10, 10, 9, 6};
+  const int ss[n_params] = {2, 3, 4, 2};
+  const int ns[n_params] = {10, 9, 10, 6};
+  const int ss_exp[n_params] = {1, 1, 1, 1};
+
+  alloc_recompress_params(params, n_params, ms, ns, ss, ss_exp);
 
   int i = 0;
   params[i].node->u[0] = 1.0;
@@ -923,8 +935,67 @@ ParameterizedTestParameters(hodlr_hodlr_algebra, recompress) {
   params[i].expected->v[params[i].node->n - 1] = 1.0;
   i++;
 
+  check_n_params(i, n_params);
+
+  return n_params;
+}
+
+
+static inline int generate_recompress_laplace_params(
+  struct ParametersRecompress *const params
+) {
+  enum {n_params = 1};
+
+  const int ms[n_params] = {11};
+  const int ns[n_params] = {11};
+  const int ss[n_params] = {3};
+  const int ss_exp[n_params] = {3};
+
+  alloc_recompress_params(params, n_params, ms, ns, ss, ss_exp);
+
+  int i = 0;
+  params[i].node->u[ms[i] - 2] = 2;
+  params[i].node->u[ms[i] - 1] = -4;
+  params[i].node->u[2 * ms[i] - 1] = 1.0;
+  params[i].node->u[2 * ms[i]] = -0.5;
+
+  params[i].node->v[0] = -1;
+  params[i].node->v[ns[i]] = 1.0;
+  params[i].node->v[ns[i] + 1] = -2.0;
+  params[i].node->v[3 * ns[i] - 2] = -2.0;
+  params[i].node->v[3 * ns[i] - 1] = 1.0;
+
+  params[i].expected->u[ms[i] - 2] = 1.8872566383;
+  params[i].expected->u[ms[i] - 1] = -5.3801554787;
+  params[i].expected->u[ms[i]] = 1.1180339887;
+  params[i].expected->u[2 * ms[i] - 2] = -6.20633538e-17;
+  params[i].expected->u[2 * ms[i]] = -3.89445209e-17;
+  params[i].expected->u[3 * ms[i] - 2] = 6.620138829e-1;
+  params[i].expected->u[3 * ms[i] - 1] = 2.322219311e-1;
+
+  params[i].expected->v[0] = -0.9436283192;
+  params[i].expected->v[1] = 0.3310069414;
+  params[i].expected->v[2 * ns[i] - 2] = 0.8944271910;
+  params[i].expected->v[2 * ns[i] - 1] = -0.4472135955;
+  params[i].expected->v[2 * ns[i]] = -0.3310069414;
+  params[i].expected->v[2 * ns[i] + 1] = -0.9436283192;
+  i++;
 
   check_n_params(i, n_params);
+
+  return n_params;
+}
+
+
+ParameterizedTestParameters(hodlr_hodlr_algebra, recompress) {
+  enum {n_params = 5};
+  struct ParametersRecompress *params = 
+    cr_malloc(n_params * sizeof(struct ParametersRecompress));
+
+  int actual = generate_recompress_zero_params(params);
+  actual += generate_recompress_laplace_params(params + actual);
+
+  check_n_params(actual, n_params);
 
   return cr_make_param_array(struct ParametersRecompress, params, n_params, 
                              free_recompress_params);
