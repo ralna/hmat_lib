@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "../include/tree.h"
 #include "../include/error.h"
@@ -202,26 +203,22 @@ static inline void compute_inner_off_diagonal_lowest_level(
     off_diagonal_right->u, &off_diagonal_right->m,
     &beta, out->u + offset_u, &diagonal_left->m
   );
-  dlacpy_(
-    "A", &off_diagonal_right->n, &off_diagonal_right->s, 
-    off_diagonal_right->v, &off_diagonal_right->n, 
-    out->v + offset_v, &diagonal_left->m
-  );
+  // Copy V
+  memcpy(out->v + offset_v, off_diagonal_right->v, 
+         off_diagonal_right->n * off_diagonal_right->s * sizeof(double));
 
   offset_u += diagonal_left->m * off_diagonal_right->s;
   offset_v += off_diagonal_right->s * diagonal_right->m;
 
-  // V^T x dense = V* at index=1 (represents V^T* but not actually transposed)
-  dlacpy_(
-    "A", &off_diagonal_left->m, &off_diagonal_left->s, 
-    off_diagonal_left->u, &off_diagonal_left->m, 
-    out->u + offset_u, &diagonal_right->m
-  );
+  // Copy U
+  memcpy(out->u + offset_u, off_diagonal_left->u, 
+         off_diagonal_left->m * off_diagonal_left->s * sizeof(double));
+  // dense^T x V = V* at index=1 (represents V^T* but not actually transposed)
   dgemm_(
     "T", "N", &diagonal_right->m, &off_diagonal_left->s, &diagonal_right->m, 
     &alpha, diagonal_right->data, &diagonal_right->m, 
-    off_diagonal_left->v, &off_diagonal_left->n,
-    &beta, out->v + offset_v, &diagonal_right->m
+    off_diagonal_left->v, &off_diagonal_left->n, &beta, 
+    out->v + offset_v, &diagonal_right->m
   );
 }
 
