@@ -24,11 +24,13 @@ int expect_off_diagonal(
   const char *buffer
 );
 
-void expect_off_diagonal_recompress(
+void expect_off_diagonal_decompress(
   const struct NodeOffDiagonal *actual,
   const struct NodeOffDiagonal *expected,
   const int ld_expected,
-  double *workspace
+  const char *buffer,
+  double *workspace,
+  double *workspace2
 );
 
 int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected);

@@ -282,6 +282,28 @@ ParameterizedTestParameters(hodlr_hodlr_algebra, compute_inner_off_diagonal) {
 }
 
 
+static inline int get_largest_block_size(
+  struct HODLRLeafNode **innermost,
+  const int len
+) {
+  int largest = 0;
+  for (int parent = 0; parent < len; parent++) {
+    struct NodeOffDiagonal *top_right = 
+      &innermost[2 * parent]->parent->children[1].leaf->data.off_diagonal;
+    struct NodeOffDiagonal *bottom_left = 
+      &innermost[2 * parent]->parent->children[2].leaf->data.off_diagonal;
+    
+    int size = top_right->m * top_right->n;
+    if (size > largest) largest = size;
+
+    size = bottom_left->m * bottom_left->n;
+    if (size > largest) largest = size;
+  }
+
+  return largest;
+}
+
+
 ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra, 
                   compute_inner_off_diagonal) {
   cr_log_info("%.10s (height=%d) x %.10s (height=%d)",
@@ -291,8 +313,8 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
   int ierr = SUCCESS; const double svd_threshold = 1e-8;
   int *offsets = calloc(params->expected->height, sizeof(int));
   
-  int s1 = get_highest_s(params->hodlr1);
-  int s2 = get_highest_s(params->hodlr2);
+  const int s1 = get_highest_s(params->hodlr1);
+  const int s2 = get_highest_s(params->hodlr2);
   double *workspace = malloc(s1 * s2 * sizeof(double));
 
   struct TreeHODLR *result = allocate_tree_monolithic(
@@ -302,6 +324,12 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
 
   const size_t sbuff = 50 * sizeof(char);
   char *buffer = malloc(sbuff);
+
+  const int largest_bs = get_largest_block_size(
+    result->innermost_leaves, result->len_work_queue
+  );
+  double *workspace2 = malloc(2 * largest_bs * sizeof(double));
+  double *workspace3 = workspace2 + largest_bs;
 
   for (int parent = 0; parent < result->len_work_queue; parent++) {
     struct NodeOffDiagonal *top_right = 
@@ -324,21 +352,21 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
     }
 
     snprintf(buffer, sbuff, "idx=%d top right", parent);
-    expect_off_diagonal(
+    expect_off_diagonal_decompress(
       top_right,
       &params->expected->innermost_leaves[2 * parent]->parent->children[1].leaf->data.off_diagonal,
-      buffer
+      top_right->m, buffer, workspace2, workspace3
     );
     snprintf(buffer, sbuff, "idx=%d bottom left", parent);
-    expect_off_diagonal(
+    expect_off_diagonal_decompress(
       bottom_left,
       &params->expected->innermost_leaves[2 * parent]->parent->children[2].leaf->data.off_diagonal,
-      buffer
+      bottom_left->m, buffer, workspace2, workspace3
     );
   }
 
   free_tree_hodlr(&result, &free);
-  free(offsets); free(workspace);
+  free(offsets); free(workspace); free(workspace2);
 }
 
 
@@ -685,11 +713,11 @@ ParameterizedTest(struct ParametersHigherContribOffDiag *params,
   }
 
   double *workspace2 = malloc(actual_tr->m * actual_tr->n * sizeof(double)); 
-  expect_off_diagonal_recompress(
-    actual_tr, params->expected_tr, actual_tr->m, workspace2
+  expect_off_diagonal_decompress(
+    actual_tr, params->expected_tr, actual_tr->m, "", workspace2, NULL
   );
-  expect_off_diagonal_recompress(
-    actual_bl, params->expected_bl, actual_bl->m, workspace2
+  expect_off_diagonal_decompress(
+    actual_bl, params->expected_bl, actual_bl->m, "", workspace2, NULL
   );
 
   free(actual_tr->u); free(actual_tr->v); free(actual_tr); 

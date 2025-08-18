@@ -222,23 +222,36 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
 }
 
 
-void expect_off_diagonal_recompress(
+void expect_off_diagonal_decompress(
   const struct NodeOffDiagonal *restrict const actual,
   const struct NodeOffDiagonal *restrict const expected,
   const int ld_expected,
-  double *restrict const workspace
+  const char *restrict const buffer,
+  double *restrict const workspace,
+  double *restrict const workspace2
 ) {
-  cr_expect(eq(int, actual->s, expected->s));
+  cr_expect(eq(int, actual->s, expected->s), "%s", buffer);
 
   const double alpha = 1.0, beta = 0.0;
   dgemm_("N", "T", &actual->m, &actual->n, &actual->s, &alpha,
          actual->u, &actual->m, actual->v, &actual->n, &beta,
          workspace, &actual->m);
 
-  expect_matrix_double_eq_safe(
-    workspace, expected->u, actual->m, actual->n, expected->m, expected->n,
-    actual->m, ld_expected, 'O', "", NULL, NULL
-  );
+  if (expected->v == NULL) {
+    expect_matrix_double_eq_safe(
+      workspace, expected->u, actual->m, actual->n, expected->m, expected->n,
+      actual->m, ld_expected, 'O', buffer, NULL, NULL
+    );
+  } else {
+    dgemm_("N", "T", &expected->m, &expected->n, &expected->s, &alpha,
+           expected->u, &expected->m, expected->v, &expected->n, &beta,
+           workspace2, &expected->m);
+
+    expect_matrix_double_eq_safe(
+      workspace, workspace2, actual->m, actual->n, expected->m, expected->n,
+      actual->m, ld_expected, 'O', buffer, NULL, NULL
+    );
+  }
 }
 
 

@@ -283,6 +283,7 @@ static inline void compute_inner_off_diagonal(
     m_larger = out_tr->n; m_smaller = out_tr->m;
   }
   recompress(out_tr, m_larger, m_smaller, svd_threshold, ierr);
+  recompress(out_bl, m_larger, m_smaller, svd_threshold, ierr);
 }
 
 
