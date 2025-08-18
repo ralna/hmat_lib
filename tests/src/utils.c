@@ -600,7 +600,7 @@ void copy_block_sizes(
       queue_d[parent] = queue_d[2 * parent]->parent;
       queue_s[parent] = queue_s[2 * parent]->parent;
 
-      queue_d[parent]->parent->m = queue_s[parent]->parent->m;
+      queue_d[parent]->m = queue_s[parent]->m;
 
       queue_d[parent]->children[1].leaf->data.off_diagonal.m =
         queue_s[parent]->children[1].leaf->data.off_diagonal.m;
