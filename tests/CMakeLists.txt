@@ -1,5 +1,10 @@
 if(BUILD_TESTING)
-  add_executable(unit_test src/test_allocators.c src/test_tree_construct.c src/test_vector_algebra.c src/test_hodlr_dense_algebra.c ../src/lapack_wrapper.c src/utils.c src/common_data.c)
+  add_executable(
+    unit_test 
+    src/test_allocators.c src/test_tree_construct.c src/test_vector_algebra.c 
+    src/test_hodlr_dense_algebra.c ../src/lapack_wrapper.c src/utils.c 
+    src/common_data.c ../src/utils.c
+  )
     
   target_link_libraries(unit_test ${MATH_LIBRARY})
   target_link_libraries(unit_test openblas)
@@ -12,7 +17,11 @@ if(BUILD_TESTING)
   )
 
   if(BUILD_OPENMP_TESTS AND OpenMP_C_FOUND)
-    add_executable(test_constructors_omp src/test_allocators.c src/test_tree_construct.c ../src/lapack_wrapper.c src/utils.c src/common_data.c)
+    add_executable(
+      test_constructors_omp 
+      src/test_allocators.c src/test_tree_construct.c ../src/lapack_wrapper.c 
+      src/utils.c src/common_data.c ../src/utils.c
+    )
 
     target_link_libraries(test_constructors_omp ${MATH_LIBRARY})
     target_link_libraries(test_constructors_omp openblas)
@@ -32,6 +41,7 @@ if(BUILD_TESTING)
       src/test_real_data.c src/utils.c src/common_data.c src/io.c 
       ../dev/common.c ../src/allocators.c ../src/constructors.c 
       ../src/lapack_wrapper.c ../src/vector_algebra.c ../src/dense_algebra.c
+      ../src/utils.c
     )
 
     target_link_libraries(test_real_data ${MATH_LIBRARY})
