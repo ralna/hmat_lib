@@ -47,55 +47,43 @@
  *                    so is an undefined behaviour. Similarly, it must not be
  *                    ``NULL`` - again undefined.
  */
-static inline void multiply_off_diagonal_vector(
-  const struct HODLRInternalNode *restrict parent,
-  const double *restrict vector,
+static inline int multiply_off_diagonal_vector(
+  const struct HODLRInternalNode *restrict const parent,
+  const double *restrict const vector,
   double *restrict out,
   double *restrict workspace,
-  double *restrict workspace2,
-  const double alpha,
-  const double beta,
   const int increment,
-  int *restrict offset_ptr
+  const int offset
 ) {
-  int i = 0;
-  int m = parent->children[1].leaf->data.off_diagonal.m;
-  int n = parent->children[1].leaf->data.off_diagonal.n;
+  const double one = 1.0, zero = 0.0;
+  const int m = parent->children[1].leaf->data.off_diagonal.m;
+  const int n = parent->children[1].leaf->data.off_diagonal.n;
   int s = parent->children[1].leaf->data.off_diagonal.s;
 
-  int offset2 = *offset_ptr;
-  *offset_ptr += m;
-  int offset = *offset_ptr;
+  const int offset2 = offset + m;
 
-  dgemv_("T", &n, &s, &alpha, 
+  dgemv_("T", &n, &s, &one, 
           parent->children[1].leaf->data.off_diagonal.v, 
-          &n, vector + offset, &increment, 
-          &beta, workspace, &increment);
+          &n, vector + offset2, &increment, 
+          &zero, workspace, &increment);
 
-  dgemv_("N", &m, &s, &alpha, 
+  dgemv_("N", &m, &s, &one, 
           parent->children[1].leaf->data.off_diagonal.u, 
           &m, workspace, &increment,
-          &beta, workspace2, &increment);
+          &one, out + offset, &increment);
 
-  for (i = 0; i < m; i++) {
-    out[offset2 + i] += workspace2[i];
-  }
-  
   s = parent->children[2].leaf->data.off_diagonal.s;
-  dgemv_("T", &m, &s, &alpha, 
+  dgemv_("T", &m, &s, &one, 
           parent->children[2].leaf->data.off_diagonal.v, 
-          &m, vector + offset2, &increment, 
-          &beta, workspace, &increment);
+          &m, vector + offset, &increment, 
+          &zero, workspace, &increment);
 
-  dgemv_("N", &n, &s, &alpha, 
+  dgemv_("N", &n, &s, &one, 
           parent->children[2].leaf->data.off_diagonal.u, 
           &n, workspace, &increment,
-          &beta, workspace2, &increment);
+          &one, out + offset2, &increment);
 
-  for (i = 0; i < n; i++) {
-    out[offset + i] += workspace2[i];
-  }
-  *offset_ptr += n;
+  return offset2 + n;
 }
 
 
@@ -124,8 +112,8 @@ static inline void multiply_off_diagonal_vector(
  * :return: The ``out`` array with the results of the matrix-vector 
  *          multiplication stored inside.
  */
-double * multiply_vector(const struct TreeHODLR *restrict hodlr,
-                         const double *restrict vector,
+double * multiply_vector(const struct TreeHODLR *restrict const hodlr,
+                         const double *restrict const vector,
                          double *restrict out) {
   if (hodlr == NULL || vector == NULL) {
     return NULL;
@@ -137,7 +125,7 @@ double * multiply_vector(const struct TreeHODLR *restrict hodlr,
     }
   }
 
-  int offset = 0, i=0, j=0, k=0, idx=0, m = 0;
+  int offset = 0, idx=0, m = 0;
   const int increment = 1;
   const double alpha = 1, beta = 0;
   long n_parent_nodes = hodlr->len_work_queue;
@@ -146,48 +134,43 @@ double * multiply_vector(const struct TreeHODLR *restrict hodlr,
   const int n0 = hodlr->root->children[1].leaf->data.off_diagonal.m ;
   const int largest_m = (m0 > n0) ? m0 : n0;
 
-  double *workspace = malloc(2 * largest_m * sizeof(double));
-  double *workspace2 = workspace + largest_m;
+  double *workspace = malloc(largest_m * sizeof(double));
 
   struct HODLRInternalNode **queue = hodlr->work_queue;
 
-  for (i = 0; i < n_parent_nodes; i++) {
-    queue[i] = hodlr->innermost_leaves[2 * i]->parent;
+  for (int parent = 0; parent < n_parent_nodes; parent++) {
+    queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
 
-    for (j = 0; j < 2; j++) {
-      idx = 2 * i + j;
+    for (int _diagonal = 0; _diagonal < 2; _diagonal++) {
       m = hodlr->innermost_leaves[idx]->data.diagonal.m;
       dgemv_("N", &m, &m, &alpha, 
              hodlr->innermost_leaves[idx]->data.diagonal.data, 
              &m, vector + offset, &increment, 
              &beta, out + offset, &increment);
       offset += m;
+      idx++;
     }
   }
 
   for (int _ = hodlr->height-1; _ > 0; _--) {
     n_parent_nodes /= 2;
-    offset = 0;
+    offset = 0; idx = 0;
 
-    for (j = 0; j < n_parent_nodes; j++) {
-      idx = 2 * j;
-      for (k = 0; k < 2; k++) {
-        multiply_off_diagonal_vector(
-          queue[idx], vector, out, workspace, workspace2, 
-          alpha, beta, increment, &offset
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      for (int _child = 0; _child < 2; _child++) {
+        offset = multiply_off_diagonal_vector(
+          queue[idx], vector, out, workspace, increment, offset
         );
 
-        idx += 1;
+        idx++;
       }
 
-      queue[j] = queue[2 * j + 1]->parent;
+      queue[parent] = queue[2 * parent]->parent;
     }
   }
 
-  offset = 0;
   multiply_off_diagonal_vector(
-    hodlr->root, vector, out, workspace, workspace2, 
-    alpha, beta, increment, &offset
+    hodlr->root, vector, out, workspace, increment, 0
   );
 
   free(workspace);
