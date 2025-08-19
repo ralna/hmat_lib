@@ -1129,20 +1129,20 @@ static inline int generate_recompress_laplace_params(
   params[i].node->v[3 * ns[i] - 2] = -2.0;
   params[i].node->v[3 * ns[i] - 1] = 1.0;
 
-  params[i].expected->u[ms[i] - 2] = 1.8872566383;
-  params[i].expected->u[ms[i] - 1] = -5.3801554787;
-  params[i].expected->u[ms[i]] = 1.1180339887;
+  params[i].expected->u[ms[i] - 2] = 1.887256638321;
+  params[i].expected->u[ms[i] - 1] = -5.380155478673;
+  params[i].expected->u[ms[i]] = 1.118033988750;
   params[i].expected->u[2 * ms[i] - 2] = -6.20633538e-17;
   params[i].expected->u[2 * ms[i]] = -3.89445209e-17;
-  params[i].expected->u[3 * ms[i] - 2] = 6.620138829e-1;
-  params[i].expected->u[3 * ms[i] - 1] = 2.322219311e-1;
+  params[i].expected->u[3 * ms[i] - 2] = 6.62013882871e-1;
+  params[i].expected->u[3 * ms[i] - 1] = 2.32221931143e-1;
 
-  params[i].expected->v[0] = -0.9436283192;
-  params[i].expected->v[1] = 0.3310069414;
-  params[i].expected->v[2 * ns[i] - 2] = 0.8944271910;
-  params[i].expected->v[2 * ns[i] - 1] = -0.4472135955;
-  params[i].expected->v[2 * ns[i]] = -0.3310069414;
-  params[i].expected->v[2 * ns[i] + 1] = -0.9436283192;
+  params[i].expected->v[0] = -0.943628319160;
+  params[i].expected->v[1] = 0.331006941436;
+  params[i].expected->v[2 * ns[i] - 2] = 0.894427191000;
+  params[i].expected->v[2 * ns[i] - 1] = -0.447213595500;
+  params[i].expected->v[2 * ns[i]] = -0.331006941436;
+  params[i].expected->v[2 * ns[i] + 1] = -0.943628319160;
   i++;
 
   check_n_params(i, n_params);
@@ -1185,6 +1185,9 @@ static inline struct NodeOffDiagonal * copy_node(
 
 ParameterizedTest(struct ParametersRecompress *params, hodlr_hodlr_algebra, 
                   recompress) {
+  cr_log_info("m=%d, n=%d, s=%d, expected s=%d", params->node->m,
+              params->node->n, params->node->s, params->expected->s);
+
   int ierr = SUCCESS; 
   const double svd_threshold = 1e-8;
 
@@ -1209,6 +1212,54 @@ ParameterizedTest(struct ParametersRecompress *params, hodlr_hodlr_algebra,
   expect_off_diagonal(node, params->expected, "");
 
   free(node->u); free(node->v); free(node);
+}
+
+
+ParameterizedTestParameters(hodlr_hodlr_algebra, recompress_large_s) {
+  enum {n_params = 5};
+  struct ParametersRecompress *params = 
+    cr_malloc(n_params * sizeof(struct ParametersRecompress));
+
+  int actual = generate_recompress_zero_params(params);
+  actual += generate_recompress_laplace_params(params + actual);
+
+  check_n_params(actual, n_params);
+
+  return cr_make_param_array(struct ParametersRecompress, params, n_params, 
+                             free_recompress_params);
+}
+
+
+ParameterizedTest(struct ParametersRecompress *params, hodlr_hodlr_algebra, 
+                  recompress_large_s) {
+  cr_log_info("m=%d, n=%d, s=%d, expected s=%d", params->node->m,
+              params->node->n, params->node->s, params->expected->s);
+
+  int ierr = SUCCESS; 
+  const double svd_threshold = 1e-8;
+
+  int m_smaller = 
+    (params->node->m > params->node->n) ? params->node->n : params->node->m;
+
+  struct NodeOffDiagonal *node = copy_node(params->node);
+
+  int result = recompress_large_s(node, m_smaller, svd_threshold, &ierr);
+
+  cr_expect(eq(int, ierr, SUCCESS));
+  cr_expect(eq(int, result, 0));
+  if (ierr != SUCCESS || result != 0) {
+    free(node->u); free(node->v); free(node);
+    cr_fatal();
+  }
+
+  double *workspace = malloc(2 * node->m * node->n * sizeof(double));
+  double *workspace2 = workspace + node->m * node->n;
+
+  expect_off_diagonal_decompress(
+    node, params->expected, node->m, "", workspace, workspace2
+  );
+
+  free(node->u); free(node->v); free(node); free(workspace);
 }
 
 

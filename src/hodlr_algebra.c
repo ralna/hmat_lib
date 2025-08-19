@@ -42,7 +42,7 @@ static inline int recompress(
 
   int svd_cutoff_idx = 1;
   for (svd_cutoff_idx = 1; svd_cutoff_idx < node->s; svd_cutoff_idx++) {
-    if (s[svd_cutoff_idx] < svd_threshold) break;
+    if (s[svd_cutoff_idx] <= svd_threshold) break;
   }
 
   double *u_new = calloc(node->m * svd_cutoff_idx, sizeof(double));
@@ -73,6 +73,65 @@ static inline int recompress(
 
   // copy w into mxk array with zeros 
   free(tu); free(workspace); free(r1); free(s); free(w); free(zt);
+
+  return result;
+}
+
+
+static inline int recompress_large_s(
+  struct NodeOffDiagonal *restrict const node,
+  const int m_smaller,
+  const double svd_threshold,
+  int *restrict const ierr
+) {
+  double *workspace = malloc(node->m * node->n * sizeof(double));
+
+  const double alpha = 1.0, beta = 0.0;
+  dgemm_("N", "T", &node->m, &node->n, &node->s, &alpha, node->u, &node->m,
+         node->v, &node->n, &beta, workspace, &node->m);
+
+  // Instead of allocating, node->u and node->v can potentially be reused here
+  // as long as node->s >= node->m
+  double *s = malloc(m_smaller * sizeof(double));
+  double *u = malloc(node->m * m_smaller * sizeof(double));
+  double *vt = malloc(node->n * m_smaller * sizeof(double));
+
+  const int result = svd_double(
+    node->m, node->n, m_smaller, node->m, workspace, s, u, vt, ierr
+  );
+
+  int svd_cutoff_idx = 1;
+  for (svd_cutoff_idx = 1; svd_cutoff_idx < m_smaller; svd_cutoff_idx++) {
+    if (s[svd_cutoff_idx] <= svd_threshold) break;
+  }
+
+  double *u_new = malloc(node->m * svd_cutoff_idx * sizeof(double));
+  if (u_new == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    return result;
+  }
+  for (int i=0; i<svd_cutoff_idx; i++) {
+    for (int j=0; j<node->m; j++) {
+      u_new[j + i * node->m] = u[j + i * node->m] * s[i];
+    }
+  }
+
+  double *v_new = malloc(svd_cutoff_idx * node->n * sizeof(double));
+  if (v_new == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    return result;
+  }
+  for (int i=0; i<svd_cutoff_idx; i++) {
+    for (int j=0; j<node->n; j++) {
+      v_new[j + i * node->n] = vt[i + j * m_smaller];
+    }
+  }
+
+  free(node->u); node->u = u_new;
+  free(node->v); node->v = v_new;
+  node->s = svd_cutoff_idx;
+
+  free(workspace); free(s); free(u); free(vt);
 
   return result;
 }
@@ -277,8 +336,16 @@ static inline void compute_inner_off_diagonal(
   } else {
     m_larger = out_tr->n; m_smaller = out_tr->m;
   }
-  recompress(out_tr, m_larger, m_smaller, svd_threshold, ierr);
-  recompress(out_bl, m_larger, m_smaller, svd_threshold, ierr);
+
+  if (out_tr->s < m_smaller)
+    recompress(out_tr, m_larger, m_smaller, svd_threshold, ierr);
+  else 
+    recompress_large_s(out_tr, m_smaller, svd_threshold, ierr);
+
+  if (out_bl->s < m_smaller)
+    recompress(out_bl, m_larger, m_smaller, svd_threshold, ierr);
+  else
+    recompress_large_s(out_bl, m_smaller, svd_threshold, ierr);
 }
 
 
