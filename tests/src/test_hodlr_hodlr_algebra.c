@@ -510,7 +510,6 @@ ParameterizedTest(struct ParametersSComponent *params, hodlr_hodlr_algebra,
 struct ParametersHigherContribOffDiag {
   int height;
   int origin_idx;
-  int divisor;
   struct TreeHODLR *hodlr_left;
   struct TreeHODLR *hodlr_right;
   struct HODLRInternalNode *parent_left;
@@ -544,38 +543,25 @@ static void free_hcod_params(struct criterion_test_params *params) {
 }
 
 
-static inline int generate_hcod_params(
-  struct ParametersHigherContribOffDiag *params
+static inline void alloc_hcod_params(
+  struct ParametersHigherContribOffDiag *params,
+  const int n_params,
+  const int height,
+  const int heights[],
+  const int origins[],
+  const int ms[],
+  const int ss[],
+  const int ns[]
 ) {
-  enum {n_params = 5};
-  const int height = 5, m = 67; const double svd_threshold = 1e-8;
   int ierr;
-  double *matrix = cr_malloc(m * m * sizeof(double));
-
-  const int heights[n_params] = {0, 1, 2, 3, 4};
-  const int origins[n_params] = {0, 0, 0, 2, 13};
-  const int divs[n_params] = {1, 1, 1, 1, 1};
-
-  const int ms[n_params] = {34, 17, 9, 4, 2};
-  const int ss[n_params] = {0, 1, 2, 3, 4};
-  const int ns[n_params] = {33, 17, 8, 4, 2};
-
   for (int i = 0; i < n_params; i++) {
     params[i].height = heights[i];
     params[i].origin_idx = origins[i];
-    params[i].divisor = divs[i];
 
     params[i].hodlr_left = 
       allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
     params[i].hodlr_right = 
       allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
-
-    fill_full_matrix(m, 0.0, matrix);
-    dense_to_tree_hodlr(params[i].hodlr_left, m, NULL, matrix, svd_threshold, 
-                        &ierr, &cr_malloc, &cr_free);
-    fill_laplacian_matrix(m, matrix);
-    dense_to_tree_hodlr(params[i].hodlr_right, m, NULL, matrix, svd_threshold, 
-                        &ierr, &cr_malloc, &cr_free);
 
     params[i].offsets = cr_calloc(height, sizeof(int));
     params[i].expected_offsets = cr_calloc(height, sizeof(int));
@@ -592,13 +578,41 @@ static inline int generate_hcod_params(
     params[i].expected_bl->n = ms[i];
     params[i].expected_bl->u = cr_calloc(ns[i] * ns[i], sizeof(double));
 
-    params[i].expected_offset_utr = heights[i] * (ms[i] * 1);
-    params[i].expected_offset_vtr = heights[i] * (ns[i] * 1);
+    params[i].expected_offset_utr = ms[i] * ss[i];
+    params[i].expected_offset_vtr = ns[i] * ss[i];
 
     for (int j = 0; j < heights[i]; j++) {
       params[i].offsets[j] = -50;
       params[i].expected_offsets[j] = ms[i] + ns[i];
     }
+  }
+}
+
+
+static inline int generate_hcod_zero_params(
+  struct ParametersHigherContribOffDiag *params
+) {
+  enum {n_params = 5};
+  const int height = 5, m = 67; const double svd_threshold = 1e-8;
+  int ierr;
+  double *matrix = cr_malloc(m * m * sizeof(double));
+
+  const int heights[n_params] = {0, 1, 2, 3, 4};
+  const int origins[n_params] = {0, 0, 0, 2, 13};
+
+  const int ms[n_params] = {34, 17, 9, 4, 2};
+  const int ss[n_params] = {0, 1, 2, 3, 4};
+  const int ns[n_params] = {33, 17, 8, 4, 2};
+
+  alloc_hcod_params(params, n_params, height, heights, origins, ms, ss, ns);
+
+  for (int i = 0; i < n_params; i++) {
+    fill_full_matrix(m, 0.0, matrix);
+    dense_to_tree_hodlr(params[i].hodlr_left, m, NULL, matrix, svd_threshold, 
+                        &ierr, &cr_malloc, &cr_free);
+    fill_laplacian_matrix(m, matrix);
+    dense_to_tree_hodlr(params[i].hodlr_right, m, NULL, matrix, svd_threshold, 
+                        &ierr, &cr_malloc, &cr_free);
   }
 
   int i = 0;
@@ -642,13 +656,59 @@ static inline int generate_hcod_params(
 }
 
 
+static inline int generate_hcod_laplace_params(
+  struct ParametersHigherContribOffDiag *params
+) {
+  enum {n_params = 2};
+  const int height = 5, m = 67; const double svd_threshold = 1e-8;
+  int ierr;
+  double *matrix = cr_malloc(m * m * sizeof(double));
+
+  const int heights[n_params] = {1, 2};
+  const int origins[n_params] = {0, 1};
+
+  const int ms[n_params] = {17, 8};
+  const int ss[n_params] = {2, 3};
+  const int ns[n_params] = {17, 8};
+
+  alloc_hcod_params(params, n_params, height, heights, origins, ms, ss, ns);
+
+  for (int i = 0; i < n_params; i++) {
+    fill_laplacian_matrix(m, matrix);
+    matrix[m - 1] = 0.5;
+    matrix[m * (m - 1)] = 0.5;
+    dense_to_tree_hodlr(params[i].hodlr_left, m, NULL, matrix, svd_threshold, 
+                        &ierr, &cr_malloc, &cr_free);
+    fill_laplacian_converse_matrix(m, matrix);
+    dense_to_tree_hodlr(params[i].hodlr_right, m, NULL, matrix, svd_threshold, 
+                        &ierr, &cr_malloc, &cr_free);
+  }
+
+  int i = 0;
+  params[i].parent_left = params[i].hodlr_left->root;
+  params[i].parent_right = params[i].hodlr_right->root;
+  i++;
+
+  params[i].parent_left = params[i].hodlr_left->root->children[0].internal;
+  params[i].parent_right = params[i].hodlr_right->root->children[0].internal;
+  params[i].offsets[1] = 17;
+  params[i].expected_offsets[1] += 17;
+  i++;
+
+  check_n_params(i, n_params);
+
+  return n_params;
+}
+
+
 ParameterizedTestParameters(hodlr_hodlr_algebra, 
                             compute_higher_level_contributions_off_diagonal) {
-  enum {n_params = 5};
+  enum {n_params = 7};
   struct ParametersHigherContribOffDiag *params = 
     cr_malloc(n_params * sizeof(struct ParametersHigherContribOffDiag));
 
-  int actual = generate_hcod_params(params);
+  int actual = generate_hcod_zero_params(params);
+  actual += generate_hcod_laplace_params(params + actual);
 
   check_n_params(actual, n_params);
 
@@ -698,7 +758,7 @@ ParameterizedTest(struct ParametersHigherContribOffDiag *params,
   double *workspace = malloc(actual_tr->s * actual_bl->s * sizeof(double));
 
   compute_higher_level_contributions_off_diagonal(
-    params->height, params->origin_idx, params->divisor, params->parent_left,
+    params->height, params->origin_idx, 1, params->parent_left,
     params->parent_right, actual_tr, actual_bl, params->offsets, workspace,
     &actual_offset_utr, &actual_offset_vtr
   );

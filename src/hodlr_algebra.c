@@ -140,9 +140,8 @@ static inline void compute_higher_level_contributions_off_diagonal(
     // Low-rank x low-rank = V* (represents V^T, but not actually transposed)
     dgemm_("N", "T", &out_tr->n, &s1, &s2, &alpha,
            parent2->children[which_child2].leaf->data.off_diagonal.v 
-           + (offsets[oidx] + out_bl->n), 
-           &m, 
-           workspace, &s2, &beta, out_tr->v + offset_vtr_ubl, &out_tr->n);
+           + (offsets[oidx] + out_bl->n), &m, 
+           workspace, &s1, &beta, out_tr->v + offset_vtr_ubl, &out_tr->n);
     dlacpy_("A", &out_tr->m, &s1, 
             parent1->children[which_child1].leaf->data.off_diagonal.u
             + offsets[oidx], &m,
@@ -152,9 +151,8 @@ static inline void compute_higher_level_contributions_off_diagonal(
     // Low-rank x low-rank = V* (represents V^T, but not actually transposed)
     dgemm_("N", "T", &out_bl->n, &s1, &s2, &alpha,
            parent2->children[which_child2].leaf->data.off_diagonal.v 
-           + offsets[oidx], 
-           &m, 
-           workspace, &s2, &beta, out_bl->v + offset_utr_vbl, &out_bl->n);
+           + offsets[oidx], &m, 
+           workspace, &s1, &beta, out_bl->v + offset_utr_vbl, &out_bl->n);
     dlacpy_("A", &out_bl->m, &s1, 
             parent1->children[which_child1].leaf->data.off_diagonal.u
             + offsets[oidx] + out_tr->m, &m,
