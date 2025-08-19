@@ -370,6 +370,104 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
 }
 
 
+ParameterizedTestParameters(hodlr_hodlr_algebra, compute_other_off_diagonal) {
+  int n_params;
+  struct ParametersTestHxH *params = generate_hodlr_hodlr_params(&n_params);
+
+  return cr_make_param_array(struct ParametersTestHxH, params, n_params, 
+                             free_hh_params);
+}
+
+
+ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra, 
+                  compute_other_off_diagonal) {
+  cr_log_info("%.10s (height=%d) x %.10s (height=%d)",
+              params->hodlr1_name, params->hodlr1->height, params->hodlr2_name, 
+              params->hodlr2->height);
+
+  int ierr = SUCCESS; const double svd_threshold = 1e-8;
+  int *offsets = calloc(params->expected->height, sizeof(int));
+  
+  // Set up workspace matrix for function under test
+  const int s1 = get_highest_s(params->hodlr1);
+  const int s2 = get_highest_s(params->hodlr2);
+  double *workspace = malloc(s1 * s2 * sizeof(double));
+
+  // Set up results HODLR
+  struct TreeHODLR *result = allocate_tree_monolithic(
+    params->expected->height, &ierr, &malloc, &free
+  );
+  copy_block_sizes(params->expected, result, false);
+
+  // Set up buffer for printing
+  const size_t sbuff = 50 * sizeof(char);
+  char *buffer = malloc(sbuff);
+
+  // Set up workspace matrices for comparing results
+  const int largest_bs = get_largest_block_size(
+    result->innermost_leaves, result->len_work_queue
+  );
+  double *workspace2 = malloc(2 * largest_bs * sizeof(double));
+  double *workspace3 = workspace2 + largest_bs;
+
+  // Set up looping over hodlr
+  long n_parent_nodes = result->len_work_queue;
+  struct HODLRInternalNode **qa = 
+    malloc(result->len_work_queue * sizeof(struct HODLRInternalNode *));
+  struct HODLRInternalNode **qe = params->expected->work_queue;
+  struct HODLRInternalNode **qh1 = params->hodlr1->work_queue;
+  struct HODLRInternalNode **qh2 = params->hodlr2->work_queue;
+
+  // Set up all queues
+  for (int parent = 0; parent < n_parent_nodes; parent++) {
+    qa[parent] = result->innermost_leaves[2 * parent]->parent;
+    qe[parent] = params->expected->innermost_leaves[2 * parent]->parent;
+    qh1[parent] = params->hodlr1->innermost_leaves[2 * parent]->parent;
+    qh2[parent] = params->hodlr2->innermost_leaves[2 * parent]->parent;
+  }
+
+  for (int level = result->height - 2; level > -1; level--) {
+    n_parent_nodes /= 2;
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      qa[parent] = qa[2 * parent]->parent;
+      qe[parent] = qe[2 * parent]->parent;
+      qh1[parent] = qh1[2 * parent]->parent;
+      qh2[parent] = qh2[2 * parent]->parent;
+
+      struct NodeOffDiagonal *top_right = 
+        &qa[parent]->children[1].leaf->data.off_diagonal;
+      struct NodeOffDiagonal *bottom_left = 
+        &qa[parent]->children[2].leaf->data.off_diagonal;
+
+      compute_other_off_diagonal(
+        result->height, level, parent, qh1[parent], qh2[parent],
+        top_right, bottom_left, result->work_queue,
+        svd_threshold, offsets, workspace, &ierr
+      );
+    
+      if (ierr != SUCCESS) {
+        cr_fail("Returned ierr (%d) different from SUCCESS (%d)", 
+                ierr, SUCCESS);
+      }
+
+      snprintf(buffer, sbuff, "level=%d, idx=%d top right", level, parent);
+      expect_off_diagonal_decompress(
+        top_right, &qe[parent]->children[1].leaf->data.off_diagonal,
+        top_right->m, buffer, workspace2, workspace3
+      );
+      snprintf(buffer, sbuff, "level=%d, idx=%d bottom left", level, parent);
+      expect_off_diagonal_decompress(
+        bottom_left, &qe[parent]->children[1].leaf->data.off_diagonal,
+        bottom_left->m, buffer, workspace2, workspace3
+      );
+    }
+  }
+
+  free_tree_hodlr(&result, &free);
+  free(offsets); free(workspace); free(workspace2);
+}
+
+
 struct ParametersSComponent {
   struct HODLRInternalNode *parent;
   int height;

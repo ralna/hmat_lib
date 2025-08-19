@@ -351,10 +351,10 @@ static inline void compute_inner_off_diagonal(
 
 static inline void compute_other_off_diagonal_lowest_level(
   const int height,
-  const struct HODLRInternalNode *restrict const hodlr1,
-  const struct NodeOffDiagonal *restrict const off_diagonal1,
-  const struct HODLRInternalNode *restrict const hodlr2,
-  const struct NodeOffDiagonal *restrict const off_diagonal2,
+  const struct HODLRInternalNode *restrict const hodlr_left,
+  const struct NodeOffDiagonal *restrict const off_diagonal_left,
+  const struct HODLRInternalNode *restrict const hodlr_right,
+  const struct NodeOffDiagonal *restrict const off_diagonal_right,
   struct NodeOffDiagonal *restrict const out,
   int offset_u,
   int offset_v,
@@ -363,21 +363,21 @@ static inline void compute_other_off_diagonal_lowest_level(
 ) {
   // HODLR x U = U* at index=0
   multiply_internal_node_dense(
-    hodlr1, height, off_diagonal2->u, off_diagonal2->s,
-    off_diagonal2->m, queue, workspace, out->u + offset_u, off_diagonal2->m
+    hodlr_left, height, off_diagonal_right->u, off_diagonal_right->s,
+    off_diagonal_right->m, queue, workspace, out->u + offset_u, off_diagonal_right->m
   );
-  dlacpy_("A", &off_diagonal2->n, &off_diagonal2->s, off_diagonal2->v, 
-          &off_diagonal2->n, out->v + offset_v, &out->m);
+  dlacpy_("A", &off_diagonal_right->n, &off_diagonal_right->s, off_diagonal_right->v, 
+          &off_diagonal_right->n, out->v + offset_v, &out->m);
 
-  offset_u += hodlr1->m * off_diagonal2->s;
-  offset_v += off_diagonal2->s * off_diagonal2->n;
+  offset_u += hodlr_left->m * off_diagonal_right->s;
+  offset_v += off_diagonal_right->s * off_diagonal_right->n;
 
-  dlacpy_("A", &off_diagonal1->m, &off_diagonal1->s, off_diagonal1->u,
-          &off_diagonal1->m, out->u + offset_u, &out->m);
+  dlacpy_("A", &off_diagonal_left->m, &off_diagonal_left->s, off_diagonal_left->u,
+          &off_diagonal_left->m, out->u + offset_u, &out->m);
   // V^T x HODLR = V* at index=1 (represents V^T* but not actually transposed)
   multiply_internal_node_transpose_dense(
-    hodlr2, height, off_diagonal1->v, off_diagonal1->s,
-    off_diagonal1->m, queue, workspace, out->v + offset_v, off_diagonal1->m
+    hodlr_right, height, off_diagonal_left->v, off_diagonal_left->s,
+    off_diagonal_left->m, queue, workspace, out->v + offset_v, off_diagonal_left->m
   );
 }
 
@@ -391,8 +391,10 @@ static inline void compute_other_off_diagonal(
   struct NodeOffDiagonal *restrict out_tr,
   struct NodeOffDiagonal *restrict out_bl,
   struct HODLRInternalNode *restrict *restrict queue,
+  const double svd_threshold,
   int *restrict offsets,
-  double *restrict workspace
+  double *restrict workspace,
+  int *restrict const ierr
 ) {
   const int s_sum = compute_workspace_size_s_component(
     parent1, current_level+1, parent_position
@@ -434,7 +436,22 @@ static inline void compute_other_off_diagonal(
     out_tr, offset_utr_vbl, offset_vtr_ubl, workspace, queue
   );
 
+  int m_larger, m_smaller;
+  if (out_tr->m > out_tr->n) {
+    m_larger = out_tr->m; m_smaller = out_tr->n;
+  } else {
+    m_larger = out_tr->n; m_smaller = out_tr->m;
+  }
 
+  if (out_tr->s < m_smaller)
+    recompress(out_tr, m_larger, m_smaller, svd_threshold, ierr);
+  else 
+    recompress_large_s(out_tr, m_smaller, svd_threshold, ierr);
+
+  if (out_bl->s < m_smaller)
+    recompress(out_bl, m_larger, m_smaller, svd_threshold, ierr);
+  else
+    recompress_large_s(out_bl, m_smaller, svd_threshold, ierr);
 }
 
 
@@ -587,7 +604,7 @@ void multiply_hodlr_hodlr(
         out->height, level, parent, q1[parent], q2[parent],
         &queue[parent]->children[1].leaf->data.off_diagonal,
         &queue[parent]->children[2].leaf->data.off_diagonal,
-        extra_queue, offsets, workspace
+        extra_queue, svd_threshold, offsets, workspace, ierr
       );
 
       queue[parent / 2] = queue[parent]->parent;
