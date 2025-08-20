@@ -293,7 +293,7 @@ static inline void compute_inner_off_diagonal(
   int *restrict ierr
 ) {
   const int s_sum = compute_workspace_size_s_component(
-    parent1, height, parent_position
+    parent1->parent, height-1, parent_position
   );
   
   set_up_off_diagonal(
@@ -403,7 +403,7 @@ static inline void compute_other_off_diagonal(
   int *restrict const ierr
 ) {
   const int s_sum = compute_workspace_size_s_component(
-    parent1, current_level+1, parent_position
+    parent1->parent, current_level, parent_position
   );
 
   set_up_off_diagonal(

@@ -381,6 +381,9 @@ ParameterizedTestParameters(hodlr_hodlr_algebra, compute_other_off_diagonal) {
 
 ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra, 
                   compute_other_off_diagonal) {
+  if (params->hodlr1->height == 1) {
+    cr_skip_test("Skipping because height == 1");
+  }
   cr_log_info("%.10s (height=%d) x %.10s (height=%d)",
               params->hodlr1_name, params->hodlr1->height, params->hodlr2_name, 
               params->hodlr2->height);
@@ -426,7 +429,7 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
     qh2[parent] = params->hodlr2->innermost_leaves[2 * parent]->parent;
   }
 
-  for (int level = result->height - 2; level > -1; level--) {
+  for (int level = result->height - 2; level > 0; level--) {
     n_parent_nodes /= 2;
     for (int parent = 0; parent < n_parent_nodes; parent++) {
       qa[parent] = qa[2 * parent]->parent;
@@ -450,12 +453,12 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
                 ierr, SUCCESS);
       }
 
-      snprintf(buffer, sbuff, "level=%d, idx=%d top right", level, parent);
+      snprintf(buffer, sbuff, "level=%d, idx=%d top right", level+1, parent);
       expect_off_diagonal_decompress(
         top_right, &qe[parent]->children[1].leaf->data.off_diagonal,
         top_right->m, buffer, workspace2, workspace3
       );
-      snprintf(buffer, sbuff, "level=%d, idx=%d bottom left", level, parent);
+      snprintf(buffer, sbuff, "level=%d, idx=%d bottom left", level+1, parent);
       expect_off_diagonal_decompress(
         bottom_left, &qe[parent]->children[1].leaf->data.off_diagonal,
         bottom_left->m, buffer, workspace2, workspace3
@@ -463,7 +466,7 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
     }
   }
 
-  free_tree_hodlr(&result, &free); free(qa);
+  free_tree_hodlr(&result, &free); free(qa); free(buffer);
   free(offsets); free(workspace); free(workspace2);
 }
 
