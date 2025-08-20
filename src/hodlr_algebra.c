@@ -566,14 +566,11 @@ void multiply_hodlr_hodlr(
   int *restrict ierr
 ) {
   double *workspace, *workspace2;
-  int *offsets = calloc(2 * hodlr1->height, sizeof(int));
+  int *offsets = calloc(hodlr1->height, sizeof(int));
   if (offsets == NULL) {
     *ierr = ALLOCATION_FAILURE;
     return;
   }
-  int *offsets2 = offsets + hodlr1->height;
-
-  //double **matrices = malloc((out->height + 1) * sizeof(double *));
 
   struct HODLRInternalNode **queue = out->work_queue;
   struct HODLRInternalNode **q1 = hodlr1->work_queue;
