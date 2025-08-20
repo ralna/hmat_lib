@@ -363,21 +363,27 @@ static inline void compute_other_off_diagonal_lowest_level(
 ) {
   // HODLR x U = U* at index=0
   multiply_internal_node_dense(
-    hodlr_left, height, off_diagonal_right->u, off_diagonal_right->s,
-    off_diagonal_right->m, queue, workspace, out->u + offset_u, off_diagonal_right->m
+    hodlr_left, height, 
+    off_diagonal_right->u, off_diagonal_right->s, off_diagonal_right->m, 
+    queue, workspace, 
+    out->u + offset_u, off_diagonal_right->m
   );
-  dlacpy_("A", &off_diagonal_right->n, &off_diagonal_right->s, off_diagonal_right->v, 
-          &off_diagonal_right->n, out->v + offset_v, &out->m);
+  // Copy V
+  memcpy(out->v + offset_v, off_diagonal_right->v, 
+         off_diagonal_right->n * off_diagonal_right->s * sizeof(double));
 
   offset_u += hodlr_left->m * off_diagonal_right->s;
   offset_v += off_diagonal_right->s * off_diagonal_right->n;
 
-  dlacpy_("A", &off_diagonal_left->m, &off_diagonal_left->s, off_diagonal_left->u,
-          &off_diagonal_left->m, out->u + offset_u, &out->m);
-  // V^T x HODLR = V* at index=1 (represents V^T* but not actually transposed)
+  // Copy U
+  memcpy(out->u + offset_u, off_diagonal_left->u, 
+         off_diagonal_left->m * off_diagonal_left->s * sizeof(double));
+  // HODLR^T x V = V* at index=1 (represents V^T* but not actually transposed)
   multiply_internal_node_transpose_dense(
-    hodlr_right, height, off_diagonal_left->v, off_diagonal_left->s,
-    off_diagonal_left->m, queue, workspace, out->v + offset_v, off_diagonal_left->m
+    hodlr_right, height, 
+    off_diagonal_left->v, off_diagonal_left->s, off_diagonal_left->n, 
+    queue, workspace, 
+    out->v + offset_v, off_diagonal_left->n
   );
 }
 

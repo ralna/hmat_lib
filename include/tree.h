@@ -295,6 +295,11 @@ void free_tree_data(struct TreeHODLR *hodlr, void(*free)(void *ptr));
 
 double * multiply_vector(const struct TreeHODLR *hodlr, const double *vector, double *out);
 
+int compute_multiply_hodlr_dense_workspace(
+  const struct TreeHODLR *hodlr,
+  const int matrix_a
+);
+
 double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
                               const double *matrix,
                               const int matrix_n,
