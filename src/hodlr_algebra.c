@@ -439,7 +439,7 @@ static inline void compute_other_off_diagonal(
     &parent1->children[2].leaf->data.off_diagonal,
     parent2->children[0].internal,
     &parent2->children[2].leaf->data.off_diagonal,
-    out_tr, offset_utr_vbl, offset_vtr_ubl, workspace, queue
+    out_bl, offset_vtr_ubl, offset_utr_vbl, workspace, queue
   );
 
   int m_larger, m_smaller;
