@@ -407,9 +407,8 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
   char *buffer = malloc(sbuff);
 
   // Set up workspace matrices for comparing results
-  const int largest_bs = get_largest_block_size(
-    result->innermost_leaves, result->len_work_queue
-  );
+  const int largest_bs = result->root->children[1].leaf->data.off_diagonal.m
+    * result->root->children[1].leaf->data.off_diagonal.n;
   double *workspace2 = malloc(2 * largest_bs * sizeof(double));
   double *workspace3 = workspace2 + largest_bs;
 
@@ -453,14 +452,14 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
                 ierr, SUCCESS);
       }
 
-      snprintf(buffer, sbuff, "level=%d, idx=%d top right", level+1, parent);
+      snprintf(buffer, sbuff, "level=%d, idx=%d top right", level, parent);
       expect_off_diagonal_decompress(
         top_right, &qe[parent]->children[1].leaf->data.off_diagonal,
         top_right->m, buffer, workspace2, workspace3
       );
-      snprintf(buffer, sbuff, "level=%d, idx=%d bottom left", level+1, parent);
+      snprintf(buffer, sbuff, "level=%d, idx=%d bottom left", level, parent);
       expect_off_diagonal_decompress(
-        bottom_left, &qe[parent]->children[1].leaf->data.off_diagonal,
+        bottom_left, &qe[parent]->children[2].leaf->data.off_diagonal,
         bottom_left->m, buffer, workspace2, workspace3
       );
     }
