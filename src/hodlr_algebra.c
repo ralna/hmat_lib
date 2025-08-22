@@ -3,6 +3,7 @@
 
 #include "../include/tree.h"
 #include "../include/error.h"
+#include "../include/utils.h"
 #include "../include/blas_wrapper.h"
 #include "../include/lapack_wrapper.h"
 
@@ -472,7 +473,11 @@ static inline void compute_inner_off_diagonal_lowest_level(
  *     by calling this function in order and not altering the ``offsets`` in
  *     between.
  * workspace
- *     Pointer representing an array used as a workspace matrix.
+ *     Pointer representing an array used as a workspace matrix. Must not be 
+ *     ``NULL``. Must be of size at least ``s1`` x ``s2``, where ``s1`` and 
+ *     ``s2`` is the largest pair of ranks of low-rank matrices multiplied 
+ *     together.
+
  * ierr
  *     Pointer to an integer used to signal the success or failure of this 
  *     function. An error status code from :c:enum:`ErrorCode` is written into 
@@ -728,7 +733,10 @@ static inline void compute_other_off_diagonal_lowest_level(
  *     by calling this function in order and not altering the ``offsets`` in
  *     between.
  * workspace
- *     Pointer representing an array used as a workspace matrix.
+ *     Pointer representing an array used as a workspace matrix. Must not be 
+ *     ``NULL``. Must be of size at least ``s1`` x ``s2``, where ``s1`` and 
+ *     ``s2`` is the largest pair of ranks of low-rank matrices multiplied 
+ *     together.
  * ierr
  *     Pointer to an integer used to signal the success or failure of this 
  *     function. An error status code from :c:enum:`ErrorCode` is written into 
@@ -1011,6 +1019,27 @@ static void compute_diagonal(
 }
 
 
+void compute_workspace_multiply_hodlr_hodlr(
+  const struct TreeHODLR *const hodlr1,
+  const struct TreeHODLR *const hodlr2,
+  unsigned int *restrict const size1,
+  unsigned int *restrict const size2
+) {
+  const int s1 = get_highest_s(hodlr1);
+  const int s2 = get_highest_s(hodlr2);
+
+  *size1 = s1 * s2;
+
+  int largest_m = 0;
+  for (int node = 0; node < 2 * hodlr1->len_work_queue; node++) {
+    const int m = hodlr1->innermost_leaves[node]->data.diagonal.m;
+    if (m > largest_m) largest_m = m;
+  }
+
+  *size2 = s1 * largest_m;
+}
+
+
 /**
  * Multiplies two HODLR matrices
  *
@@ -1046,7 +1075,11 @@ void multiply_hodlr_hodlr(
   const double svd_threshold,
   int *restrict ierr
 ) {
-  double *workspace, *workspace2;
+  unsigned int size1, size2;
+  compute_workspace_multiply_hodlr_hodlr(hodlr1, hodlr2, &size1, &size2);
+
+  double *workspace = malloc(size1 * sizeof(double)); 
+  double *workspace2 = malloc(size2 * sizeof(double));
   int *offsets = calloc(hodlr1->height, sizeof(int));
   if (offsets == NULL) {
     *ierr = ALLOCATION_FAILURE;

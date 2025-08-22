@@ -216,6 +216,44 @@ struct ParametersTestHxH * generate_hodlr_hodlr_params(int * len) {
 }
 
 
+ParameterizedTestParameters(hodlr_hodlr_algebra, multiply_hodlr_hodlr) {
+  int n_params;
+  struct ParametersTestHxH *params = generate_hodlr_hodlr_params(&n_params);
+
+  return cr_make_param_array(struct ParametersTestHxH, params, n_params, 
+                             free_hh_params);
+}
+
+
+ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra, 
+                  multiply_hodlr_hodlr) {
+  cr_log_info("%.10s (height=%d) x %.10s (height=%d)",
+              params->hodlr1_name, params->hodlr1->height, params->hodlr2_name, 
+              params->hodlr2->height);
+
+  int ierr = 0; const double svd_threshold = 1e-8;
+  
+  struct TreeHODLR *result = allocate_tree_monolithic(
+    params->expected->height, &ierr, &malloc, &free
+  );
+  copy_block_sizes(params->expected, result, false);
+
+  struct HODLRInternalNode **queue = result->work_queue;
+
+
+  multiply_hodlr_hodlr(
+    params->hodlr1, params->hodlr2, result, svd_threshold, &ierr
+  );
+  if (ierr != SUCCESS) {
+    cr_fail("Returned ierr (%d) different from SUCCESS (%d)", ierr, SUCCESS);
+  }
+
+  expect_tree_hodlr(result, params->expected);
+
+  free_tree_hodlr(&result, &free);
+}
+
+
 ParameterizedTestParameters(hodlr_hodlr_algebra, compute_diagonal) {
   int n_params;
   struct ParametersTestHxH *params = generate_hodlr_hodlr_params(&n_params);
@@ -248,10 +286,8 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
     params->expected->height, &ierr, &malloc, &free
   );
 
-  struct HODLRInternalNode **queue = result->work_queue;
-
   compute_diagonal(
-    params->hodlr1, params->hodlr2, result, queue, offsets, workspace, 
+    params->hodlr1, params->hodlr2, result, offsets, workspace, 
     workspace2, &ierr
   );
   if (ierr != SUCCESS) {
@@ -854,7 +890,7 @@ ParameterizedTest(struct ParametersHigherContribOffDiag *params,
   struct NodeOffDiagonal *actual_tr = init_actual(params->expected_tr);
   struct NodeOffDiagonal *actual_bl = init_actual(params->expected_bl);
 
-  int actual_offset_utr = -1, actual_offset_vtr = -1;
+  unsigned int actual_offset_utr = -1, actual_offset_vtr = -1;
   double *workspace = malloc(actual_tr->s * actual_bl->s * sizeof(double));
 
   compute_higher_level_contributions_off_diagonal(
