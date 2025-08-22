@@ -155,18 +155,87 @@ static inline int compute_workspace_size_s_component(
 }
 
 
+/**
+ * Computes the matrix-matrix multiplication of non-base off-diagonal leaf 
+ * nodes for any off-diagonal leaf node.
+ *
+ * Loops up the trees, starting with the parent nodes ``parent_left`` and 
+ * ``parent_right`` and computes the appropriate matrix-matrix multiplications
+ * for the pair of output nodes ``out_tr`` and ``out_bl``. The results are
+ * written into their U and V arrays.
+ *
+ * Parameters
+ * ----------
+ * height
+ *     The reversed height of the parent trees, i.e. the number of parent 
+ *     nodes until ``parent_left`` and ``parent_right`` become ``NULL``. This
+ *     is equal to the level index of the parents' children. E.g., if 
+ *     ``parent_left == NULL``, ``height`` should be ``0``. If ``parent_left``
+ *     and ``parent_right`` are the root nodes, ``height`` should be ``1``.
+ * origin_idx
+ *     The index of the parent ``out_tr`` and ``out_bl`` within the level. 
+ *     E.g., the top-left-most node has index of ``0``.
+ * parent_left
+ *     Pointer to an internal node from the left-side matrix whose 
+ *     grandchildren are being multiplied. May be ``NULL`` **if** 
+ *     ``height==0``, otherwise must be fully constructed and contain data.
+ *     Must have ``height-1`` non-NULL parents.
+ * parent_right
+ *     Pointer to an internal node from the right-side matrix whose 
+ *     grandchildren are being multiplied. May be ``NULL`` **if** 
+ *     ``height==0``, otherwise must be fully constructed and contain data.
+ *     Must have ``height-1`` non-NULL parents.
+ * out_tr
+ *     Pointer to an off-diagonal leaf node to which to save the top-right 
+ *     results (i.e. ``parent1->children[0] @ parent2->children[1]`` &&
+ *     ``parent1->children[1] @ parent2->children[3]``). Must be fully 
+ *     constructed but should not contain any data because it might be lost.
+ * out_bl
+ *     Pointer to an off-diagonal leaf node to which to save the top-right
+ *     results (i.e. ``parent1->children[2] @ parent2->children[0]`` && 
+ *     ``parent1->children[3] @ parent2->children[2]``). Must be fully
+ *     constructed but should not contain any data because it might be lost
+ * offsets
+ *     Pointer representing an array of offsets into the U and V arrays of 
+ *     higher-level nodes. Must not be ``NULL``. Must be of at least 
+ *     length ``height``. Its state must be consistent with ``origin_idx``, 
+ *     which can be achieved by calling this function in order and not 
+ *     altering the ``offsets`` in between.
+ * workspace
+ *     Pointer representing an array used as a workspace matrix. Must not be 
+ *     ``NULL``. Must be of size at least ``s1`` x ``s2``, where ``s1`` and 
+ *     ``s2`` are the largest pair of ranks from the relevant children on the 
+ *     upward path of ``parent_left`` and ``parent_right`` respectively.*
+ * offset_utr_vbl_out
+ *     Pointer to a single integer, into which the final offset into the 
+ *     ``out_tr->u`` and ``out_bl->v`` arrays will be written. This is the 
+ *     number of elements written into these arrays by this function, so 
+ *     further writes should start from ``offset_utr_vbl_out``.
+ * offset_vtr_ubl_out
+ *     Pointer to a single integer, into which the final offset into the
+ *     ``out_tr->v`` and ``out_bl->u`` arrays will be written. This is the
+ *     number of elements written into these arrays by this function, so
+ *     further writes should start from ``offset_vtr_ubl_out``.
+ *
+ * Notes
+ * -----
+ * Concerning *, the largest pair is the largest ``s1 x s2`` for each pair of 
+ * low-rank matrices multiplied. The "relevant" nodes depend on ``origin_idx``
+ * since at each level only one of the two off-diagonal leaf nodes is used for
+ * the multiplication from each tree.
+ */
 static inline void compute_higher_level_contributions_off_diagonal(
   const int height,
   const int origin_idx,
   int divisor,
-  const struct HODLRInternalNode *restrict parent1,
-  const struct HODLRInternalNode *restrict parent2,
+  const struct HODLRInternalNode *restrict parent_left,
+  const struct HODLRInternalNode *restrict parent_right,
   struct NodeOffDiagonal *restrict const out_tr,
   struct NodeOffDiagonal *restrict const out_bl,
   int *restrict const offsets,
   double *restrict const workspace,
-  int *restrict const offset_utr_vbl_out,
-  int *restrict const offset_vtr_ubl_out
+  unsigned int *restrict const offset_utr_vbl_out,
+  unsigned int *restrict const offset_vtr_ubl_out
 ) {
   // TODO: Is divisor always == 1?
   int which_child1 = 0, which_child2 = 0;
@@ -185,40 +254,44 @@ static inline void compute_higher_level_contributions_off_diagonal(
     } else {
       which_child1 = 2; which_child2 = 1;
     }
-    const int s1 = parent1->children[which_child1].leaf->data.off_diagonal.s;
-    const int s2 = parent2->children[which_child2].leaf->data.off_diagonal.s;
-    const int m = parent1->children[which_child1].leaf->data.off_diagonal.m;
-    const int n = parent1->children[which_child1].leaf->data.off_diagonal.n;
+    const int s1 = 
+      parent_left->children[which_child1].leaf->data.off_diagonal.s;
+    const int s2 = 
+      parent_right->children[which_child2].leaf->data.off_diagonal.s;
+    const int m = 
+      parent_left->children[which_child1].leaf->data.off_diagonal.m;
+    const int n = 
+      parent_left->children[which_child1].leaf->data.off_diagonal.n;
 
     dgemm_("T", "N", &s1, &s2, &n, &alpha,
-           parent1->children[which_child1].leaf->data.off_diagonal.v, &n,
-           parent2->children[which_child2].leaf->data.off_diagonal.u, &n,
+           parent_left->children[which_child1].leaf->data.off_diagonal.v, &n,
+           parent_right->children[which_child2].leaf->data.off_diagonal.u, &n,
            &beta, workspace, &s1);
 
     // TOP-RIGHT OUTPUT
     // Low-rank x low-rank = V* (represents V^T, but not actually transposed)
     dgemm_("N", "T", &out_tr->n, &s1, &s2, &alpha,
-           parent2->children[which_child2].leaf->data.off_diagonal.v 
+           parent_right->children[which_child2].leaf->data.off_diagonal.v 
            + (offsets[oidx] + out_bl->n), &m, 
            workspace, &s1, &beta, out_tr->v + offset_vtr_ubl, &out_tr->n);
     dlacpy_("A", &out_tr->m, &s1, 
-            parent1->children[which_child1].leaf->data.off_diagonal.u
+            parent_left->children[which_child1].leaf->data.off_diagonal.u
             + offsets[oidx], &m,
             out_tr->u + offset_utr_vbl, &out_tr->m);
 
     // BOTTOM-LEFT OUTPUT
     // Low-rank x low-rank = V* (represents V^T, but not actually transposed)
     dgemm_("N", "T", &out_bl->n, &s1, &s2, &alpha,
-           parent2->children[which_child2].leaf->data.off_diagonal.v 
+           parent_right->children[which_child2].leaf->data.off_diagonal.v 
            + offsets[oidx], &m, 
            workspace, &s1, &beta, out_bl->v + offset_utr_vbl, &out_bl->n);
     dlacpy_("A", &out_bl->m, &s1, 
-            parent1->children[which_child1].leaf->data.off_diagonal.u
+            parent_left->children[which_child1].leaf->data.off_diagonal.u
             + offsets[oidx] + out_tr->m, &m,
             out_bl->u + offset_vtr_ubl, &out_bl->m);
 
     offsets[oidx] += out_tr->m + out_tr->n;
-    parent1 = parent1->parent; parent2 = parent2->parent;
+    parent_left = parent_left->parent; parent_right = parent_right->parent;
     midx++; oidx++;
     divisor *= 2; parent_position /= 2;
     offset_utr_vbl += out_tr->m * s1; offset_vtr_ubl += out_tr->n * s1;
@@ -229,27 +302,102 @@ static inline void compute_higher_level_contributions_off_diagonal(
 }
 
 
+/**
+ * Sets up an off-diagonal leaf node of the output HODLR.
+ *
+ * Parameters
+ * ----------
+ * off_diagonal_left
+ *     Pointer to an off-diagonal leaf node from the left-side HODLR
+ */
 static inline void set_up_off_diagonal(
-  const struct NodeOffDiagonal *restrict const off_diagonal1,
-  const struct NodeOffDiagonal *restrict const off_diagonal2,
+  const struct NodeOffDiagonal *restrict const off_diagonal_left,
+  const struct NodeOffDiagonal *restrict const off_diagonal_right,
   struct NodeOffDiagonal *restrict const out,
   const int s_sum
 ) {
-  const int s_total = s_sum + off_diagonal1->s + off_diagonal2->s;
+  const int s_total = s_sum + off_diagonal_left->s + off_diagonal_right->s;
   out->u = malloc(s_total * out->m * sizeof(double));
   out->v = malloc(s_total * out->n * sizeof(double));
   out->s = s_total;
 }
 
 
+/**
+ * Computes the matrix-matrix multiplication of the base nodes for an 
+ * off-diagonal leaf node that is not one of the innermost leaves.
+ *
+ * Performs the following two matrix multiplications:
+ *
+ * 1. ``diagonal_left`` @ ``off_diagonal_right``
+ * 2. ``off_diagonal_left`` @ ``diagonal_right``
+ *
+ * and stores the results in ``out`` by writing to the end of its U and V 
+ * arrays.
+ *
+ * Parameters
+ * ----------
+ * diagonal_left
+ *     Pointer to a diagonal leaf node to multiply ``off_diagonal_right``. 
+ *     Must be fully constructed and contain data. Should come from the same 
+ *     parent as ``off_diagonal_left`` and must share its leading dimension 
+ *     (m). Also must share its second dimension (n) with the leading 
+ *     dimension (m) of ``off_diagonal_right``.
+ * off_diagonal_left
+ *     Pointer to an off-diagonal leaf node to multiply ``diagonal_right``.
+ *     Must be fully constructed and contain data. Should come from the same
+ *     parent as ``hodlr_left`` and must share its leading dimension (m). Also
+ *     must share its second dimension (n) with the leading dimension (m) of
+ *     ``diagonal_right``.
+ * diagonal_right
+ *     Pointer to a diagonal leaf node to be multiplied by ``diagonal_left``. 
+ *     Must be fully constructed and contain data. Should come from the same 
+ *     parent as ``off_diagonal_right`` and must share its second dimension 
+ *     (n). Also must share its own leading dimension (m) with the second 
+ *     dimension (n) of ``off_diagonal_left``.
+ * off_diagonal_right
+ *     Pointer to an off-diagonal leaf node to be multiplied by 
+ *     ``diagonal_left``. Must be fully constructed and contain data. Should 
+ *     come from the same parent as ``diagonal_right`` and must share its 
+ *     second dimension (n). Also must share its own leading dimension (m) 
+ *     with the second dimension (n) of ``diagonal_left``.
+ * out
+ *     Pointer to an off-diagonal leaf node to append the results of the 
+ *     matrix multiplication to. Must be fully constructed and contain 
+ *     :c:member:`NodeOffDiagonal.u` and :c:member:`NodeOffDiagonal.v` arrays
+ *     large enough to hold the results. 
+ *     ``off_diagonal_right->s + off_diagonal_left->s`` columns will be 
+ *     written to the end of each, so they must be large enough to hold at 
+ *     least that + ``offset_u``/``offset_v`` elements.
+ * offset_u
+ *     The offset into the ``out->u`` array. All data written into the array
+ *     will start at this index, i.e. ``out->u[offset_u]``.
+ * offset_v
+ *     The offset into the ``out->v`` array. All data written into the array
+ *     will start at this index, i.e. ``out->v[offset_v]``.
+ *
+ * Notes
+ * -----
+ * The two operations are performed in two steps each:
+ *
+ * 1. ``diagonal_left`` @ ``off_diagonal_right``
+ *
+ *    1. ``diagonal_left->data @ off_diagonal_right->u``
+ *    2. Copy ``off_diagonal_right->v`` into ``out->v``
+ * 
+ * 2. ``off_diagonal_left`` @ ``diagonal_right``
+ *
+ *    1. Copy ``off_diagonal_left->u`` into ``out->u``
+ *    2. ``diagonal_right->data.T @ off_diagonal_left->v``
+ */
 static inline void compute_inner_off_diagonal_lowest_level(
   const struct NodeDiagonal *const diagonal_left,
   const struct NodeOffDiagonal *const off_diagonal_left,
   const struct NodeDiagonal *const diagonal_right,
   const struct NodeOffDiagonal *const off_diagonal_right,
   struct NodeOffDiagonal *restrict const out,
-  int offset_u,
-  int offset_v
+  unsigned int offset_u,
+  unsigned int offset_v
 ) {
   const double alpha = 1.0, beta = 0.0;
 
@@ -280,6 +428,57 @@ static inline void compute_inner_off_diagonal_lowest_level(
 }
 
 
+/**
+ * Computes HODLR-HODLR matrix multiplication for a pair of off-diagonal leaf
+ * nodes on the lowest level.
+ *
+ * Parameters
+ * ----------
+ * height
+ *     The height of the HODLR matrices whose multiplication is being 
+ *     computed. Must be a positive number.
+ * parent_position
+ *     The index of ``parent1`` and ``parent2`` within the level. I.e., the
+ *     top-left-most node has index of ``0``.
+ * parent1
+ *     Pointer to an internal node from the left-side matrix whose children 
+ *     are to be multiplied. Must be fully constructed and contain data. Its 
+ *     diagonal children must be diagonal leaf nodes.
+ * parent2
+ *     Pointer to an internal node from the right-side matrix whose children 
+ *     are to be multiplied. Must be fully constructed and contain data. Its 
+ *     diagonal children must be diagonal leaf nodes.
+ * out_tr
+ *     Pointer to an off-diagonal leaf node to which to save the top-right 
+ *     results (i.e. ``parent1->children[0] @ parent2->children[1]`` &&
+ *     ``parent1->children[1] @ parent2->children[3]``). Must be fully 
+ *     constructed but should not contain any data because it might be lost.
+ * out_bl
+ *     Pointer to an off-diagonal leaf node to which to save the top-right
+ *     results (i.e. ``parent1->children[2] @ parent2->children[0]`` && 
+ *     ``parent1->children[3] @ parent2->children[2]``). Must be fully
+ *     constructed but should not contain any data because it might be lost.
+ * svd_threshold
+ *     The threshold for discarding singular values when recompressing 
+ *     off-diagonal nodes - any singular values smaller than one 
+ *     ``svd_threshold``-th of the first singular value will be treated as 
+ *     approximately zero and therefore the corresponding column vectors of 
+ *     the :math:`U` and :math:`V` matrices will be discarded.
+ * offsets
+ *     Pointer representing an array of offsets used by
+ *     :c:func:`compute_higher_level_contributions_off_diagonal`. Must not be
+ *     ``NULL``. Must be of at least length ``height``. Must be consistent 
+ *     with ``current_level`` and ``parent_position``, which can be achieved
+ *     by calling this function in order and not altering the ``offsets`` in
+ *     between.
+ * workspace
+ *     Pointer representing an array used as a workspace matrix.
+ * ierr
+ *     Pointer to an integer used to signal the success or failure of this 
+ *     function. An error status code from :c:enum:`ErrorCode` is written into 
+ *     the pointer **if an error occurs**. Must not be ``NULL`` - doing so is 
+ *     undefined.
+ */
 static inline void compute_inner_off_diagonal(
   const int height,
   int parent_position,
@@ -308,7 +507,7 @@ static inline void compute_inner_off_diagonal(
     out_bl, s_sum
   );
 
-  int offset_utr_vbl, offset_vtr_ubl;
+  unsigned int offset_utr_vbl, offset_vtr_ubl;
   compute_higher_level_contributions_off_diagonal(
     height-1, parent_position, 1, parent1->parent, parent2->parent, 
     out_tr, out_bl, offsets, workspace, &offset_utr_vbl, &offset_vtr_ubl
@@ -349,6 +548,87 @@ static inline void compute_inner_off_diagonal(
 }
 
 
+/**
+ * Computes the matrix-matrix multiplication of the base nodes for an 
+ * off-diagonal leaf node that is not one of the innermost leaves.
+ *
+ * Performs the following two matrix multiplications:
+ *
+ * 1. ``hodlr_left`` @ ``off_diagonal_right``
+ * 2. ``off_diagonal_left`` @ ``hodlr_right``
+ *
+ * and stores the results in ``out`` by writing to the end of its U and V 
+ * arrays.
+ *
+ * Parameters
+ * ----------
+ * height
+ *     The height of the ``hodlr_left`` and ``hodlr_right`` trees. Must be a 
+ *     positive number.
+ * hodlr_left
+ *     Pointer to an internal node consisting of ``height`` levels to multiply
+ *     ``off_diagonal_right``. Must be fully constructed and contain data.
+ *     Should come from the same parent as ``off_diagonal_left`` and must 
+ *     share leading dimension (m). Also must share its second dimension (n)
+ *     with the leading dimension (m) of ``off_diagonal_right``.
+ * off_diagonal_left
+ *     Pointer to an off-diagonal leaf node to multiply ``hodlr_right``.
+ *     Must be fully constructed and contain data. Should come from the same
+ *     parent as ``hodlr_left`` and must share its leading dimension (m). Also
+ *     must share its second dimension (n) with the leading dimension (m) of
+ *     ``hodlr_right``.
+ * hodlr_right
+ *     Pointer to an internal node consisting of ``height`` levels to be 
+ *     multiplied by ``hodlr_left``. Must be fully constructed and contain 
+ *     data. Should come from the same parent as ``off_diagonal_right`` and
+ *     must share its second dimension (n). Also must share its leading 
+ *     dimension (m) with the second dimension (n) of ``off_diagonal_left``.
+ * off_diagonal_right
+ *     Pointer to an off-diagonal leaf node to be multiplied by ``hodlr_left``.
+ *     Must be fully constructed and contain data. Should come from the same
+ *     parent as ``hodlr_right`` and must share its second dimension (n). Also
+ *     must share its leading dimension (m) with the second dimension (n) of
+ *     ``hodlr_left``.
+ * out
+ *     Pointer to an off-diagonal leaf node to append the results of the 
+ *     matrix multiplication to. Must be fully constructed and contain 
+ *     :c:member:`NodeOffDiagonal.u` and :c:member:`NodeOffDiagonal.v` arrays
+ *     large enough to hold the results. 
+ *     ``off_diagonal_right->s + off_diagonal_left->s`` columns will be 
+ *     written to the end of each, so they must be large enough to hold at 
+ *     least that + ``offset_u``/``offset_v`` elements.
+ * offset_u
+ *     The offset into the ``out->u`` array. All data written into the array
+ *     will start at this index, i.e. ``out->u[offset_u]``.
+ * offset_v
+ *     The offset into the ``out->v`` array. All data written into the array
+ *     will start at this index, i.e. ``out->v[offset_v]``.
+ * workspace
+ *     Pointer representing an array used as a workspace matrix for the 
+ *     internal node-dense matrix multiplication. Must be of size at least
+ *     ``si`` x ``so``, where ``si`` is the largest rank in an internal node
+ *     tree and ``so`` is the rank of the off-diagonal node (with the minimum
+ *     size being the larger of the two pairs ``hodlr_left`` x 
+ *     ``off_diagonal_right`` and ``off_diagonal_left`` x ``hodlr_right``).
+ * queue
+ *     Pointer representing an array of pointers to internal nodes, used to
+ *     loop over the internal node trees ``hodlr_left`` and ``hodlr_right``.
+ *     Must not be ``NULL``. Must of length at least :math:`2^{height - 1}`.
+ *
+ * Notes
+ * -----
+ * The two operations are performed in two steps each:
+ *
+ * 1. ``hodlr_left`` @ ``off_diagonal_right``
+ *
+ *    1. ``hodlr_left->data @ off_diagonal_right->u``
+ *    2. Copy ``off_diagonal_right->v`` into ``out->v``
+ * 
+ * 2. ``off_diagonal_left`` @ ``hodlr_right``
+ *
+ *    1. Copy ``off_diagonal_left->u`` into ``out->u``
+ *    2. ``hodlr_right->data.T @ off_diagonal_left->v``
+ */
 static inline void compute_other_off_diagonal_lowest_level(
   const int height,
   const struct HODLRInternalNode *restrict const hodlr_left,
@@ -356,8 +636,8 @@ static inline void compute_other_off_diagonal_lowest_level(
   const struct HODLRInternalNode *restrict const hodlr_right,
   const struct NodeOffDiagonal *restrict const off_diagonal_right,
   struct NodeOffDiagonal *restrict const out,
-  int offset_u,
-  int offset_v,
+  unsigned int offset_u,
+  unsigned int offset_v,
   double *restrict const workspace,
   struct HODLRInternalNode *restrict *restrict queue
 ) {
@@ -388,10 +668,77 @@ static inline void compute_other_off_diagonal_lowest_level(
 }
 
 
+// TODO: Add an image to aid explanation
+/**
+ * Computes the result of a HODLR-HODLR matrix multiplication for a pair of 
+ * off-diagonal leaf nodes that are not one of the lowest-level ones.
+ *
+ * Given two parent internal nodes (one from the left-side HODLR and one from
+ * the right-side HODLR), computes the matrix multiply in the form of an 
+ * off-diagonal leaf node.
+ *
+ * Parameters
+ * ----------
+ * height
+ *     The height of the HODLR matrices whose multiplication is being 
+ *     computed. Must be a positive number.
+ * current_level
+ *     The level index of ``parent1`` and ``parent2``. Must be a positive 
+ *     number smaller than ``height``. E.g., the root node has a level of 
+ *     ``0``.
+ * parent_position
+ *     The index of ``parent1`` and ``parent2`` within the level. I.e., the
+ *     top-left-most node has index of ``0``.
+ * parent1
+ *     Pointer to an internal node from the left-side matrix whose children 
+ *     are to be multiplied. Must be fully constructed and contain data. Its 
+ *     diagonal children must be internal nodes of height 
+ *     ``height - current_level - 1``.
+ * parent2
+ *     Pointer to an internal node from the right-side matrix whose children 
+ *     are to be multiplied. Must be fully constructed and contain data. Its 
+ *     diagonal children must be internal nodes of height 
+ *     ``height - current_level - 1``.
+ * out_tr
+ *     Pointer to an off-diagonal leaf node to which to save the top-right 
+ *     results (i.e. ``parent1->children[0] @ parent2->children[1]`` &&
+ *     ``parent1->children[1] @ parent2->children[3]``). Must be fully 
+ *     constructed but should not contain any data because it might be lost.
+ * out_bl
+ *     Pointer to an off-diagonal leaf node to which to save the top-right
+ *     results (i.e. ``parent1->children[2] @ parent2->children[0]`` && 
+ *     ``parent1->children[3] @ parent2->children[2]``). Must be fully
+ *     constructed but should not contain any data because it might be lost.
+ * queue
+ *     Pointer representing an array of pointers to internal nodes. Used to 
+ *     loop over the internal node children of ``parent1`` and ``parent2``.
+ *     Must not be ``NULL``. Must be of a length of at least 
+ *     :math:`2^{height - current_level - 2}`. May be empty.
+ * svd_threshold
+ *     The threshold for discarding singular values when recompressing 
+ *     off-diagonal nodes - any singular values smaller than one 
+ *     ``svd_threshold``-th of the first singular value will be treated as 
+ *     approximately zero and therefore the corresponding column vectors of 
+ *     the :math:`U` and :math:`V` matrices will be discarded.
+ * offsets
+ *     Pointer representing an array of offsets used by
+ *     :c:func:`compute_higher_level_contributions_off_diagonal`. Must not be
+ *     ``NULL``. Must be of at least length ``height``. Must be consistent 
+ *     with ``current_level`` and ``parent_position``, which can be achieved
+ *     by calling this function in order and not altering the ``offsets`` in
+ *     between.
+ * workspace
+ *     Pointer representing an array used as a workspace matrix.
+ * ierr
+ *     Pointer to an integer used to signal the success or failure of this 
+ *     function. An error status code from :c:enum:`ErrorCode` is written into 
+ *     the pointer **if an error occurs**. Must not be ``NULL`` - doing so is 
+ *     undefined.
+ */
 static inline void compute_other_off_diagonal(
   const int height,
   const int current_level,
-  int parent_position,
+  const int parent_position,
   const struct HODLRInternalNode *restrict const parent1,
   const struct HODLRInternalNode *restrict const parent2,
   struct NodeOffDiagonal *restrict out_tr,
@@ -406,6 +753,7 @@ static inline void compute_other_off_diagonal(
     parent1->parent, current_level, parent_position
   );
 
+  // TODO: Consider setting m and n in set_up_off_diagonal
   set_up_off_diagonal(
     &parent1->children[1].leaf->data.off_diagonal,
     &parent2->children[1].leaf->data.off_diagonal,
@@ -418,7 +766,7 @@ static inline void compute_other_off_diagonal(
     out_bl, s_sum
   );
 
-  int offset_utr_vbl, offset_vtr_ubl;
+  unsigned int offset_utr_vbl, offset_vtr_ubl;
   compute_higher_level_contributions_off_diagonal(
     current_level, parent_position, 1, parent1->parent, parent2->parent, 
     out_tr, out_bl, offsets, workspace, &offset_utr_vbl, &offset_vtr_ubl
@@ -461,11 +809,70 @@ static inline void compute_other_off_diagonal(
 }
 
 
+/**
+ * Multiplies a subsection of two off-diagonal leaf nodes and adds the result 
+ * to a dense matrix.
+ * 
+ * Given an low-rank matrix represented by :math:`U_1` and :math:`V_1` and 
+ * another low-rank matrix represented by :math:`U_2` and :math:`V_2`, 
+ * computes a subset of :math:`U_1 [(V_1^T U_2)V_2^T]` of size ``m`` x ``m``
+ * and adds the result to the output.
+ *
+ * Parameters
+ * ----------
+ * leaf1
+ *     Pointer to an off-diagonal leaf node holding a low-rank matrix which 
+ *     will multiply ``leaf2``. Must be fully constructed contain data - 
+ *     otherwise is undefined. The following must also be true: 
+ *     ``leaf1->n == leaf2->m`` - these not matching will result in ``dgemm``
+ *     failure.
+ * leaf2
+ *     Pointer to an off-diagonal leaf node holding a low-rank matrix which 
+ *     will be multiplied by ``leaf1``. Must be fully constructed contain data
+ *     - otherwise is undefined. The following must also be true: 
+ *     ``leaf1->n == leaf2->m`` - these not matching will result in ``dgemm``
+ *     failure.
+ * offset
+ *     An offset into the :math:`U_1` and :math:`V_2` arrays, used to select
+ *     ``m`` rows of each matrix starting from ``offset``. Must be positive
+ *     and smaller than both ``leaf1->m - m`` and ``leaf2->n - m``.
+ * workspace1
+ *     Pointer representing an array used as a workspace matrix for storing 
+ *     the result of the first multiplication :math:`W_1 = V_1^T U_2`. Must 
+ *     not be ``NULL`` and must be of at least size ``leaf1->s`` x 
+ *     ``leaf2->s``. Must not overlap with any other array.
+ * workspace2
+ *     Pointer representing an array used as a workspace matrix for storing
+ *     the result of the second multiplication :math:`W_2 = W_1 V_2^T`. Must
+ *     not be ``NULL`` and must be of at least size ``leaf1->s`` x ``m``. 
+ *     Must not overlap with any other array.
+ * out
+ *     Pointer representing an array used as the output matrix. Must not be 
+ *     ``NULL`` and must be of size ``m`` x ``m``. Must not overlap with any
+ *     other array.
+ * m
+ *     The size of the ``out`` matrix. Also the number of rows of ``U_1`` and
+ *     ``V_2`` multiplied. Must be positive and smaller than both 
+ *     ``leaf1->m - offset`` and ``leaf2->n - offset``.
+ *
+ * Notes
+ * -----
+ * The multi-step multiplication is performed in the following way:
+ *
+ * 1. :math:`W_1 = V_1^T[:, :] @ U_2[:, :]`
+ * 2. :math:`W_2 = W_1 @ V_2^T[:, offset:offset+m]`
+ * 3. :math:`O = O + U_1[offset:offset+m, :] @ W_2`
+ *
+ * where :math:`W_1`, :math:`W_2`, and :math:`O` are the ``workspace1``, 
+ * ``workspace2``, and ``out`` matrices. :math:`@` signifies a matrix-matrix
+ * multiplication and ``[]`` brackets and contents are used as a 2D array 
+ * indexing notation in the ``numpy`` style.
+ */
 static inline void add_off_diagonal_contribution(
   const struct NodeOffDiagonal *restrict const leaf1,
   const struct NodeOffDiagonal *restrict const leaf2,
   const int offset,
-  double *restrict workspace,
+  double *restrict workspace1,
   double *restrict workspace2,
   double *restrict out,
   const int m
@@ -474,10 +881,10 @@ static inline void add_off_diagonal_contribution(
 
   dgemm_("T", "N", &leaf1->s, &leaf2->s, &leaf1->n, &alpha,
          leaf1->v, &leaf1->n, leaf2->u, &leaf2->m,
-         &beta, workspace, &leaf1->s);
+         &beta, workspace1, &leaf1->s);
 
   dgemm_("N", "T", &leaf1->s, &m, &leaf2->s, &alpha,
-         workspace, &leaf1->s, leaf2->v + offset, &leaf2->n,
+         workspace1, &leaf1->s, leaf2->v + offset, &leaf2->n,
          &beta, workspace2, &leaf1->s);
 
   dgemm_("N", "N", &m, &m, &leaf1->s, &alpha,
@@ -486,26 +893,72 @@ static inline void add_off_diagonal_contribution(
 }
 
 
+/**
+ * Computes the result of HODLR-HODLR matrix multiplication for the diagonal 
+ * leaf nodes.
+ *
+ * Parameters
+ * ----------
+ *
+ * hodlr1
+ *     Pointer to a HODLR matrix that multiplies ``hodlr2``. Must be fully 
+ *     constructed and contain data.
+ * hodlr2
+ *     Pointer to a HODLR matrix that is multiplied by ``hodlr1``. Must be 
+ *     fully constructed and contain data.
+ * out
+ *     Pointer to a HODLR matrix to which to save the diagonal blocks. Must be
+ *     fully allocated but the diagonal leaf nodes must be empty. Must point 
+ *     to a different location from ``hodlr1`` and ``hodlr2``.
+ * offsets
+ *     Pointer that represents an array of offsets. Must be of the same length
+ *     as the height of all the HODLR matrices.
+ * workspace1
+ *     Pointer representing an array used as a workspace matrix in the 
+ *     low-rank expansion :c:func:`add_off_diagonal_contribution`. Must not be
+ *     ``NULL`` and must be of at least size ``s1`` x ``s2``, where ``s1`` and
+ *     ``s2`` are the largest rank of any off-diagonal leaf node on ``hodlr1``
+ *     and ``hodlr2`` respectively.*
+ * workspace2
+ *     Pointer representing an array used as a workspace matrix in the 
+ *     low-rank expansion :c:func:`add_off_diagonal_contribution`. Must not be 
+ *     ``NULL`` and must be of at least size ``s1`` x ``n``, where ``s1`` is
+ *     the largest rank of any off-diagonal leaf node, and ``n`` is the number
+ *     of rows of the largest diagonal leaf node.**
+ * ierr
+ *     Pointer to an integer used to signal the success or failure of this 
+ *     function. An error status code from :c:enum:`ErrorCode` is written into 
+ *     the pointer **if an error occurs**. Must not be ``NULL`` - doing so is 
+ *     undefined.
+ *
+ * Notes
+ * -----
+ * Concerning * and **, technically ``s1`` and ``s2`` do not have to be the
+ * largest numbers overall, rather their combination (``s1×s2``/``s1×n``) 
+ * must be the largest, but the former is simpler to compute and describe. 
+ * What this means in practice is that to get the lowest sizes, all the 
+ * possible multiplications that need to be performed have to be checked, and
+ * their ``s1×s2`` and ``s1×n`` have to be computed, with the largest values
+ * used.
+ */
 static void compute_diagonal(
   const struct TreeHODLR *restrict const hodlr1,
   const struct TreeHODLR *restrict const hodlr2,
   struct TreeHODLR *restrict out,
-  struct HODLRInternalNode **restrict queue,
   int *restrict offsets,
-  double *restrict workspace,
+  double *restrict workspace1,
   double *restrict workspace2,
   int *restrict ierr
 ) {
+  // TODO: Consider using offsets on stack
   struct HODLRInternalNode *parent_node1 = NULL, *parent_node2 = NULL;
-  int m = 0, idx = 0, oidx = 0;
+  int idx = 0, oidx = 0;
   const double alpha = 1.0, beta = 0.0;
   int which_child1 = 0, which_child2 = 0;
 
   for (int parent = 0; parent < out->len_work_queue; parent++) {
-    queue[parent] = out->innermost_leaves[2 * parent]->parent;
-
     for (int _diagonal = 0; _diagonal < 2; _diagonal++) {
-      m = hodlr1->innermost_leaves[idx]->data.diagonal.m;
+      const int m = hodlr1->innermost_leaves[idx]->data.diagonal.m;
 
       out->innermost_leaves[idx]->data.diagonal.m = m;
       out->innermost_leaves[idx]->data.diagonal.data = 
@@ -539,7 +992,7 @@ static void compute_diagonal(
         add_off_diagonal_contribution(
           &parent_node1->children[which_child1].leaf->data.off_diagonal,
           &parent_node2->children[which_child2].leaf->data.off_diagonal,
-          offsets[oidx], workspace, workspace2, 
+          offsets[oidx], workspace1, workspace2, 
           out->innermost_leaves[idx]->data.diagonal.data, 
           out->innermost_leaves[idx]->data.diagonal.m
         );
@@ -558,6 +1011,34 @@ static void compute_diagonal(
 }
 
 
+/**
+ * Multiplies two HODLR matrices
+ *
+ * Parameters
+ * ----------
+ * hodlr1
+ *     Pointer to a HODLR matrix. Must be fully constructed and contain data
+ *     - anything else is undefined.
+ * hodlr2
+ *     Pointer to a HODLR matrix. Must be fully constructed and contain data -
+ *     anything else is undefined. Must have the same height as ``hodlr1``.
+ * out
+ *     Pointer to a HODLR matrix to which to save the result. Must be 
+ *     fully allocated - otherwise is undefined. Must not contain any data - 
+ *     all arrays on the tree will be substituted and the data will be lost,
+ *     potentially leading to memory leaks. Must have the same height as 
+ *     ``hodlr1``.
+ * svd_threshold
+ *     The threshold for discarding singular values when recompressing 
+ *     off-diagonal nodes - any singular values smaller than one 
+ *     ``svd_threshold``-th of the first singular value will be treated as 
+ *     approximately zero and therefore the corresponding column vectors of 
+ *     the :math:`U` and :math:`V` matrices will be discarded.
+ * ierr
+ *     Pointer to an integer used to signal the success or failure of this 
+ *     function. A status code from :c:enum:`ErrorCode` is written into 
+ *     the pointer. Must not be ``NULL`` - doing is is undefined.
+ */
 void multiply_hodlr_hodlr(
   const struct TreeHODLR *restrict const hodlr1,
   const struct TreeHODLR *restrict const hodlr2,
@@ -578,12 +1059,14 @@ void multiply_hodlr_hodlr(
   struct HODLRInternalNode **extra_queue =
     malloc(out->len_work_queue * sizeof(struct HODLRInternalNode *));
 
-  compute_diagonal(hodlr1, hodlr2, out, queue, offsets, workspace, 
-                   workspace2, ierr);
+  compute_diagonal(
+    hodlr1, hodlr2, out, offsets, workspace, workspace2, ierr
+  );
 
   long n_parent_nodes = out->len_work_queue;
 
   for (int parent = 0; parent < n_parent_nodes; parent++) {
+    queue[parent] = out->innermost_leaves[2 * parent]->parent;
     q1[parent] = hodlr1->innermost_leaves[2 * parent]->parent;
     q2[parent] = hodlr2->innermost_leaves[2 * parent]->parent;
 
