@@ -8,6 +8,77 @@
 #include "../include/lapack_wrapper.h"
 
 
+/**
+ * Recompresses an off-diagonal leaf node using the QR method.
+ *
+ * Should be used when ``node->s < min(node->m, node->n)`` since the method
+ * uses an intermediate ``node->s`` x ``node->s`` matrix for the SVD. For 
+ * nodes with large ``s``, :c:func:`recompress_large_s` should be used 
+ * instead.
+ *
+ * Parameters
+ * ----------
+ * node
+ *     Pointer to an off-diagonal leaf node to recompress. Must be fully 
+ *     constructed with block sizes set and the data containing the 
+ *     uncompressed U and V matrices.
+ * m_larger
+ *     The larger value between ``node->m`` and ``node->n``.
+ * m_smaller
+ *     The smaller value between ``node->m`` and ``node->n``.
+ * svd_threshold
+ *     The threshold for discarding singular values when recompressing 
+ *     off-diagonal nodes - any singular values smaller than one 
+ *     ``svd_threshold``-th of the first singular value will be treated as 
+ *     approximately zero and therefore the corresponding column vectors of 
+ *     the :math:`U` and :math:`V` matrices will be discarded.
+ * ierr
+ *     Pointer to an integer used to signal the success or failure of this 
+ *     function. An error status code from :c:enum:`ErrorCode` is written into 
+ *     the pointer **if an error occurs**. Must not be ``NULL`` - doing so is 
+ *     undefined.
+ *
+ * Return
+ * ------
+ * int
+ *     The status code returned by ``dgesdd``.
+ *
+ * Notes
+ * -----
+ * The recompression is performed in the following steps:
+ *
+ * 1. QR decomposition of :math:`U` matrix: :math:`U -> Q_U R_U`
+ *
+ *    * :math:`Q_U` is stored in the original :math:`U` matrix
+ *    * The reflectors for :math:`R_U` are stored in a new ``nb`` x 
+ *      ``m_smaller`` matrix.
+ *    * The operation also requires a ``nb`` x ``m_larger`` workspace.
+ *
+ * 2. QR decomposition of :math:`V` matrix: :math:`V -> Q_V R_V`
+ *
+ *    * :math:`Q_V` is stored in the original :math:`V` matrix
+ *    * The reflectors for :math:`R_V` are stored in a new ``nb`` x 
+ *      ``m_smaller`` matrix.
+ *    * The operation also requires a ``nb`` x ``m_larger`` workspace.
+ *
+ * 3. Matrix multiplication of the :math:`R` matrices: :math:`R = R_U R_V^T`
+ *
+ *    * :math:`R` is stored in a new ``node->s`` x ``node->s`` matrix.
+ *
+ * 4. SVD of the result: :math:`R -> W \Sigma Z^T`
+ *
+ *    * :math:`W` is stored in a new ``node->s`` x ``node->s`` matrix.
+ *    * :math:`\Sigma` is stored in a new ``node->s`` array.
+ *    * :math:`Z^T` is stored in a new ``node->s`` x ``node->s`` matrix.
+ *
+ * 5. Left-side matrix multiply: :math:`U_{new} = Q_U W`
+ *
+ *    * :math:`U_{new}` is stored in a new ``node->m`` x ``s`` matrix.
+ *
+ * 6. Right-side matrix multiply: :matrix:`V_{new} = Q_V R_V^T`
+ *
+ *    * :math:`V_{new}` is stored in a new ``node->n`` x ``s`` matrix.
+ */
 static inline int recompress(
   struct NodeOffDiagonal *restrict const node,
   const int m_larger,
@@ -72,13 +143,68 @@ static inline int recompress(
   node->v = v_new;
   node->s = svd_cutoff_idx;
 
-  // copy w into mxk array with zeros 
   free(tu); free(workspace); free(r1); free(s); free(w); free(zt);
 
   return result;
 }
 
 
+/**
+ * Recompresses an off-diagonal leaf node using the direct SVD method.
+ *
+ * Should be used when ``node->s >= min(node->m, node->n)`` since the method
+ * uses an intermediate ``node->m`` x ``node->n`` matrix for the SVD. For 
+ * nodes with small ``s``, :c:func:`recompress` should be used instead.
+ *
+ * Parameters
+ * ----------
+ * node
+ *     Pointer to an off-diagonal leaf node to recompress. Must be fully 
+ *     constructed with block sizes set and the data containing the 
+ *     uncompressed U and V matrices.
+ * m_larger
+ *     The larger value between ``node->m`` and ``node->n``.
+ * m_smaller
+ *     The smaller value between ``node->m`` and ``node->n``.
+ * svd_threshold
+ *     The threshold for discarding singular values when recompressing 
+ *     off-diagonal nodes - any singular values smaller than one 
+ *     ``svd_threshold``-th of the first singular value will be treated as 
+ *     approximately zero and therefore the corresponding column vectors of 
+ *     the :math:`U` and :math:`V` matrices will be discarded.
+ * ierr
+ *     Pointer to an integer used to signal the success or failure of this 
+ *     function. An error status code from :c:enum:`ErrorCode` is written into 
+ *     the pointer **if an error occurs**. Must not be ``NULL`` - doing so is 
+ *     undefined.
+ *
+ * Return
+ * ------
+ * int
+ *     The status code returned by ``dgesdd``.
+ *
+ * Notes
+ * -----
+ * Performs the recompression in the following steps:
+ *
+ * 1. Expand the low-rank matrix: :math:`D = U V^T`
+ *
+ *    * :math:`D` is stored in a ``node->m`` x ``node->n`` workspace.
+ *
+ * 2. Perform SVD on the dense matrix: :math:`D -> W \Sigma Z^T`
+ *
+ *    * :math:`W` is stored in a new ``node->s`` x ``node->s`` matrix.
+ *    * :math:`\Sigma` is stored in a new ``node->s`` array.
+ *    * :math:`Z^T` is stored in a new ``node->s`` x ``node->s`` matrix.
+ *
+ * 3. Store the relevant columns of :math:`W` as :math:`U_{new}`
+ *
+ *    * :math:`U_{new}` is stored in a new ``node->m`` x ``s`` matrix.
+ *
+ * 4. Store the relevant rows of :math:`Z^T` as :math:`V_{new}`
+ *
+ *    * :math:`V_{new}` is stored in a new ``node->n`` x ``s`` matrix.
+ */
 static inline int recompress_large_s(
   struct NodeOffDiagonal *restrict const node,
   const int m_smaller,
@@ -138,6 +264,22 @@ static inline int recompress_large_s(
 }
 
 
+/**
+ * Sums up the ranks of all lower-level nodes that will be used to compute an
+ * output node.
+ *
+ * Given a ``parent`` node to start at and its index within its level 
+ * (``parent_position``), loops up the tree (through its parents) and adds up 
+ * the ranks of the relevant off-diagonal leaf nodes (determined based on 
+ * ``parent_position``).
+ *
+ * Parameters
+ * ----------
+ * parent
+ *     Pointer to an internal node from which to start computing. Must be the
+ *     parent of the internal node whose leaf nodes are being used for the
+ *     multiplication.
+ */
 static inline int compute_workspace_size_s_component(
   const struct HODLRInternalNode *restrict parent,
   const int height,
@@ -493,7 +635,6 @@ static inline void compute_inner_off_diagonal_lowest_level(
  *     ``NULL``. Must be of size at least ``s1`` x ``s2``, where ``s1`` and 
  *     ``s2`` is the largest pair of ranks of low-rank matrices multiplied 
  *     together.
-
  * ierr
  *     Pointer to an integer used to signal the success or failure of this 
  *     function. An error status code from :c:enum:`ErrorCode` is written into 
