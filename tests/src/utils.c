@@ -255,14 +255,20 @@ void expect_off_diagonal_decompress(
 }
 
 
-void expect_hodlr_fake(const struct TreeHODLR *restrict const actual, 
-                       const struct TreeHODLR *restrict const expected,
-                       double *restrict const workspace) {
+void expect_hodlr_decompress(
+  const struct TreeHODLR *restrict const actual, 
+  const struct TreeHODLR *restrict const expected,
+  double *restrict const workspace,
+  double *restrict const workspace2
+) {
   struct HODLRInternalNode **queue_a = actual->work_queue;
   struct HODLRInternalNode **queue_e = expected->work_queue;
 
   long n_parent_nodes = actual->len_work_queue;
   const int ld_expected = expected->root->m;
+
+  const size_t sbuff = 50 * sizeof(char);
+  char *buffer = malloc(sbuff);
 
   int offset = 0;
   for (int parent = 0; parent < n_parent_nodes; parent++) {
@@ -286,36 +292,32 @@ void expect_hodlr_fake(const struct TreeHODLR *restrict const actual,
       na, na, ne, ne, na, ld_expected, 'D', "", NULL, NULL
     );
 
-    expect_off_diagonal_recompress(
-      &queue_a[parent]->children[1].leaf->data.off_diagonal,
-      &queue_e[parent]->children[1].leaf->data.off_diagonal,
-      ld_expected, workspace
-    );
-
-    expect_off_diagonal_recompress(
-      &queue_a[parent]->children[2].leaf->data.off_diagonal,
-      &queue_e[parent]->children[2].leaf->data.off_diagonal,
-      ld_expected, workspace
-    );
+    for (int leaf = 1; leaf < 3; leaf++) {
+      snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", 
+              expected->height, parent, leaf);
+      expect_off_diagonal_decompress(
+        &queue_a[parent]->children[leaf].leaf->data.off_diagonal,
+        &queue_e[parent]->children[leaf].leaf->data.off_diagonal,
+        ld_expected, buffer, workspace, workspace2
+      );
+    }
   }
 
-  for (int level = actual->height; level > 1; level--) {
+  for (int level = actual->height - 1; level > 0; level--) {
     n_parent_nodes /= 2;
     for (int parent = 0; parent < n_parent_nodes; parent++) {
       queue_a[parent] = queue_a[2 * parent]->parent;
       queue_e[parent] = queue_e[2 * parent]->parent;
 
-      expect_off_diagonal_recompress(
-        &queue_a[parent]->children[1].leaf->data.off_diagonal,
-        &queue_e[parent]->children[1].leaf->data.off_diagonal,
-        ld_expected, workspace
-      );
-
-      expect_off_diagonal_recompress(
-        &queue_a[parent]->children[2].leaf->data.off_diagonal,
-        &queue_e[parent]->children[2].leaf->data.off_diagonal,
-        ld_expected, workspace
-      );
+      for (int leaf = 1; leaf < 3; leaf++) {
+        snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", 
+                 level, parent, leaf);
+        expect_off_diagonal_decompress(
+          &queue_a[parent]->children[leaf].leaf->data.off_diagonal,
+          &queue_e[parent]->children[leaf].leaf->data.off_diagonal,
+          ld_expected, buffer, workspace, workspace2
+        );
+      }
     }
   }
 }
