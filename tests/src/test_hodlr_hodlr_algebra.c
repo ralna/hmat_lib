@@ -236,7 +236,6 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
   struct TreeHODLR *result = allocate_tree_monolithic(
     params->expected->height, &ierr, &malloc, &free
   );
-  copy_block_sizes(params->expected, result, false);
 
   struct HODLRInternalNode **queue = result->work_queue;
 
@@ -356,13 +355,12 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
   struct TreeHODLR *result = allocate_tree_monolithic(
     params->expected->height, &ierr, &malloc, &free
   );
-  copy_block_sizes(params->expected, result, false);
 
   const size_t sbuff = 50 * sizeof(char);
   char *buffer = malloc(sbuff);
 
   const int largest_bs = get_largest_block_size(
-    result->innermost_leaves, result->len_work_queue
+    params->expected->innermost_leaves, params->expected->len_work_queue
   );
   double *workspace2 = malloc(2 * largest_bs * sizeof(double));
   double *workspace3 = workspace2 + largest_bs;
@@ -436,15 +434,15 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
   struct TreeHODLR *result = allocate_tree_monolithic(
     params->expected->height, &ierr, &malloc, &free
   );
-  copy_block_sizes(params->expected, result, false);
 
   // Set up buffer for printing
   const size_t sbuff = 50 * sizeof(char);
   char *buffer = malloc(sbuff);
 
   // Set up workspace matrices for comparing results
-  const int largest_bs = result->root->children[1].leaf->data.off_diagonal.m
-    * result->root->children[1].leaf->data.off_diagonal.n;
+  const int largest_bs = 
+    params->expected->root->children[1].leaf->data.off_diagonal.m
+    * params->expected->root->children[1].leaf->data.off_diagonal.n;
   double *workspace2 = malloc(2 * largest_bs * sizeof(double));
   double *workspace3 = workspace2 + largest_bs;
 

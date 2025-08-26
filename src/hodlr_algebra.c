@@ -309,7 +309,21 @@ static inline void compute_higher_level_contributions_off_diagonal(
  * Parameters
  * ----------
  * off_diagonal_left
- *     Pointer to an off-diagonal leaf node from the left-side HODLR
+ *     Pointer to an off-diagonal leaf node from the left-side HODLR that will
+ *     be used to compute the ``out`` leaf node. Must be fully constructed 
+ *     with block sizes set. Its block sizes must be identical with 
+ *     ``off_diagonal_right``.
+ * off_diagonal_right
+ *     Pointer to an off-diagonal leaf node from the right-side HODLR that 
+ *     will be used to compute the ``out`` leaf node. Must be fully 
+ *     constructed with block sizes set. Its block sizes must be identical 
+ *     with ``off_diagonal_left``.
+ * out
+ *     Pointer to an off-diagonal leaf node from the output HODLR that will be
+ *     set up. Must be fully allocated, but should be completely empty.
+ * s_sum
+ *     Sum of the ranks of all nodes of lower levels (higher up the tree) that
+ *     will be used to compute ``out``.
  */
 static inline void set_up_off_diagonal(
   const struct NodeOffDiagonal *restrict const off_diagonal_left,
@@ -318,9 +332,11 @@ static inline void set_up_off_diagonal(
   const int s_sum
 ) {
   const int s_total = s_sum + off_diagonal_left->s + off_diagonal_right->s;
+  out->m = off_diagonal_left->m;
+  out->n = off_diagonal_left->n;
+  out->s = s_total;
   out->u = malloc(s_total * out->m * sizeof(double));
   out->v = malloc(s_total * out->n * sizeof(double));
-  out->s = s_total;
 }
 
 
@@ -1019,6 +1035,26 @@ static void compute_diagonal(
 }
 
 
+/**
+ * Computes the workspace sizes for :c:func:`multiply_hodlr_hodlr`.
+ *
+ * Parameters
+ * ----------
+ * hodlr1
+ *     Pointer to the HODLR matrix that will be used as the ``hodlr1`` 
+ *     argument to the multiply function. Must be fully constructed with all
+ *     the block sizes (including ranks) set - anything else is undefined.
+ * hodlr2
+ *     Pointer to the HODLR matrix that will be used as the ``hodlr2`` 
+ *     argument to the multiply function. Must be fully constructed with all
+ *     the block sizes (including ranks) set - anything else is undefined.
+ * size1
+ *     Pointer to an ``int`` into which the size of the first workspace 
+ *     (``workspace1``) will be written. Must not be ``NULL``.
+ * size2
+ *     Pointer to an ``int`` into which the size of the second workspace
+ *     (``workspace2``) will be written. Must not be ``NULL``.
+ */
 void compute_workspace_multiply_hodlr_hodlr(
   const struct TreeHODLR *const hodlr1,
   const struct TreeHODLR *const hodlr2,
