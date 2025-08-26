@@ -1071,7 +1071,7 @@ ParameterizedTest(struct ParametersTestDense *params,
   const int n = result->root->children[1].leaf->data.off_diagonal.n;
   double *workspace = malloc(m * n * sizeof(double));
 
-  expect_hodlr_decompress(result, params->expected, workspace, NULL);
+  expect_hodlr_decompress(true, result, params->expected, workspace, NULL);
 
   free_tree_hodlr(&result, &free); free(workspace);
 }

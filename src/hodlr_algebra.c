@@ -1078,8 +1078,8 @@ void multiply_hodlr_hodlr(
   unsigned int size1, size2;
   compute_workspace_multiply_hodlr_hodlr(hodlr1, hodlr2, &size1, &size2);
 
-  double *workspace = malloc(size1 * sizeof(double)); 
-  double *workspace2 = malloc(size2 * sizeof(double));
+  double *workspace = malloc((size1 + size2) * sizeof(double)); 
+  double *workspace2 = workspace + size1;
   int *offsets = calloc(hodlr1->height, sizeof(int));
   if (offsets == NULL) {
     *ierr = ALLOCATION_FAILURE;
@@ -1132,6 +1132,6 @@ void multiply_hodlr_hodlr(
     }
   }
   
-  free(offsets); free(extra_queue);
+  free(offsets); free(extra_queue); free(workspace);
 }
 

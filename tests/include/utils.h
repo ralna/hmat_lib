@@ -35,7 +35,8 @@ void expect_off_diagonal_decompress(
 
 int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected);
 
-void expect_hodlr_decompress(const struct TreeHODLR *actual, 
+void expect_hodlr_decompress(const bool fake_hodlr,
+                             const struct TreeHODLR *actual, 
                              const struct TreeHODLR *expected,
                              double *workspace,
                              double *workspace2);

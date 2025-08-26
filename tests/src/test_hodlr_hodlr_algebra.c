@@ -248,7 +248,7 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
     cr_fail("Returned ierr (%d) different from SUCCESS (%d)", ierr, SUCCESS);
   }
 
-  expect_tree_hodlr(result, params->expected);
+  expect_hodlr_decompress(false, result, params->expected, NULL, NULL);
 
   free_tree_hodlr(&result, &free);
 }

@@ -249,23 +249,34 @@ void expect_off_diagonal_decompress(
 
     expect_matrix_double_eq_safe(
       workspace, workspace2, actual->m, actual->n, expected->m, expected->n,
-      actual->m, ld_expected, 'O', buffer, NULL, NULL
+      actual->m, expected->m, 'O', buffer, NULL, NULL
     );
   }
 }
 
 
 void expect_hodlr_decompress(
+  const bool fake_hodlr,
   const struct TreeHODLR *restrict const actual, 
   const struct TreeHODLR *restrict const expected,
-  double *restrict const workspace,
-  double *restrict const workspace2
+  double *restrict workspace,
+  double *restrict workspace2
 ) {
+  bool free_wksp = false;
+  if (workspace == NULL) {
+    const int m = expected->root->children[1].leaf->data.off_diagonal.m;
+    const int n = expected->root->children[1].leaf->data.off_diagonal.n;
+
+    workspace = malloc(2 * m * n * sizeof(double));
+    workspace2 = workspace + m * n;
+    free_wksp = true;
+  }
+
   struct HODLRInternalNode **queue_a = actual->work_queue;
   struct HODLRInternalNode **queue_e = expected->work_queue;
 
   long n_parent_nodes = actual->len_work_queue;
-  const int ld_expected = expected->root->m;
+  int ld_expected = expected->root->m;
 
   const size_t sbuff = 50 * sizeof(char);
   char *buffer = malloc(sbuff);
@@ -281,11 +292,13 @@ void expect_hodlr_decompress(
     const int me = expected->innermost_leaves[2 * parent]->data.diagonal.m;
     const int ne = expected->innermost_leaves[2 * parent + 1]->data.diagonal.m;
 
+    if (fake_hodlr == false) ld_expected = me;
     expect_matrix_double_eq_safe(
       actual->innermost_leaves[2 * parent]->data.diagonal.data, 
       expected->innermost_leaves[2 * parent]->data.diagonal.data, 
       ma, ma, me, me, ma, ld_expected, 'D', "", NULL, NULL
     );
+    if (fake_hodlr == false) ld_expected = ne;
     expect_matrix_double_eq_safe(
       actual->innermost_leaves[2 * parent + 1]->data.diagonal.data, 
       expected->innermost_leaves[2 * parent + 1]->data.diagonal.data, 
@@ -320,6 +333,9 @@ void expect_hodlr_decompress(
       }
     }
   }
+
+  free(buffer);
+  if (free_wksp == true) free(workspace);
 }
 
 
