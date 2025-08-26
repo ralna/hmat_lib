@@ -2,7 +2,8 @@ if(BUILD_TESTING)
   add_executable(
     unit_test 
     src/test_allocators.c src/test_tree_construct.c src/test_vector_algebra.c 
-    src/test_hodlr_dense_algebra.c ../src/lapack_wrapper.c src/utils.c 
+    src/test_hodlr_dense_algebra.c src/test_hodlr_hodlr_algebra.c
+    ../src/lapack_wrapper.c src/utils.c 
     src/common_data.c ../src/utils.c
   )
     
