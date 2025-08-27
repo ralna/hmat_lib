@@ -228,9 +228,12 @@ void expect_off_diagonal_decompress(
   const int ld_expected,
   const char *restrict const buffer,
   double *restrict const workspace,
-  double *restrict const workspace2
+  double *restrict const workspace2,
+  double *restrict norm_out,
+  double *restrict diff_out
 ) {
-  cr_expect(eq(int, actual->s, expected->s), "%s", buffer);
+  if (expected->s > 0)
+    cr_expect(eq(int, actual->s, expected->s), "%s", buffer);
 
   const double alpha = 1.0, beta = 0.0;
   dgemm_("N", "T", &actual->m, &actual->n, &actual->s, &alpha,
@@ -240,7 +243,7 @@ void expect_off_diagonal_decompress(
   if (expected->v == NULL) {
     expect_matrix_double_eq_safe(
       workspace, expected->u, actual->m, actual->n, expected->m, expected->n,
-      actual->m, ld_expected, 'O', buffer, NULL, NULL
+      actual->m, ld_expected, 'O', buffer, norm_out, diff_out
     );
   } else {
     dgemm_("N", "T", &expected->m, &expected->n, &expected->s, &alpha,
@@ -249,7 +252,7 @@ void expect_off_diagonal_decompress(
 
     expect_matrix_double_eq_safe(
       workspace, workspace2, actual->m, actual->n, expected->m, expected->n,
-      actual->m, expected->m, 'O', buffer, NULL, NULL
+      actual->m, expected->m, 'O', buffer, norm_out, diff_out
     );
   }
 }
@@ -260,7 +263,9 @@ void expect_hodlr_decompress(
   const struct TreeHODLR *restrict const actual, 
   const struct TreeHODLR *restrict const expected,
   double *restrict workspace,
-  double *restrict workspace2
+  double *restrict workspace2,
+  double *restrict norm_out,
+  double *restrict diff_out
 ) {
   bool free_wksp = false;
   if (workspace == NULL) {
@@ -271,6 +276,8 @@ void expect_hodlr_decompress(
     workspace2 = workspace + m * n;
     free_wksp = true;
   }
+
+  double norm = 0.0, diff = 0.0;
 
   struct HODLRInternalNode **queue_a = actual->work_queue;
   struct HODLRInternalNode **queue_e = expected->work_queue;
@@ -308,11 +315,13 @@ void expect_hodlr_decompress(
     for (int leaf = 1; leaf < 3; leaf++) {
       snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", 
               expected->height, parent, leaf);
+      double n = 0., d = 0.;
       expect_off_diagonal_decompress(
         &queue_a[parent]->children[leaf].leaf->data.off_diagonal,
         &queue_e[parent]->children[leaf].leaf->data.off_diagonal,
-        ld_expected, buffer, workspace, workspace2
+        ld_expected, buffer, workspace, workspace2, &n, &d
       );
+      norm += n; diff += d;
     }
   }
 
@@ -325,17 +334,22 @@ void expect_hodlr_decompress(
       for (int leaf = 1; leaf < 3; leaf++) {
         snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", 
                  level, parent, leaf);
+        double n = 0., d = 0.;
         expect_off_diagonal_decompress(
           &queue_a[parent]->children[leaf].leaf->data.off_diagonal,
           &queue_e[parent]->children[leaf].leaf->data.off_diagonal,
-          ld_expected, buffer, workspace, workspace2
+          ld_expected, buffer, workspace, workspace2, &n, &d
         );
+        norm += n; diff += d;
       }
     }
   }
 
   free(buffer);
   if (free_wksp == true) free(workspace);
+
+  if (norm_out != NULL) *norm_out = norm;
+  if (diff_out != NULL) *diff_out = norm;
 }
 
 

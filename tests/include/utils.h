@@ -30,16 +30,22 @@ void expect_off_diagonal_decompress(
   const int ld_expected,
   const char *buffer,
   double *workspace,
-  double *workspace2
+  double *workspace2,
+  double *norm_out,
+  double *diff_out
 );
 
 int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected);
 
-void expect_hodlr_decompress(const bool fake_hodlr,
-                             const struct TreeHODLR *actual, 
-                             const struct TreeHODLR *expected,
-                             double *workspace,
-                             double *workspace2);
+void expect_hodlr_decompress(
+  const bool fake_hodlr,
+  const struct TreeHODLR *actual, 
+  const struct TreeHODLR *expected,
+  double *workspace,
+  double *workspace2,
+  double *norm_out,
+  double *diff_out
+  );
  
 void log_matrix(const double *matrix, const int m, const int n, const int lda);
 

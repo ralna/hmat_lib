@@ -81,7 +81,6 @@
  */
 static inline int recompress(
   struct NodeOffDiagonal *restrict const node,
-  const int m_larger,
   const int m_smaller,
   const double svd_threshold,
   int *restrict const ierr
@@ -787,23 +786,18 @@ static inline int compute_inner_off_diagonal(
     out_bl, offset_vtr_ubl, offset_utr_vbl
   );
 
-  int m_larger, m_smaller;
-  if (out_tr->m > out_tr->n) {
-    m_larger = out_tr->m; m_smaller = out_tr->n;
-  } else {
-    m_larger = out_tr->n; m_smaller = out_tr->m;
-  }
+  int m_smaller = (out_tr->m > out_tr->n) ? out_tr->n : out_tr->m;
 
   int result = 0;
   if (out_tr->s < m_smaller)
-    result = recompress(out_tr, m_larger, m_smaller, svd_threshold, ierr);
+    result = recompress(out_tr, m_smaller, svd_threshold, ierr);
   else 
     result = recompress_large_s(out_tr, m_smaller, svd_threshold, ierr);
 
   if (*ierr != SUCCESS) return result;
 
   if (out_bl->s < m_smaller)
-    return recompress(out_bl, m_larger, m_smaller, svd_threshold, ierr);
+    return recompress(out_bl, m_smaller, svd_threshold, ierr);
   else
     return recompress_large_s(out_bl, m_smaller, svd_threshold, ierr);
 }
@@ -1060,23 +1054,18 @@ static inline int compute_other_off_diagonal(
     out_bl, offset_vtr_ubl, offset_utr_vbl, workspace, queue
   );
 
-  int m_larger, m_smaller;
-  if (out_tr->m > out_tr->n) {
-    m_larger = out_tr->m; m_smaller = out_tr->n;
-  } else {
-    m_larger = out_tr->n; m_smaller = out_tr->m;
-  }
+  int m_smaller = (out_tr->m > out_tr->n) ? out_tr->n : out_tr->m;
 
   int result = 0;
   if (out_tr->s < m_smaller)
-    result = recompress(out_tr, m_larger, m_smaller, svd_threshold, ierr);
+    result = recompress(out_tr, m_smaller, svd_threshold, ierr);
   else 
     result = recompress_large_s(out_tr, m_smaller, svd_threshold, ierr);
 
-  if (*ierr != SUCCESS) return 0;
+  if (*ierr != SUCCESS) return result;
 
   if (out_bl->s < m_smaller)
-    return recompress(out_bl, m_larger, m_smaller, svd_threshold, ierr);
+    return recompress(out_bl, m_smaller, svd_threshold, ierr);
   else
     return recompress_large_s(out_bl, m_smaller, svd_threshold, ierr);
 }
