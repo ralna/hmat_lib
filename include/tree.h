@@ -257,7 +257,7 @@ struct TreeHODLR {
    * .. important::
    *
    *     This array may change even when this ``struct`` is passed as 
-   *     ``static``, since it is used as an internal workspace.
+   *     ``const``, since it is used as an internal workspace.
    */
   struct HODLRInternalNode **work_queue;
 

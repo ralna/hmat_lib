@@ -9,20 +9,30 @@
 /**
  * Internal function used to free a partially allocated HODLR tree.
  *
- * Used to clean up after unsuccessful allocation of a HODLR tree
- * via :c:func:`allocate_tree`.
+ * Used to clean up after unsuccessful allocation of a HODLR tree via 
+ * :c:func:`allocate_tree`.
  *
- * :param hodlr: Pointer to a HODLR tree.
- * :param queue: A dynamic array of pointers to internal nodes.
- *               Used as a workspace.
- * :param next_level: Dynamic array of pointers to internal nodes.
- *                    Used as a workspace.
- *
- * :return: Nothing
+ * Parameters
+ * ----------
+ * hodlr
+ *     Pointer to a partially allocated HODLR. Must not be ``NULL``, but any 
+ *     other part may be unallocated.
+ * queue
+ *     Pointer representing an array of pointers to internal nodes, used to 
+ *     loop over the tree. Must not be ``NULL``. Must be of length at least 
+ *     :c:member:`TreeHODLR.len_work_queue`. May be empty. Must not overlap 
+ *     with ``next_level``.
+ * next_level
+ *     Pointer representing an array of pointers to internal nodes, used to 
+ *     loop over the tree. Must not be ``NULL``. Must be of length at least 
+ *     :c:member:`TreeHODLR.len_work_queue`. May be empty. Must not overlap
+ *     with ``queue``.
  */
-static void free_partial_tree_hodlr(struct TreeHODLR *hodlr, 
-                                    struct HODLRInternalNode **queue, 
-                                    struct HODLRInternalNode **next_level) {
+static void free_partial_tree_hodlr(
+  struct TreeHODLR *hodlr, 
+  struct HODLRInternalNode **queue, 
+  struct HODLRInternalNode **next_level
+) {
   int len_queue = 1;
   if (hodlr->root == NULL) {
     return;
@@ -77,7 +87,6 @@ static void free_partial_tree_hodlr(struct TreeHODLR *hodlr,
     free(queue[i]);
   }
   free(hodlr);
-  hodlr = NULL;
 }
 
 
@@ -89,9 +98,12 @@ static void free_partial_tree_hodlr(struct TreeHODLR *hodlr,
  * parent pointer, sets the appropriate enums,  and initialises the
  * pointers to ``NULL`` and numbers to ``0``.
  *
- * :param leaf: A pointer to a leaf node to be initialised. ``NULL`` is 
- *              undefined.
- * :param parent: A pointer to ``leaf``'s parent node. Must not be ``NULL``.
+ * Parameters
+ * ----------
+ * leaf
+ *     Pointer to a leaf node to be initialised. Must not be ``NULL``.
+ * parent
+ *     Pointer to the parent node of ``leaf``. Must not be ``NULL``.
  */
 static inline void initialise_leaf_offdiagonal(
   struct HODLRLeafNode *restrict leaf,
@@ -115,9 +127,12 @@ static inline void initialise_leaf_offdiagonal(
  * pointer, sets the appropriate enums, and initialises pointers to ``NULL``
  * and numbers to ``0``.
  *
- * :param leaf: A pointer to a leaf node to be initialised. ``NULL`` is 
- *              undefined.
- * :param parent: A pointer to ``leaf``'s parent node. Must not be ``NULL``.
+ * Parameters
+ * ----------
+ * leaf
+ *     Pointer to a leaf node to be initialised. Must not be ``NULL``.
+ * parent
+ *     Pointer to the parent node of ``leaf``. Must not be ``NULL``.
  */
 static inline void initialise_leaf_diagonal(
   struct HODLRLeafNode *restrict leaf,
@@ -137,10 +152,13 @@ static inline void initialise_leaf_diagonal(
  * initialises the internal node - saves the parent pointer and initialises
  * all numbers to ``0``.
  *
- * :param node: A pointer to an internal node to be initialised. ``NULL`` is
- *              undefined.
- * :param parent: A pointer to the ``node``'s parent node. May be ``NULL`` 
- *                only if ``node`` is the root node.
+ * Parameters
+ * ----------
+ * node
+ *     Pointer to an internal node to be initialised. Must not be ``NULL``.
+ * parent
+ *     Pointer to the parent node of ``node``. May be ``NULL`` only if 
+ *     ``node`` is the root node.
  */
 static inline void initialise_internal(
   struct HODLRInternalNode *restrict node,
@@ -152,47 +170,59 @@ static inline void initialise_internal(
 
 
 /**
- * Allocates the HODLR tree without allocating the data.
+ * Allocates the HODLR structure piecewise.
  *
- * Allocates all the structs composing the HODLR tree structure using
- * the ``malloc`` function from ``stdlib``. All the known data is 
- * filled in and pointers are assigned, but no data is allocated or
- * computed. Any such values are not defined are left to the compiler
- * to (potentially) set, so accessing them is undefined behaviour.
+ * Allocates all the structs composing the HODLR tree by individually 
+ * allocating each struct. The pointers are linked together into the tree and
+ * the top-level fields on :c:struct:`TreeHODLR` are computed, but all block
+ * sizes and data pointers on the children are initialised to ``0``/``NULL``.
  *
- * The tree obtained from this function should only be passed into 
- * a function that fills in the data (e.g. 
- * :c:func:`dense_to_tree_hodlr`) - it should not be used anywhere 
- * else.
+ * Parameters
+ * ----------
+ * height
+ *     The height of the HODLR tree to construct, i.e. the number of times the 
+ *     matrix will be split. E.g., ``height==1`` splits the matrix once into 
+ *     4 blocks, none of which will be split further, giving a HODLR composed 
+ *     of a root internal node, holding 4 terminal leaf nodes. 
+ *     Must be 1 or greater - smaller values cause early abort, returning 
+ *     ``NULL``.
+ * ierr
+ *     Pointer to an integer used to signal the success or failure of this 
+ *     function. A status code from :c:enum:`ErrorCode` is written into the
+ *     pointer.
+ *     Must not be ``NULL`` - passing in ``NULL`` is undefined behaviour.
  *
- * :param height: The height of the HODLR tree to construct, i.e. the
- *                number of times the matrix will be split. E.g., 
- *                ``height==1`` splits the matrix once into 4 blocks,
- *                none of which will be split further, giving a HODLR
- *                composed of a root internal node, holding 4 terminal
- *                leaf nodes. 
- *                Must be 1 or greater - smaller values cause early 
- *                abort, returning ``NULL``.
+ * Returns
+ * -------
+ * struct TreeHODLR *
+ *     Pointer to an empty HODLR, if successful, otherwise ``NULL``. 
+ *     Any partially allocated memory is automatically freed on failure and 
+ *     ``NULL`` is returned.
  *
- * :param ierr: Error code corresponding to :c:enum:`ErrorCode`. On 
- *              successful completion of the function, 
- *              :c:enum:`ErrorCode.SUCCESS` is returned. Otherwise,
- *              a corresponding error code is set and ``NULL`` is
- *              returned.
- *              Must NOT be ``NULL`` pointer - passing in ``NULL``
- *              as ``ierr`` is undefined behaviour.
+ * Warnings
+ * --------
+ * The tree obtained from this function should only be passed into a function 
+ * that fills in the data (e.g. :c:func:`dense_to_tree_hodlr`) - it should 
+ * not be used anywhere else.
  *
- * :return: A pointer to an empty :c:struct:`TreeHODLR` on successful 
- *          allocation, otherwise NULL. Any partially allocated 
- *          memory is automatically freed on failure and NULL is 
- *          returned.
+ * See Also
+ * --------
+ * allocate_tree_monolithic : Allocates nodes in blocks.
+ *
+ * Notes
+ * -----
+ * Since this function allocates each ``struct`` in the tree via a separate 
+ * call to ``malloc``, the nodes are likely to end up discontinuous, which may
+ * hinder performance even though it is unlikely to be a bottleneck. However, 
+ * this approach makes changing the height of the tree much simpler since no 
+ * ``realloc``\ s are necessary. Therefore, it might be the better allocation 
+ * routine if the height is going to be changed a lot.
  */
 struct TreeHODLR* allocate_tree(const int height, int *ierr) {
   if (height < 1) {
     *ierr = INPUT_ERROR;
     return NULL;
   }
-  int len_queue = 1;
   const long max_depth_n = (long)pow(2, height - 1);
 
   struct TreeHODLR *hodlr = malloc(sizeof(struct TreeHODLR));
@@ -203,12 +233,12 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
 
   hodlr->memory_internal_ptr = NULL;
   hodlr->memory_leaf_ptr = NULL;
-  //struct HODLRInternalNode *node = (HODLRInternalNode *)malloc(sizeof(HODLRInternalNode));
 
   hodlr->height = height;
   hodlr->len_work_queue = max_depth_n;
 
-  hodlr->innermost_leaves = malloc(max_depth_n * 2 * sizeof(struct HODLRLeafNode *));
+  hodlr->innermost_leaves = 
+    malloc(max_depth_n * 2 * sizeof(struct HODLRLeafNode *));
   if (hodlr->innermost_leaves == NULL) {
     *ierr = ALLOCATION_FAILURE;
     free(hodlr);
@@ -218,13 +248,15 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
   hodlr->root = malloc(sizeof(struct HODLRInternalNode));
   initialise_internal(hodlr->root, NULL);
 
-  struct HODLRInternalNode **queue = malloc(max_depth_n * sizeof(struct HODLRInternalNode *));
+  struct HODLRInternalNode **queue = 
+    malloc(max_depth_n * sizeof(struct HODLRInternalNode *));
   if (queue == NULL) {
     *ierr = ALLOCATION_FAILURE;
     free(hodlr->root); free(hodlr);
     return NULL;
   }
-  struct HODLRInternalNode **next_level = malloc(max_depth_n * sizeof(struct HODLRInternalNode *));
+  struct HODLRInternalNode **next_level = 
+    malloc(max_depth_n * sizeof(struct HODLRInternalNode *));
   if (next_level == NULL) {
     *ierr = ALLOCATION_FAILURE;
     free(hodlr->root); free(hodlr); free(queue);
@@ -233,10 +265,11 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
   struct HODLRInternalNode **temp_pointer = NULL;
   queue[0] = hodlr->root;
 
+  int len_queue = 1;
   for (int _ = 1; _ < height; _++) {
     for (int j = 0; j < len_queue; j++) {
-      // WARNING: If the order of these mallocs changes the change MUST be reflected
-      // in free_partial_tree_hodlr!
+      // WARNING: If the order of these mallocs, changes the change MUST be 
+      // reflected in free_partial_tree_hodlr!
 
       // OFF-DIAGONAL
       for (int leaf = 1; leaf < 3; leaf++) {
@@ -303,6 +336,56 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
 }
 
 
+/**
+ * Allocates the HODLR structure in blocks.
+ *
+ * Allocates all the structs composing the HODLR tree by allocating large 
+ * chunks of memory and then assigning the pointers appropriately. The 
+ * pointers are linked together into the tree and the top-level fields on 
+ * :c:struct:`TreeHODLR` are computed, but all block sizes and data pointers 
+ * on the children are initialised to ``0``/``NULL``.
+ *
+ * Parameters
+ * ----------
+ * height
+ *     The height of the HODLR tree to construct, i.e. the number of times the 
+ *     matrix will be split. E.g., ``height==1`` splits the matrix once into 
+ *     4 blocks, none of which will be split further, giving a HODLR composed 
+ *     of a root internal node, holding 4 terminal leaf nodes. 
+ *     Must be 1 or greater - smaller values cause early abort, returning 
+ *     ``NULL``.
+ * ierr
+ *     Pointer to an integer used to signal the success or failure of this 
+ *     function. A status code from :c:enum:`ErrorCode` is written into the
+ *     pointer.
+ *     Must not be ``NULL`` - passing in ``NULL`` is undefined behaviour.
+ *
+ * Returns
+ * -------
+ * struct TreeHODLR *
+ *     Pointer to an empty HODLR, if successful, otherwise ``NULL``. 
+ *     Any partially allocated memory is automatically freed on failure and 
+ *     ``NULL`` is returned.
+ *
+ * Warnings
+ * --------
+ * The tree obtained from this function should only be passed into a function 
+ * that fills in the data (e.g. :c:func:`dense_to_tree_hodlr`) - it should 
+ * not be used anywhere else.
+ *
+ * See Also
+ * --------
+ * allocate_tree : Allocates nodes individually.
+ * construct_tree : Used for assigning the pointers.
+ *
+ * Notes
+ * -----
+ * Since this function allocates all ``struct``\ s of the same type at once,
+ * the nodes are always continuous and so likely to be faster to traverse.
+ * Unfortunately, this approach makes changing the height of the tree more 
+ * difficult since all memory has to be reallocated. Therefore, it might be 
+ * better to avoid this routine if the height is going to be changing a lot.
+ */
 #ifndef _TEST_HODLR
 struct TreeHODLR * allocate_tree_monolithic(const int height, int *ierr) {
 #else
@@ -362,11 +445,45 @@ struct TreeHODLR * allocate_tree_monolithic(const int height, int *ierr,
 }
 
 
-void compute_construct_tree_array_sizes(const int height,
-                                        size_t *size_internal_nodes,
-                                        size_t *size_leaf_nodes,
-                                        size_t *size_work_queue,
-                                        size_t *size_innermost_leaves) {
+/**
+ * Computes the memory required for :c:func:`construct_tree`.
+ *
+ * Used when manually allocating the memory for the HODLR is desirable. 
+ *
+ * .. important::
+ *
+ *    Please note that sizes returned by this function are in bytes and so can
+ *    and should be used directly, i.e. ``malloc(size_internal_nodes)`` and
+ *    NOT ``malloc(size_internal_nodes * sizeof(struct HODLRInternalNode))``.
+ *
+ * Parameters
+ * ----------
+ * height
+ *     The height of the tree for which the sizes are to be computed. Must be
+ *     ``1`` or greater, with the validity of the value not checked. Passing
+ *     in values smaller than ``1`` may result in invalid values.
+ * size_internal_nodes
+ *     Pointer to a single value into which will be written the size in bytes 
+ *     required for all the internal nodes. Must not be ``NULL``.
+ * size_leaf_nodes
+ *     Pointer to a single value into which will be written the size in bytes 
+ *     required for all the leaf nodes. Must not be ``NULL``.
+ * size_work_queue
+ *     Pointer to a single value into which will be written the size in bytes 
+ *     required for the :c:member:`TreeHODLR.work_queue` array. Must not be 
+ *     ``NULL``.
+ * size_innermost_leaves
+ *     Pointer to a single value into which will be written the size in bytes 
+ *     required for the :c:member:`TreeHODLR.innermost_leaves` array. Must not
+ *     be ``NULL``.
+ */
+void compute_construct_tree_array_sizes(
+  const int height,
+  size_t *restrict const size_internal_nodes,
+  size_t *restrict const size_leaf_nodes,
+  size_t *restrict const size_work_queue,
+  size_t *restrict const size_innermost_leaves
+) {
   const size_t n = (size_t)(pow(2, height - 1));
   *size_work_queue = n * sizeof(struct HODLRInternalNode *);
   *size_internal_nodes = (2 * n - 1) * sizeof(struct HODLRInternalNode);
@@ -376,6 +493,52 @@ void compute_construct_tree_array_sizes(const int height,
 }
 
 
+/**
+ * Constructs the HODLR structure from chunks of memory for all required
+ * ``struct``\ s.
+ *
+ * Given blocks of memory, constructs a HODLR tree by linking pointers 
+ * together and setting the top-level fields on :c:struct:`TreeHODLR`. 
+ * However, only initialises children's block sizes to ``0`` and data pointers
+ * to ``NULL``.
+ *
+ * The sizes of all the memory chunks can and should be obtained via
+ * :c:func:`compute_construct_tree_array_sizes`.
+ *
+ * Parameters
+ * ----------
+ * height
+ *     The height of the HODLR tree to construct, i.e. the number of times the 
+ *     matrix will be split. E.g., ``height==1`` splits the matrix once into 
+ *     4 blocks, none of which will be split further, giving a HODLR composed 
+ *     of a root internal node, holding 4 terminal leaf nodes. 
+ *     Must be 1 or greater - smaller values cause early abort, returning 
+ *     ``NULL``.
+ * hodlr
+ *     Pointer to the HODLR to construct. This must be a single allocated
+ *     ``struct`` with no values or pointers set. Must not be ``NULL``.
+ * internal_nodes
+ *     Pointer representing an array of internal nodes. Each node in the array
+ *     will be placed appropriately within the final tree. Must be of length
+ *     :math:`2^{height} - 1`. Must not be ``NULL``.
+ * leaf_nodes
+ *     Pointer representing an array of leaf nodes. Each node in the array 
+ *     will be placed appropriately within the final tree. Must be of length
+ *     :math:`3 * 2^{height} - 2`. Must not be ``NULL``.
+ * work_queue
+ *     Pointer representing an array of pointers to internal nodes. This will
+ *     be used to set :c:member:`TreeHODLR.work_queue`. Must be of length
+ *     :c:mebmber:`TreeHODLR.len_work_queue`. Must not be ``NULL``.
+ * innermost_leaves
+ *     Pointer representing an array of pointers to leaf nodes. This will be
+ *     used to set :c:member:`TreeHODLR.innermost_leaves`. Must be of length
+ *     :math:`2^{height}`. Must not be ``NULL``.
+ * ierr
+ *     Pointer to an integer used to signal the success or failure of this 
+ *     function. A status code from :c:enum:`ErrorCode` is written into the
+ *     pointer.
+ *     Must not be ``NULL`` - passing in ``NULL`` is undefined behaviour.
+ */
 void construct_tree(const int height,
                     struct TreeHODLR *hodlr,
                     struct HODLRInternalNode *internal_nodes,
@@ -453,24 +616,28 @@ void construct_tree(const int height,
 }
 
 
-#ifndef _TEST_HODLR
 /**
  * Frees the allocated data in a HODLR tree.
  *
- * Does NOT free the tree structure, only the data that can
- * be allocated by a function that fills in the tree, such 
- * as :c:func:`dense_to_tree_hodlr`. 
+ * Does NOT free the tree structure, only the data that can be allocated by a 
+ * function that fills in the tree, such as :c:func:`dense_to_tree_hodlr`. 
  * 
- * May be used even if the compression function failed, 
- * resulting in partial allocation of data.
+ * May be used even if the compression function failed, resulting in partial 
+ * allocation of data.
  *
  * Additionally, sets all the data pointers to ``NULL``.
  *
- * :param hodlr: Pointer to a HODLR tree whose data to free.
- *               If ``NULL``, returns immediately.
+ * Parameters
+ * ----------
+ * hodlr
+ *     Pointer to a HODLR tree whose data to free. If ``NULL``, returns 
+ *     immediately.
  *
- * :return: Nothing
+ * See Also
+ * --------
+ * free_tree_hodlr : Frees both the data and all nodes composing the HODLR.
  */
+#ifndef _TEST_HODLR
 void free_tree_data(struct TreeHODLR *hodlr) {
 #else
 void free_tree_data(struct TreeHODLR *hodlr, void(*free)(void *ptr)) {
@@ -522,26 +689,43 @@ void free_tree_data(struct TreeHODLR *hodlr, void(*free)(void *ptr)) {
 }
 
 
-#ifndef _TEST_HODLR
 /**
  * Frees the entire HOLDR tree.
  *
- * Frees all the allocated data *and* the entire tree structure,
- * including all the structs etc. I.e. completely cleans up a 
- * HODLR tree. Additionally, sets all the intermediate values
- * as well as the HODLR tree itself to ``NULL``.
+ * Frees all the allocated data *and* the entire tree structure, including all 
+ * the structs etc. I.e. completely cleans up a HODLR tree. Additionally, 
+ * sets all the intermediate values as well as the HODLR tree itself to 
+ * ``NULL``.
  *
- * :param hodlr_ptr: A pointer to a pointer to a HODLR tree.
- *                   Must be a pointer to a dynamically 
- *                   allocated HODLR tree; if ``hodlr_ptr``
- *                   is an array of pointers to HODLR trees,
- *                   only the first tree will be freed.
- *                   If either ``hodlr_ptr`` is ``NULL`` or
- *                   it points to ``NULL``, the function 
- *                   aborts immediately.
+ * .. note::
  *
- * :return: Nothing
+ *    Please note that this function is agnostic to the way the HODLR was 
+ *    allocated (whether individually or by chunks) - it works regardless.
+ *
+ * Parameters
+ * ----------
+ * hodlr_ptr
+ *     A pointer to a pointer to a pointer to a HODLR tree to free. I.e., must
+ *     be a pointer to a dynamically allocated HODLR tree; if ``hodlr_ptr``
+ *     is an array of pointers to HODLR trees, only the first tree will be 
+ *     freed. If either ``hodlr_ptr`` is ``NULL`` or it points to ``NULL``, 
+ *     the function aborts immediately.
+ *
+ * Warnings
+ * --------
+ * This function may be unsuitable if the tree was allocated manually in an 
+ * unusual way. It can still be used if it was allocated manually in the usual
+ * way (allocating 4 separate arrays of sizes given by 
+ * :c:func:`compute_construct_tree_array_sizes` and then passing those 4 
+ * arrays to :c:func:`construct_tree`), but anything else (such as allocating
+ * everything in one big chunk etc.) may result in double frees or other 
+ * undefined behaviour and so might require a manual deallocation.
+ *
+ * See Also
+ * --------
+ * free_tree_data : Frees only the data - leaves the tree alone.
  */
+#ifndef _TEST_HODLR
 void free_tree_hodlr(struct TreeHODLR **hodlr_ptr) {
 #else
 void free_tree_hodlr(struct TreeHODLR **hodlr_ptr,
