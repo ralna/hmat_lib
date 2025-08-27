@@ -376,8 +376,8 @@ static inline void compute_higher_level_contributions_off_diagonal(
   const int height,
   const int origin_idx,
   int divisor,
-  const struct HODLRInternalNode *restrict parent_left,
-  const struct HODLRInternalNode *restrict parent_right,
+  const struct HODLRInternalNode *parent_left,
+  const struct HODLRInternalNode *parent_right,
   struct NodeOffDiagonal *restrict const out_tr,
   struct NodeOffDiagonal *restrict const out_bl,
   int *restrict const offsets,
@@ -473,8 +473,8 @@ static inline void compute_higher_level_contributions_off_diagonal(
  *     will be used to compute ``out``.
  */
 static inline void set_up_off_diagonal(
-  const struct NodeOffDiagonal *restrict const off_diagonal_left,
-  const struct NodeOffDiagonal *restrict const off_diagonal_right,
+  const struct NodeOffDiagonal *const off_diagonal_left,
+  const struct NodeOffDiagonal *const off_diagonal_right,
   struct NodeOffDiagonal *restrict const out,
   const int s_sum
 ) {
@@ -648,15 +648,15 @@ static inline void compute_inner_off_diagonal_lowest_level(
  */
 static inline void compute_inner_off_diagonal(
   const int height,
-  int parent_position,
-  const struct HODLRInternalNode *restrict const parent1,
-  const struct HODLRInternalNode *restrict const parent2,
+  const int parent_position,
+  const struct HODLRInternalNode *const parent1,
+  const struct HODLRInternalNode *const parent2,
   struct NodeOffDiagonal *restrict const out_tr,
   struct NodeOffDiagonal *restrict const out_bl,
   const double svd_threshold,
-  int *restrict offsets,
-  double *restrict workspace,
-  int *restrict ierr
+  int *restrict const offsets,
+  double *restrict const workspace,
+  int *restrict const ierr
 ) {
   const int s_sum = compute_workspace_size_s_component(
     parent1->parent, height-1, parent_position
@@ -798,15 +798,15 @@ static inline void compute_inner_off_diagonal(
  */
 static inline void compute_other_off_diagonal_lowest_level(
   const int height,
-  const struct HODLRInternalNode *restrict const hodlr_left,
-  const struct NodeOffDiagonal *restrict const off_diagonal_left,
-  const struct HODLRInternalNode *restrict const hodlr_right,
-  const struct NodeOffDiagonal *restrict const off_diagonal_right,
+  const struct HODLRInternalNode *const hodlr_left,
+  const struct NodeOffDiagonal *const off_diagonal_left,
+  const struct HODLRInternalNode *const hodlr_right,
+  const struct NodeOffDiagonal *const off_diagonal_right,
   struct NodeOffDiagonal *restrict const out,
   unsigned int offset_u,
   unsigned int offset_v,
   double *restrict const workspace,
-  struct HODLRInternalNode *restrict *restrict queue
+  struct HODLRInternalNode *restrict const *queue
 ) {
   // HODLR x U = U* at index=0
   multiply_internal_node_dense(
@@ -909,14 +909,14 @@ static inline void compute_other_off_diagonal(
   const int height,
   const int current_level,
   const int parent_position,
-  const struct HODLRInternalNode *restrict const parent1,
-  const struct HODLRInternalNode *restrict const parent2,
-  struct NodeOffDiagonal *restrict out_tr,
-  struct NodeOffDiagonal *restrict out_bl,
-  struct HODLRInternalNode *restrict *restrict queue,
+  const struct HODLRInternalNode *const parent1,
+  const struct HODLRInternalNode *const parent2,
+  struct NodeOffDiagonal *restrict const out_tr,
+  struct NodeOffDiagonal *restrict const out_bl,
+  struct HODLRInternalNode *restrict const *queue,
   const double svd_threshold,
-  int *restrict offsets,
-  double *restrict workspace,
+  int *restrict const offsets,
+  double *restrict const workspace,
   int *restrict const ierr
 ) {
   const int s_sum = compute_workspace_size_s_component(
@@ -1039,8 +1039,8 @@ static inline void compute_other_off_diagonal(
  * indexing notation in the ``numpy`` style.
  */
 static inline void add_off_diagonal_contribution(
-  const struct NodeOffDiagonal *restrict const leaf1,
-  const struct NodeOffDiagonal *restrict const leaf2,
+  const struct NodeOffDiagonal *const leaf1,
+  const struct NodeOffDiagonal *const leaf2,
   const int offset,
   double *restrict workspace1,
   double *restrict workspace2,
@@ -1112,8 +1112,8 @@ static inline void add_off_diagonal_contribution(
  * used.
  */
 static void compute_diagonal(
-  const struct TreeHODLR *restrict const hodlr1,
-  const struct TreeHODLR *restrict const hodlr2,
+  const struct TreeHODLR *const hodlr1,
+  const struct TreeHODLR *const hodlr2,
   struct TreeHODLR *restrict out,
   int *restrict offsets,
   double *restrict workspace1,
@@ -1251,8 +1251,8 @@ void compute_workspace_multiply_hodlr_hodlr(
  *     the pointer. Must not be ``NULL`` - doing is is undefined.
  */
 void multiply_hodlr_hodlr(
-  const struct TreeHODLR *restrict const hodlr1,
-  const struct TreeHODLR *restrict const hodlr2,
+  const struct TreeHODLR *const hodlr1,
+  const struct TreeHODLR *const hodlr2,
   struct TreeHODLR *restrict out,
   const double svd_threshold,
   int *restrict ierr
