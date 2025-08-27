@@ -892,7 +892,7 @@ ParameterizedTest(struct ParametersHigherContribOffDiag *params,
   double *workspace = malloc(actual_tr->s * actual_bl->s * sizeof(double));
 
   compute_higher_level_contributions_off_diagonal(
-    params->height, params->origin_idx, 1, params->parent_left,
+    params->height, params->origin_idx, params->parent_left,
     params->parent_right, actual_tr, actual_bl, params->offsets, workspace,
     &actual_offset_utr, &actual_offset_vtr
   );

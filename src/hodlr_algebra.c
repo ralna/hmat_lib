@@ -375,7 +375,6 @@ static inline int compute_workspace_size_s_component(
 static inline void compute_higher_level_contributions_off_diagonal(
   const int height,
   const int origin_idx,
-  int divisor,
   const struct HODLRInternalNode *parent_left,
   const struct HODLRInternalNode *parent_right,
   struct NodeOffDiagonal *restrict const out_tr,
@@ -385,8 +384,7 @@ static inline void compute_higher_level_contributions_off_diagonal(
   unsigned int *restrict const offset_utr_vbl_out,
   unsigned int *restrict const offset_vtr_ubl_out
 ) {
-  // TODO: Is divisor always == 1?
-  int which_child1 = 0, which_child2 = 0;
+  int which_child1 = 0, which_child2 = 0, divisor = 1;
   int midx = 2, oidx = 0, parent_position = origin_idx;
   const double alpha = 1.0, beta = 0.0;
 
@@ -676,7 +674,7 @@ static inline void compute_inner_off_diagonal(
 
   unsigned int offset_utr_vbl, offset_vtr_ubl;
   compute_higher_level_contributions_off_diagonal(
-    height-1, parent_position, 1, parent1->parent, parent2->parent, 
+    height-1, parent_position, parent1->parent, parent2->parent, 
     out_tr, out_bl, offsets, workspace, &offset_utr_vbl, &offset_vtr_ubl
   );
 
@@ -923,7 +921,6 @@ static inline void compute_other_off_diagonal(
     parent1->parent, current_level, parent_position
   );
 
-  // TODO: Consider setting m and n in set_up_off_diagonal
   set_up_off_diagonal(
     &parent1->children[1].leaf->data.off_diagonal,
     &parent2->children[1].leaf->data.off_diagonal,
@@ -938,7 +935,7 @@ static inline void compute_other_off_diagonal(
 
   unsigned int offset_utr_vbl, offset_vtr_ubl;
   compute_higher_level_contributions_off_diagonal(
-    current_level, parent_position, 1, parent1->parent, parent2->parent, 
+    current_level, parent_position, parent1->parent, parent2->parent, 
     out_tr, out_bl, offsets, workspace, &offset_utr_vbl, &offset_vtr_ubl
   );
 
