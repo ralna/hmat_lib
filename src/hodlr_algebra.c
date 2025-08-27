@@ -325,29 +325,47 @@ static inline int recompress_large_s(
  *
  * Given a ``parent`` node to start at and its index within its level 
  * (``parent_position``), loops up the tree (through its parents) and adds up 
- * the ranks of the relevant off-diagonal leaf nodes (determined based on 
- * ``parent_position``).
+ * the ranks of one of the two off-diagonal leaf nodes at each level 
+ * (which one is determined based on ``parent_position``).
+ *
+ * This function is used to compute the number of columns that will be 
+ * required to be stored in the matrix-matrix multiplication for an output
+ * node. The result should be used in the :c:func:`set_up_off_diagonal`
+ * function as its ``s_sum`` parameter.
  *
  * Parameters
  * ----------
  * parent
  *     Pointer to an internal node from which to start computing. Must be the
  *     parent of the internal node whose leaf nodes are being used for the
- *     multiplication.
+ *     multiplication. Must not be ``NULL``.
+ * height
+ *     The reversed height of the ``parent`` tree, i.e. the number of parent 
+ *     nodes until ``parent`` becomes ``NULL``. This is equal to the level 
+ *     index of its children. E.g., if ``parent == NULL``, ``height`` should 
+ *     be ``0``. If ``parent`` is the root node, ``height`` should be ``1``.
+ * node_idx
+ *     The index of the child of ``parent`` whose children will be multiplied
+ *     within the level. E.g., the top-left-most node has index of ``0``.
+ *
+ * Returns
+ * -------
+ * int
+ *     The sum of the ranks of higher-level nodes.
  */
 static inline int compute_workspace_size_s_component(
   const struct HODLRInternalNode *restrict parent,
   const int height,
-  int parent_position
+  int node_idx
 ) {
   int which_child = 0, s_sum = 0;
 
   for (int level = height; level > 0; level--) {
-    which_child = (parent_position % 2 == 0) ? 1 : 2;
+    which_child = (node_idx % 2 == 0) ? 1 : 2;
     s_sum += parent->children[which_child].leaf->data.off_diagonal.s;
 
     parent = parent->parent;
-    parent_position /= 2;
+    node_idx /= 2;
   }
   return s_sum;
 }
@@ -501,6 +519,8 @@ static inline void compute_higher_level_contributions_off_diagonal(
 /**
  * Sets up an off-diagonal leaf node of the output HODLR.
  *
+ * Sets up the block sizes and the rank, and allocates the U and V arrays.
+ *
  * Parameters
  * ----------
  * off_diagonal_left
@@ -518,7 +538,8 @@ static inline void compute_higher_level_contributions_off_diagonal(
  *     set up. Must be fully allocated, but should be completely empty.
  * s_sum
  *     Sum of the ranks of all nodes of lower levels (higher up the tree) that
- *     will be used to compute ``out``.
+ *     will be used to compute ``out``. This should be the output of the
+ *     :c:func:`compute_workspace_size_s_component` function.
  * ierr
  *     Pointer to an integer used to signal the success or failure of this 
  *     function. An error status code from :c:enum:`ErrorCode` is written into 
