@@ -269,7 +269,6 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
               params->hodlr2->height);
 
   int ierr = 0;
-  int *offsets = calloc(params->expected->height, sizeof(int));
   
   int m, highest_m = 0;
   for (int i = 0; i < params->hodlr2->len_work_queue * 2; i++) {
@@ -286,7 +285,7 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
   );
 
   compute_diagonal(
-    params->hodlr1, params->hodlr2, result, offsets, workspace, 
+    params->hodlr1, params->hodlr2, result, workspace, 
     workspace2, &ierr
   );
   if (ierr != SUCCESS) {
@@ -304,7 +303,7 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
   }
 
   free_tree_hodlr(&result, &free);
-  free(offsets); free(workspace); free(workspace2);
+  free(workspace); free(workspace2);
 }
 
 

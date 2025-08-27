@@ -1197,16 +1197,15 @@ static void compute_diagonal(
   const struct TreeHODLR *const hodlr1,
   const struct TreeHODLR *const hodlr2,
   struct TreeHODLR *restrict out,
-  int *restrict offsets,
   double *restrict workspace1,
   double *restrict workspace2,
   int *restrict ierr
 ) {
-  // TODO: Consider using offsets on stack
   struct HODLRInternalNode *parent_node1 = NULL, *parent_node2 = NULL;
   int idx = 0, oidx = 0;
   const double alpha = 1.0, beta = 0.0;
   int which_child1 = 0, which_child2 = 0;
+  int offsets[out->height];
 
   for (int parent = 0; parent < out->len_work_queue; parent++) {
     for (int _diagonal = 0; _diagonal < 2; _diagonal++) {
@@ -1356,18 +1355,11 @@ int multiply_hodlr_hodlr(
   }
   double *workspace2 = workspace + size1;
 
-  int *offsets = calloc(hodlr1->height, sizeof(int));
-  if (offsets == NULL) {
-    *ierr = ALLOCATION_FAILURE;
-    free(workspace);
-    return 0;
-  }
-
   compute_diagonal(
-    hodlr1, hodlr2, out, offsets, workspace, workspace2, ierr
+    hodlr1, hodlr2, out, workspace, workspace2, ierr
   );
   if (*ierr != SUCCESS) {
-    free(workspace); free(offsets);
+    free(workspace);
   }
 
   struct HODLRInternalNode **queue = out->work_queue;
@@ -1377,9 +1369,10 @@ int multiply_hodlr_hodlr(
     malloc(out->len_work_queue * sizeof(struct HODLRInternalNode *));
   if (extra_queue == NULL) {
     *ierr = ALLOCATION_FAILURE;
-    free(workspace); free(offsets);
+    free(workspace);
     return 0;
   }
+  int offsets[out->height];
 
   long n_parent_nodes = out->len_work_queue;
 
@@ -1395,7 +1388,7 @@ int multiply_hodlr_hodlr(
       svd_threshold, offsets, workspace, ierr
     );
     if (*ierr != SUCCESS) {
-      free(workspace); free(offsets); free(extra_queue);
+      free(workspace); free(extra_queue);
       return result;
     }
 
@@ -1415,7 +1408,7 @@ int multiply_hodlr_hodlr(
         extra_queue, svd_threshold, offsets, workspace, ierr
       );
       if (*ierr != SUCCESS) {
-        free(workspace); free(offsets); free(extra_queue);
+        free(workspace); free(extra_queue);
         return result;
       }
 
@@ -1425,7 +1418,7 @@ int multiply_hodlr_hodlr(
     }
   }
   
-  free(offsets); free(extra_queue); free(workspace);
+  free(extra_queue); free(workspace);
   return 0;
 }
 
