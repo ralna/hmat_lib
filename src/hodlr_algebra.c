@@ -88,10 +88,17 @@ static inline int recompress(
 ) {
   const int nb = node->s < 32 ? node->s : 32;
   int info;
-  double *tu = malloc(2 * nb * m_smaller * sizeof(double));
-  double *tv = tu + nb * m_smaller;
 
-  double *workspace = malloc(nb * m_larger * sizeof(double));
+  const unsigned int t_size = nb * m_smaller;
+  const unsigned int w_size = nb * node->s;
+  double *mem = 
+    malloc((2 * t_size + w_size + 2 * node->s * node->s + node->s) * 
+           sizeof(double));
+
+  double *tu = &mem[0];
+  double *tv = tu + t_size;
+  double *workspace = tv + t_size;
+
   dgeqrt_(&node->m, &node->s, &nb, node->u, &node->m, tu, &nb, workspace, &info);
   dgeqrt_(&node->n, &node->s, &nb, node->v, &node->n, tv, &nb, workspace, &info);
 
@@ -106,36 +113,37 @@ static inline int recompress(
   dtrmm_("R", "U", "T", "N", &node->s, &node->s, &alpha, node->v, &node->n,
          r1, &node->s);
 
-  double *s = malloc(node->s * sizeof(double));
-  double *w = malloc(node->s * node->s * sizeof(double));
-  double *zt = malloc(node->s * node->s * sizeof(double));
+  double *s = workspace + w_size;
+  double *w = s + node->s;
+  double *zt = w + node->s * node->s;
 
-  int result = svd_double(node->s, node->s, node->s, node->s, r1, s, w, zt, ierr);
+  int result = 
+    svd_double(node->s, node->s, node->s, node->s, r1, s, w, zt, ierr);
 
   int svd_cutoff_idx = 1;
   for (svd_cutoff_idx = 1; svd_cutoff_idx < node->s; svd_cutoff_idx++) {
     if (s[svd_cutoff_idx] <= svd_threshold) break;
   }
 
+  // Compute new U
   double *u_new = calloc(node->m * svd_cutoff_idx, sizeof(double));
   for (int j = 0; j < svd_cutoff_idx; j++) {
     for (int i = 0; i < node->s; i++) {
       u_new[i + j * node->m] = w[i + j * node->s] * s[j];
     }
   }
-
   dgemqrt_("L", "N", &node->m, &svd_cutoff_idx, &node->s, &nb, node->u, 
            &node->m, tu, &nb, u_new, &node->m, workspace, ierr);
   free(node->u);
   node->u = u_new;
 
+  // Compute new V
   double *v_new = calloc(node->n * svd_cutoff_idx, sizeof(double));
   for (int j = 0; j < svd_cutoff_idx; j++ ) {
     for (int i = 0; i < node->s; i++) {
       v_new[i + j * node->n] = zt[j + i * node->s];
     }
   }
-
   dgemqrt_("L", "N", &node->n, &svd_cutoff_idx, &node->s, &nb, 
            node->v, &node->n, tv, &nb, v_new, &node->n, workspace, ierr);
 
@@ -143,7 +151,7 @@ static inline int recompress(
   node->v = v_new;
   node->s = svd_cutoff_idx;
 
-  free(tu); free(workspace); free(r1); free(s); free(w); free(zt);
+  free(mem); free(r1);
 
   return result;
 }
