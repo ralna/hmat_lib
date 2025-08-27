@@ -1361,9 +1361,9 @@ void compute_workspace_multiply_hodlr_hodlr(
 int multiply_hodlr_hodlr(
   const struct TreeHODLR *const hodlr1,
   const struct TreeHODLR *const hodlr2,
-  struct TreeHODLR *restrict out,
+  struct TreeHODLR *restrict const out,
   const double svd_threshold,
-  int *restrict ierr
+  int *restrict const ierr
 ) {
   *ierr = SUCCESS;
   unsigned int size1, size2;
