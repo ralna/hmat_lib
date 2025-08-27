@@ -219,20 +219,15 @@ static inline int recompress_large_s(
   const double svd_threshold,
   int *restrict const ierr
 ) {
-  double *workspace = malloc(node->m * node->n * sizeof(double));
+  double *s = malloc((node->m * node->n + m_smaller) * sizeof(double));
+  double *workspace = s + m_smaller;
 
   const double alpha = 1.0, beta = 0.0;
   dgemm_("N", "T", &node->m, &node->n, &node->s, &alpha, node->u, &node->m,
          node->v, &node->n, &beta, workspace, &node->m);
 
-  // Instead of allocating, node->u and node->v can potentially be reused here
-  // as long as node->s >= node->m
-  double *s = malloc(m_smaller * sizeof(double));
-  double *u = malloc(node->m * m_smaller * sizeof(double));
-  double *vt = malloc(node->n * m_smaller * sizeof(double));
-
   const int result = svd_double(
-    node->m, node->n, m_smaller, node->m, workspace, s, u, vt, ierr
+    node->m, node->n, m_smaller, node->m, workspace, s, node->u, node->v, ierr
   );
 
   int svd_cutoff_idx = 1;
@@ -240,6 +235,7 @@ static inline int recompress_large_s(
     if (s[svd_cutoff_idx] <= svd_threshold) break;
   }
 
+  // Copy new U
   double *u_new = malloc(node->m * svd_cutoff_idx * sizeof(double));
   if (u_new == NULL) {
     *ierr = ALLOCATION_FAILURE;
@@ -247,10 +243,11 @@ static inline int recompress_large_s(
   }
   for (int i=0; i<svd_cutoff_idx; i++) {
     for (int j=0; j<node->m; j++) {
-      u_new[j + i * node->m] = u[j + i * node->m] * s[i];
+      u_new[j + i * node->m] = node->u[j + i * node->m] * s[i];
     }
   }
 
+  // Copy new V
   double *v_new = malloc(svd_cutoff_idx * node->n * sizeof(double));
   if (v_new == NULL) {
     *ierr = ALLOCATION_FAILURE;
@@ -258,7 +255,7 @@ static inline int recompress_large_s(
   }
   for (int i=0; i<svd_cutoff_idx; i++) {
     for (int j=0; j<node->n; j++) {
-      v_new[j + i * node->n] = vt[i + j * m_smaller];
+      v_new[j + i * node->n] = node->v[i + j * m_smaller];
     }
   }
 
@@ -266,7 +263,7 @@ static inline int recompress_large_s(
   free(node->v); node->v = v_new;
   node->s = svd_cutoff_idx;
 
-  free(workspace); free(s); free(u); free(vt);
+  free(s);
 
   return result;
 }

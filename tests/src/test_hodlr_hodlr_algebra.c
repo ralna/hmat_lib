@@ -1484,16 +1484,14 @@ static inline void alloc_recompress_params(
 }
 
 
-static inline int generate_recompress_zero_params(
-  struct ParametersRecompress *const params
+static inline int generate_recompression_zero_params(
+  struct ParametersRecompress *const params,
+  const int n_params,
+  const int ms[],
+  const int ss[],
+  const int ns[],
+  const int ss_exp[]
 ) {
-  enum {n_params = 4};
-
-  const int ms[n_params] = {10, 10, 9, 6};
-  const int ss[n_params] = {2, 3, 4, 2};
-  const int ns[n_params] = {10, 9, 10, 6};
-  const int ss_exp[n_params] = {1, 1, 1, 1};
-
   alloc_recompress_params(params, n_params, ms, ns, ss, ss_exp);
 
   int i = 0;
@@ -1529,16 +1527,29 @@ static inline int generate_recompress_zero_params(
 }
 
 
-static inline int generate_recompress_laplace_params(
+static inline int generate_recompress_zero_params(
   struct ParametersRecompress *const params
 ) {
-  enum {n_params = 1};
+  enum {n_params = 4};
 
-  const int ms[n_params] = {11};
-  const int ns[n_params] = {11};
-  const int ss[n_params] = {3};
-  const int ss_exp[n_params] = {3};
+  const int ms[n_params] = {10, 10, 9, 6};
+  const int ss[n_params] = {2, 3, 4, 2};
+  const int ns[n_params] = {10, 9, 10, 6};
+  const int ss_exp[n_params] = {1, 1, 1, 1};
 
+  return 
+    generate_recompression_zero_params(params, n_params, ms, ss, ns, ss_exp);
+}
+
+
+static inline int generate_recompression_laplace_params(
+  struct ParametersRecompress *const params,
+  const int n_params,
+  const int ms[],
+  const int ss[],
+  const int ns[],
+  const int ss_exp[]
+) {
   alloc_recompress_params(params, n_params, ms, ns, ss, ss_exp);
 
   int i = 0;
@@ -1572,6 +1583,22 @@ static inline int generate_recompress_laplace_params(
   check_n_params(i, n_params);
 
   return n_params;
+}
+
+
+static inline int generate_recompress_laplace_params(
+  struct ParametersRecompress *const params
+) {
+  enum {n_params = 1};
+
+  const int ms[n_params] = {11};
+  const int ns[n_params] = {11};
+  const int ss[n_params] = {3};
+  const int ss_exp[n_params] = {3};
+
+  return generate_recompression_laplace_params(
+    params, n_params, ms, ss, ns, ss_exp
+  );
 }
 
 
@@ -1639,13 +1666,44 @@ ParameterizedTest(struct ParametersRecompress *params, hodlr_hodlr_algebra,
 }
 
 
+static inline int generate_recompress_large_s_zero_params(
+  struct ParametersRecompress *const params
+) {
+  enum {n_params = 4};
+
+  const int ms[n_params] = {10, 10, 9, 6};
+  const int ss[n_params] = {10, 9, 9, 12};
+  const int ns[n_params] = {10, 9, 10, 6};
+  const int ss_exp[n_params] = {1, 1, 1, 1};
+
+  return 
+    generate_recompression_zero_params(params, n_params, ms, ss, ns, ss_exp);
+}
+
+
+static inline int generate_recompress_large_s_laplace_params(
+  struct ParametersRecompress *const params
+) {
+  enum {n_params = 1};
+
+  const int ms[n_params] = {11};
+  const int ns[n_params] = {11};
+  const int ss[n_params] = {13};
+  const int ss_exp[n_params] = {3};
+
+  return generate_recompression_laplace_params(
+    params, n_params, ms, ss, ns, ss_exp
+  );
+}
+
+
 ParameterizedTestParameters(hodlr_hodlr_algebra, recompress_large_s) {
   enum {n_params = 5};
   struct ParametersRecompress *params = 
     cr_malloc(n_params * sizeof(struct ParametersRecompress));
 
-  int actual = generate_recompress_zero_params(params);
-  actual += generate_recompress_laplace_params(params + actual);
+  int actual = generate_recompress_large_s_zero_params(params);
+  actual += generate_recompress_large_s_laplace_params(params + actual);
 
   check_n_params(actual, n_params);
 
