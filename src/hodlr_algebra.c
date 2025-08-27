@@ -41,7 +41,7 @@
  * Return
  * ------
  * int
- *     The status code returned by ``dgesdd``.
+ *     The status code returned by ``dgesdd``, ``dgeqrt`` or ``dgemqrt``.
  *
  * Notes
  * -----
@@ -94,15 +94,34 @@ static inline int recompress(
   double *mem = 
     malloc((2 * t_size + w_size + 2 * node->s * node->s + node->s) * 
            sizeof(double));
+  if (mem == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    return 0;
+  }
 
   double *tu = &mem[0];
   double *tv = tu + t_size;
   double *workspace = tv + t_size;
 
   dgeqrt_(&node->m, &node->s, &nb, node->u, &node->m, tu, &nb, workspace, &info);
+  if (info < 0) {
+    *ierr = QR_FAILURE;
+    free(mem);
+    return info;
+  }
   dgeqrt_(&node->n, &node->s, &nb, node->v, &node->n, tv, &nb, workspace, &info);
+  if (info < 0) {
+    *ierr = QR_FAILURE;
+    free(mem);
+    return info;
+  }
 
   double *r1 = calloc(node->s * node->s, sizeof(double));
+  if (r1 == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(mem);
+    return 0;
+  }
   for (int j = 0; j < node->s; j++) {
     for (int i = 0; i < j+1; i++) {
       r1[i + j * node->s] = node->u[i + j * node->m];
@@ -117,8 +136,12 @@ static inline int recompress(
   double *w = s + node->s;
   double *zt = w + node->s * node->s;
 
-  int result = 
+  const int result = 
     svd_double(node->s, node->s, node->s, node->s, r1, s, w, zt, ierr);
+  if (result != 0) {
+    free(mem); free(r1);
+    return result;
+  }
 
   int svd_cutoff_idx = 1;
   for (svd_cutoff_idx = 1; svd_cutoff_idx < node->s; svd_cutoff_idx++) {
@@ -127,28 +150,45 @@ static inline int recompress(
 
   // Compute new U
   double *u_new = calloc(node->m * svd_cutoff_idx, sizeof(double));
+  if (u_new == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(mem); free(r1);
+    return result;
+  }
   for (int j = 0; j < svd_cutoff_idx; j++) {
     for (int i = 0; i < node->s; i++) {
       u_new[i + j * node->m] = w[i + j * node->s] * s[j];
     }
   }
   dgemqrt_("L", "N", &node->m, &svd_cutoff_idx, &node->s, &nb, node->u, 
-           &node->m, tu, &nb, u_new, &node->m, workspace, ierr);
-  free(node->u);
-  node->u = u_new;
+           &node->m, tu, &nb, u_new, &node->m, workspace, &info);
+  if (info < 0) {
+    *ierr = QR_FAILURE;
+    free(mem); free(r1); free(u_new);
+    return info;
+  }
+  free(node->u); node->u = u_new;
 
   // Compute new V
   double *v_new = calloc(node->n * svd_cutoff_idx, sizeof(double));
+  if (v_new == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(mem); free(r1);
+    return result;
+  }
   for (int j = 0; j < svd_cutoff_idx; j++ ) {
     for (int i = 0; i < node->s; i++) {
       v_new[i + j * node->n] = zt[j + i * node->s];
     }
   }
   dgemqrt_("L", "N", &node->n, &svd_cutoff_idx, &node->s, &nb, 
-           node->v, &node->n, tv, &nb, v_new, &node->n, workspace, ierr);
-
-  free(node->v);
-  node->v = v_new;
+           node->v, &node->n, tv, &nb, v_new, &node->n, workspace, &info);
+  if (info < 0) {
+    *ierr = QR_FAILURE;
+    free(mem); free(r1); free(v_new);
+    return info;
+  }
+  free(node->v); node->v = v_new;
   node->s = svd_cutoff_idx;
 
   free(mem); free(r1);
@@ -189,7 +229,7 @@ static inline int recompress(
  * Return
  * ------
  * int
- *     The status code returned by ``dgesdd``.
+ *     The status code returned by ``dgesdd``, ``dgeqrt`` or ``dgemqrt``.
  *
  * Notes
  * -----
@@ -220,6 +260,10 @@ static inline int recompress_large_s(
   int *restrict const ierr
 ) {
   double *s = malloc((node->m * node->n + m_smaller) * sizeof(double));
+  if (s == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    return 0;
+  }
   double *workspace = s + m_smaller;
 
   const double alpha = 1.0, beta = 0.0;
@@ -229,6 +273,10 @@ static inline int recompress_large_s(
   const int result = svd_double(
     node->m, node->n, m_smaller, node->m, workspace, s, node->u, node->v, ierr
   );
+  if (result != 0) {
+    free(s);
+    return result;
+  }
 
   int svd_cutoff_idx = 1;
   for (svd_cutoff_idx = 1; svd_cutoff_idx < m_smaller; svd_cutoff_idx++) {
@@ -239,6 +287,7 @@ static inline int recompress_large_s(
   double *u_new = malloc(node->m * svd_cutoff_idx * sizeof(double));
   if (u_new == NULL) {
     *ierr = ALLOCATION_FAILURE;
+    free(s);
     return result;
   }
   for (int i=0; i<svd_cutoff_idx; i++) {
@@ -251,6 +300,7 @@ static inline int recompress_large_s(
   double *v_new = malloc(svd_cutoff_idx * node->n * sizeof(double));
   if (v_new == NULL) {
     *ierr = ALLOCATION_FAILURE;
+    free(s); free(u_new);
     return result;
   }
   for (int i=0; i<svd_cutoff_idx; i++) {
@@ -469,19 +519,34 @@ static inline void compute_higher_level_contributions_off_diagonal(
  * s_sum
  *     Sum of the ranks of all nodes of lower levels (higher up the tree) that
  *     will be used to compute ``out``.
+ * ierr
+ *     Pointer to an integer used to signal the success or failure of this 
+ *     function. An error status code from :c:enum:`ErrorCode` is written into 
+ *     the pointer **if an error occurs**. Must not be ``NULL`` - doing so is 
+ *     undefined.
  */
 static inline void set_up_off_diagonal(
   const struct NodeOffDiagonal *const off_diagonal_left,
   const struct NodeOffDiagonal *const off_diagonal_right,
   struct NodeOffDiagonal *restrict const out,
-  const int s_sum
+  const int s_sum,
+  int *restrict const ierr
 ) {
   const int s_total = s_sum + off_diagonal_left->s + off_diagonal_right->s;
   out->m = off_diagonal_left->m;
   out->n = off_diagonal_left->n;
   out->s = s_total;
   out->u = malloc(s_total * out->m * sizeof(double));
+  if (out->u == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    return;
+  }
   out->v = malloc(s_total * out->n * sizeof(double));
+  if (out->v == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(out->u); out->u = NULL;
+    return;
+  }
 }
 
 
@@ -643,8 +708,13 @@ static inline void compute_inner_off_diagonal_lowest_level(
  *     function. An error status code from :c:enum:`ErrorCode` is written into 
  *     the pointer **if an error occurs**. Must not be ``NULL`` - doing so is 
  *     undefined.
+ *
+ * Returns
+ * -------
+ * int
+ *     The status code returned by ``dgesdd``, ``dgeqrt`` or ``dgemqrt``.
  */
-static inline void compute_inner_off_diagonal(
+static inline int compute_inner_off_diagonal(
   const int height,
   const int parent_position,
   const struct HODLRInternalNode *const parent1,
@@ -663,14 +733,16 @@ static inline void compute_inner_off_diagonal(
   set_up_off_diagonal(
     &parent1->children[1].leaf->data.off_diagonal,
     &parent2->children[1].leaf->data.off_diagonal,
-    out_tr, s_sum
+    out_tr, s_sum, ierr
   );
+  if (*ierr != SUCCESS) return 0;
    
   set_up_off_diagonal(
     &parent1->children[2].leaf->data.off_diagonal,
     &parent2->children[2].leaf->data.off_diagonal,
-    out_bl, s_sum
+    out_bl, s_sum, ierr
   );
+  if (*ierr != SUCCESS) return 0;
 
   unsigned int offset_utr_vbl, offset_vtr_ubl;
   compute_higher_level_contributions_off_diagonal(
@@ -701,15 +773,18 @@ static inline void compute_inner_off_diagonal(
     m_larger = out_tr->n; m_smaller = out_tr->m;
   }
 
+  int result = 0;
   if (out_tr->s < m_smaller)
-    recompress(out_tr, m_larger, m_smaller, svd_threshold, ierr);
+    result = recompress(out_tr, m_larger, m_smaller, svd_threshold, ierr);
   else 
-    recompress_large_s(out_tr, m_smaller, svd_threshold, ierr);
+    result = recompress_large_s(out_tr, m_smaller, svd_threshold, ierr);
+
+  if (*ierr != SUCCESS) return result;
 
   if (out_bl->s < m_smaller)
-    recompress(out_bl, m_larger, m_smaller, svd_threshold, ierr);
+    return recompress(out_bl, m_larger, m_smaller, svd_threshold, ierr);
   else
-    recompress_large_s(out_bl, m_smaller, svd_threshold, ierr);
+    return recompress_large_s(out_bl, m_smaller, svd_threshold, ierr);
 }
 
 
@@ -902,8 +977,13 @@ static inline void compute_other_off_diagonal_lowest_level(
  *     function. An error status code from :c:enum:`ErrorCode` is written into 
  *     the pointer **if an error occurs**. Must not be ``NULL`` - doing so is 
  *     undefined.
+ *
+ * Returns
+ * -------
+ * int
+ *     The status code returned by ``dgesdd``, ``dgeqrt`` or ``dgemqrt``.
  */
-static inline void compute_other_off_diagonal(
+static inline int compute_other_off_diagonal(
   const int height,
   const int current_level,
   const int parent_position,
@@ -924,14 +1004,16 @@ static inline void compute_other_off_diagonal(
   set_up_off_diagonal(
     &parent1->children[1].leaf->data.off_diagonal,
     &parent2->children[1].leaf->data.off_diagonal,
-    out_tr, s_sum
+    out_tr, s_sum, ierr
   );
+  if (*ierr != SUCCESS) return 0;
    
   set_up_off_diagonal(
     &parent1->children[2].leaf->data.off_diagonal,
     &parent2->children[2].leaf->data.off_diagonal,
-    out_bl, s_sum
+    out_bl, s_sum, ierr
   );
+  if (*ierr != SUCCESS) return 0;
 
   unsigned int offset_utr_vbl, offset_vtr_ubl;
   compute_higher_level_contributions_off_diagonal(
@@ -964,15 +1046,18 @@ static inline void compute_other_off_diagonal(
     m_larger = out_tr->n; m_smaller = out_tr->m;
   }
 
+  int result = 0;
   if (out_tr->s < m_smaller)
-    recompress(out_tr, m_larger, m_smaller, svd_threshold, ierr);
+    result = recompress(out_tr, m_larger, m_smaller, svd_threshold, ierr);
   else 
-    recompress_large_s(out_tr, m_smaller, svd_threshold, ierr);
+    result = recompress_large_s(out_tr, m_smaller, svd_threshold, ierr);
+
+  if (*ierr != SUCCESS) return 0;
 
   if (out_bl->s < m_smaller)
-    recompress(out_bl, m_larger, m_smaller, svd_threshold, ierr);
+    return recompress(out_bl, m_larger, m_smaller, svd_threshold, ierr);
   else
-    recompress_large_s(out_bl, m_smaller, svd_threshold, ierr);
+    return recompress_large_s(out_bl, m_smaller, svd_threshold, ierr);
 }
 
 
@@ -1246,23 +1331,43 @@ void compute_workspace_multiply_hodlr_hodlr(
  *     Pointer to an integer used to signal the success or failure of this 
  *     function. A status code from :c:enum:`ErrorCode` is written into 
  *     the pointer. Must not be ``NULL`` - doing is is undefined.
+ *
+ * Returns
+ * -------
+ * int
+ *     The status code returned by ``dgesdd``, ``dgeqrt`` or ``dgemqrt`` 
+ *     during recompression. ``0`` if there were no issues.
  */
-void multiply_hodlr_hodlr(
+int multiply_hodlr_hodlr(
   const struct TreeHODLR *const hodlr1,
   const struct TreeHODLR *const hodlr2,
   struct TreeHODLR *restrict out,
   const double svd_threshold,
   int *restrict ierr
 ) {
+  *ierr = SUCCESS;
   unsigned int size1, size2;
   compute_workspace_multiply_hodlr_hodlr(hodlr1, hodlr2, &size1, &size2);
 
-  double *workspace = malloc((size1 + size2) * sizeof(double)); 
+  double *workspace = malloc((size1 + size2) * sizeof(double));
+  if (workspace == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    return 0;
+  }
   double *workspace2 = workspace + size1;
+
   int *offsets = calloc(hodlr1->height, sizeof(int));
   if (offsets == NULL) {
     *ierr = ALLOCATION_FAILURE;
-    return;
+    free(workspace);
+    return 0;
+  }
+
+  compute_diagonal(
+    hodlr1, hodlr2, out, offsets, workspace, workspace2, ierr
+  );
+  if (*ierr != SUCCESS) {
+    free(workspace); free(offsets);
   }
 
   struct HODLRInternalNode **queue = out->work_queue;
@@ -1270,10 +1375,11 @@ void multiply_hodlr_hodlr(
   struct HODLRInternalNode **q2 = hodlr2->work_queue;
   struct HODLRInternalNode **extra_queue =
     malloc(out->len_work_queue * sizeof(struct HODLRInternalNode *));
-
-  compute_diagonal(
-    hodlr1, hodlr2, out, offsets, workspace, workspace2, ierr
-  );
+  if (extra_queue == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    free(workspace); free(offsets);
+    return 0;
+  }
 
   long n_parent_nodes = out->len_work_queue;
 
@@ -1282,12 +1388,16 @@ void multiply_hodlr_hodlr(
     q1[parent] = hodlr1->innermost_leaves[2 * parent]->parent;
     q2[parent] = hodlr2->innermost_leaves[2 * parent]->parent;
 
-    compute_inner_off_diagonal(
+    const int result = compute_inner_off_diagonal(
       out->height, parent, q1[parent], q2[parent],
       &queue[parent]->children[1].leaf->data.off_diagonal,
       &queue[parent]->children[2].leaf->data.off_diagonal,
       svd_threshold, offsets, workspace, ierr
     );
+    if (*ierr != SUCCESS) {
+      free(workspace); free(offsets); free(extra_queue);
+      return result;
+    }
 
     queue[parent / 2] = queue[parent]->parent;
     q1[parent / 2] = q1[parent]->parent;
@@ -1298,12 +1408,16 @@ void multiply_hodlr_hodlr(
     n_parent_nodes /= 2;
 
     for (int parent = 0; parent < n_parent_nodes; parent++) {
-      compute_other_off_diagonal(
+      const int result = compute_other_off_diagonal(
         out->height, level, parent, q1[parent], q2[parent],
         &queue[parent]->children[1].leaf->data.off_diagonal,
         &queue[parent]->children[2].leaf->data.off_diagonal,
         extra_queue, svd_threshold, offsets, workspace, ierr
       );
+      if (*ierr != SUCCESS) {
+        free(workspace); free(offsets); free(extra_queue);
+        return result;
+      }
 
       queue[parent / 2] = queue[parent]->parent;
       q1[parent / 2] = q1[parent]->parent;
@@ -1312,5 +1426,6 @@ void multiply_hodlr_hodlr(
   }
   
   free(offsets); free(extra_queue); free(workspace);
+  return 0;
 }
 
