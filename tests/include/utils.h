@@ -4,6 +4,8 @@
 
 #include "../../include/tree.h"
 
+static double DELTA = 1e-10;
+
 void expect_leaf_offdiagonal(struct HODLRLeafNode *leaf,
                             struct HODLRInternalNode *parent);
 
@@ -32,7 +34,8 @@ void expect_off_diagonal_decompress(
   double *workspace,
   double *workspace2,
   double *norm_out,
-  double *diff_out
+  double *diff_out,
+  const double delta
 );
 
 int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected);
@@ -44,7 +47,8 @@ void expect_hodlr_decompress(
   double *workspace,
   double *workspace2,
   double *norm_out,
-  double *diff_out
+  double *diff_out,
+  const double delta
   );
  
 void log_matrix(const double *matrix, const int m, const int n, const int lda);

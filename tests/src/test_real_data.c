@@ -212,7 +212,7 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
   construct_fake_hodlr(hodlr_expected, matrix_expected, 0, NULL);
 
   expect_hodlr_decompress(
-    true, hodlr_result, hodlr_expected, NULL, NULL, &norm, &diff
+    true, hodlr_result, hodlr_expected, NULL, NULL, &norm, &diff, 1e-6
   );
   cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));

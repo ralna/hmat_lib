@@ -1072,7 +1072,7 @@ ParameterizedTest(struct ParametersTestDense *params,
   double *workspace = malloc(m * n * sizeof(double));
 
   expect_hodlr_decompress(
-    true, result, params->expected, workspace, NULL, NULL, NULL
+    true, result, params->expected, workspace, NULL, NULL, NULL, DELTA
   );
 
   free_tree_hodlr(&result, &free); free(workspace);

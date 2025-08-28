@@ -330,7 +330,7 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
   }
 
   expect_hodlr_decompress(
-    false, result, params->expected, NULL, NULL, NULL, NULL
+    false, result, params->expected, NULL, NULL, NULL, NULL, DELTA
   );
 
   free_tree_hodlr(&result, &free);
@@ -472,13 +472,13 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
     expect_off_diagonal_decompress(
       top_right,
       &params->expected->innermost_leaves[2 * parent]->parent->children[1].leaf->data.off_diagonal,
-      top_right->m, buffer, workspace2, workspace3, NULL, NULL
+      top_right->m, buffer, workspace2, workspace3, NULL, NULL, DELTA
     );
     snprintf(buffer, sbuff, "idx=%d bottom left", parent);
     expect_off_diagonal_decompress(
       bottom_left,
       &params->expected->innermost_leaves[2 * parent]->parent->children[2].leaf->data.off_diagonal,
-      bottom_left->m, buffer, workspace2, workspace3, NULL, NULL
+      bottom_left->m, buffer, workspace2, workspace3, NULL, NULL, DELTA
     );
   }
 
@@ -573,12 +573,12 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
       snprintf(buffer, sbuff, "level=%d, idx=%d top right", level, parent);
       expect_off_diagonal_decompress(
         top_right, &qe[parent]->children[1].leaf->data.off_diagonal,
-        top_right->m, buffer, workspace2, workspace3, NULL, NULL
+        top_right->m, buffer, workspace2, workspace3, NULL, NULL, DELTA
       );
       snprintf(buffer, sbuff, "level=%d, idx=%d bottom left", level, parent);
       expect_off_diagonal_decompress(
         bottom_left, &qe[parent]->children[2].leaf->data.off_diagonal,
-        bottom_left->m, buffer, workspace2, workspace3, NULL, NULL
+        bottom_left->m, buffer, workspace2, workspace3, NULL, NULL, DELTA
       );
     }
   }
@@ -993,11 +993,11 @@ ParameterizedTest(struct ParametersHigherContribOffDiag *params,
   double *workspace2 = malloc(actual_tr->m * actual_tr->n * sizeof(double)); 
   expect_off_diagonal_decompress(
     actual_tr, params->expected_tr, actual_tr->m, "", workspace2, NULL, NULL, 
-    NULL
+    NULL, DELTA
   );
   expect_off_diagonal_decompress(
     actual_bl, params->expected_bl, actual_bl->m, "", workspace2, NULL, NULL, 
-    NULL
+    NULL, DELTA
   );
 
   free(actual_tr->u); free(actual_tr->v); free(actual_tr); 
@@ -1820,7 +1820,7 @@ ParameterizedTest(struct ParametersRecompress *params, hodlr_hodlr_algebra,
   double *workspace2 = workspace + node->m * node->n;
 
   expect_off_diagonal_decompress(
-    node, params->expected, node->m, "", workspace, workspace2, NULL, NULL
+    node, params->expected, node->m, "", workspace, workspace2, NULL, NULL, DELTA
   );
 
   free(node->u); free(node->v); free(node); free(workspace);
