@@ -42,7 +42,7 @@ if(BUILD_TESTING)
       src/test_real_data.c src/utils.c src/common_data.c src/io.c 
       ../dev/common.c ../src/allocators.c ../src/constructors.c 
       ../src/lapack_wrapper.c ../src/vector_algebra.c ../src/dense_algebra.c
-      ../src/utils.c
+      ../src/utils.c ../src/hodlr_algebra.c
     )
 
     target_link_libraries(test_real_data ${MATH_LIBRARY})

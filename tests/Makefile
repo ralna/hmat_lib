@@ -120,18 +120,20 @@ test_allocators.o: ${TESTS_DIR}/test_allocators.c
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${EXTRA_FLAGS}
 
-test_real_data: test_real_data.o utils.o common_data.o io.o allocators.o constructors_omp.o lapack_wrapper.o vector_algebra.o dense_algebra.o common.o
+test_real_data: test_real_data.o utils.o common_data.o io.o allocators.o constructors_omp.o lapack_wrapper.o vector_algebra.o dense_algebra.o common.o hodlr_algebra.o main_utils.o
 	gcc \
 		${BUILD_DIR}/test_real_data.o \
 		${BUILD_DIR}/allocators.o \
 		${BUILD_DIR}/constructors_omp.o \
 		${BUILD_DIR}/utils.o \
+		${BUILD_DIR}/main_utils.o \
 		${BUILD_DIR}/common_data.o \
 		${BUILD_DIR}/io.o \
 		${BUILD_DIR}/common.o \
 		${BUILD_DIR}/lapack_wrapper.o \
 		${BUILD_DIR}/vector_algebra.o \
 		${BUILD_DIR}/dense_algebra.o \
+		${BUILD_DIR}/hodlr_algebra.o \
 		-o ${OUT_DIR}/test_real_data \
 		-lopenblas -lm -lcriterion \
 		-I ${INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
@@ -188,6 +190,12 @@ dense_algebra.o: ${SRC_DIR}/dense_algebra.c
 	${COMPILER} \
 		-c ${SRC_DIR}/dense_algebra.c \
 		-o ${BUILD_DIR}/dense_algebra.o \
+		-I ${INCLUDE_DIR} ${WARNINGS} ${EXTRA_FLAGS}
+
+hodlr_algebra.o: ${SRC_DIR}/hodlr_algebra.c
+	${COMPILER} \
+		-c ${SRC_DIR}/hodlr_algebra.c \
+		-o ${BUILD_DIR}/hodlr_algebra.o \
 		-I ${INCLUDE_DIR} ${WARNINGS} ${EXTRA_FLAGS}
 
 
