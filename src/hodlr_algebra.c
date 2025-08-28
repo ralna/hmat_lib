@@ -1374,14 +1374,28 @@ int multiply_hodlr_hodlr(
 
   struct HODLRInternalNode **queue = out->work_queue;
   struct HODLRInternalNode **q1 = hodlr1->work_queue;
-  struct HODLRInternalNode **q2 = hodlr2->work_queue;
-  struct HODLRInternalNode **extra_queue =
-    malloc(out->len_work_queue * sizeof(struct HODLRInternalNode *));
-  if (extra_queue == NULL) {
-    *ierr = ALLOCATION_FAILURE;
-    free(workspace);
-    return 0;
+
+  struct HODLRInternalNode **extra_queue, **q2;
+  if (hodlr1 == hodlr2) {
+    extra_queue =
+      malloc(2 * out->len_work_queue * sizeof(struct HODLRInternalNode *));
+    if (extra_queue == NULL) {
+      *ierr = ALLOCATION_FAILURE;
+      free(workspace);
+      return 0;
+    }
+    q2 = extra_queue + out->len_work_queue;
+  } else {
+    extra_queue =
+      malloc(out->len_work_queue * sizeof(struct HODLRInternalNode *));
+    if (extra_queue == NULL) {
+      *ierr = ALLOCATION_FAILURE;
+      free(workspace);
+      return 0;
+    }
+    q2 = hodlr2->work_queue;
   }
+
   int offsets[out->height];
 
   long n_parent_nodes = out->len_work_queue;

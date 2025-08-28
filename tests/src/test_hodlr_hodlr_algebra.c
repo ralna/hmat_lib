@@ -32,7 +32,7 @@ static inline void check_n_params(const int actual, const int allocd) {
 
 struct ParametersTestHxH {
   struct TreeHODLR *hodlr1;
-struct TreeHODLR *hodlr2;
+  struct TreeHODLR *hodlr2;
   struct TreeHODLR *expected;
   char hodlr1_name[STR_LEN];
   char hodlr2_name[STR_LEN];
@@ -43,9 +43,11 @@ void free_hh_params(struct criterion_test_params *params) {
   for (size_t i = 0; i < params->length; i++) {
     struct ParametersTestHxH *param = 
       (struct ParametersTestHxH *) params->params + i;
+
+    if (param->hodlr1 != param->hodlr2)
+      free_tree_hodlr(&(param->hodlr2), &cr_free);
     
     free_tree_hodlr(&(param->hodlr1), &cr_free);
-    free_tree_hodlr(&(param->hodlr2), &cr_free);
     free_tree_hodlr(&(param->expected), &cr_free);
   }
   cr_free(params->params);
@@ -69,6 +71,26 @@ static void fill_laplacian_x_converse(const int m, double *matrix) {
   matrix[0] = -4.0;
   matrix[m * m - 1] = -4.0;
 }
+
+
+static void fill_laplacian_x_laplacian(const int m, double *matrix) {
+  for (int j = 0; j < m; j++) {
+    for (int i = 0; i < m; i++) {
+      if (i == j) {
+        matrix[i + j * m] = 6.0;
+      } else if (i == j + 1 || i == j - 1) {
+        matrix[i + j * m] = -4.0;
+      } else if (i == j + 2 || i == j - 2) {
+        matrix[i + j * m] = 1.0;
+      } else {
+        matrix[i + j * m] = 0.0;
+      }
+    }
+  }
+  matrix[0] = 5.0;
+  matrix[m * m - 1] = 5.0;
+}
+
 
 
 static int laplacian_matrix(struct ParametersTestHxH *params) {
@@ -142,6 +164,8 @@ static int laplacian_matrix(struct ParametersTestHxH *params) {
                         &ierr, &cr_malloc, &cr_free);
   }
 
+  cr_free(matrix);
+
   return n_cases * max_height;
 }
 
@@ -196,12 +220,69 @@ static int identity_matrix(struct ParametersTestHxH *params) {
                         &ierr, &cr_malloc, &cr_free);
   }
 
+  cr_free(matrix);
+
+  return n_cases * max_height;
+}
+
+
+static int mult_itself(struct ParametersTestHxH *params) {
+  const int n_cases = 3, max_height = 3;
+  int idx = 0, ierr = 0;
+  double svd_threshold = 1e-8;
+  const int m = 21;
+  double *matrix = cr_malloc(m * m * sizeof(double));
+
+  for (int height = 1; height < max_height + 1; height++) {
+    for (int i = idx; i < idx+n_cases; i++) {
+      params[i].hodlr1 = 
+        allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
+      
+      params[i].hodlr2 = params[i].hodlr1;
+      params[i].expected = 
+        allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
+    }
+
+    strncat(params[idx].hodlr1_name, "I", STR_LEN);
+    strncat(params[idx].hodlr2_name, "I", STR_LEN);
+    fill_identity_matrix(m, matrix);
+    dense_to_tree_hodlr(params[idx].hodlr1, m, NULL, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+    fill_identity_matrix(m, matrix);
+    dense_to_tree_hodlr(params[idx].expected, m, NULL, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+    idx++;
+
+    strncat(params[idx].hodlr1_name, "0", STR_LEN);
+    strncat(params[idx].hodlr2_name, "0", STR_LEN);
+    fill_full_matrix(m, 0.0, matrix);
+    dense_to_tree_hodlr(params[idx].hodlr1, m, NULL, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+    fill_full_matrix(m, 0.0, matrix);
+    dense_to_tree_hodlr(params[idx].expected, m, NULL, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+    idx++;
+
+    strncat(params[idx].hodlr1_name, "L", STR_LEN);
+    strncat(params[idx].hodlr2_name, "L", STR_LEN);
+    fill_laplacian_matrix(m, matrix);
+    dense_to_tree_hodlr(params[idx].hodlr2, m, NULL, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+    fill_laplacian_x_laplacian(m, matrix);
+    dense_to_tree_hodlr(params[idx].expected, m, NULL, matrix, svd_threshold,
+                        &ierr, &cr_malloc, &cr_free);
+    idx++;
+  }
+
+  cr_free(matrix);
+  check_n_params(idx, n_cases * max_height);
+
   return n_cases * max_height;
 }
 
 
 struct ParametersTestHxH * generate_hodlr_hodlr_params(int * len) {
-  const int n_params = 9+9;
+  const int n_params = 9+9+9;
   int actual = 0;
   *len = n_params;
   struct ParametersTestHxH *params = 
@@ -209,6 +290,7 @@ struct ParametersTestHxH * generate_hodlr_hodlr_params(int * len) {
 
   actual += laplacian_matrix(params);
   actual += identity_matrix(params + actual);
+  actual += mult_itself(params + actual);
 
   check_n_params(actual, n_params);
 
@@ -453,7 +535,8 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
     malloc(result->len_work_queue * sizeof(struct HODLRInternalNode *));
   struct HODLRInternalNode **qe = params->expected->work_queue;
   struct HODLRInternalNode **qh1 = params->hodlr1->work_queue;
-  struct HODLRInternalNode **qh2 = params->hodlr2->work_queue;
+  struct HODLRInternalNode **qh2 =
+    malloc(result->len_work_queue * sizeof(struct HODLRInternalNode *));
 
   // Set up all queues
   for (int parent = 0; parent < n_parent_nodes; parent++) {
@@ -500,7 +583,7 @@ ParameterizedTest(struct ParametersTestHxH *params, hodlr_hodlr_algebra,
     }
   }
 
-  free_tree_hodlr(&result, &free); free(qa); free(buffer);
+  free_tree_hodlr(&result, &free); free(qa); free(buffer); free(qh2);
   free(offsets); free(workspace); free(workspace2);
 }
 
