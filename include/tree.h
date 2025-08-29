@@ -257,7 +257,7 @@ struct TreeHODLR {
    * .. important::
    *
    *     This array may change even when this ``struct`` is passed as 
-   *     ``static``, since it is used as an internal workspace.
+   *     ``const``, since it is used as an internal workspace.
    */
   struct HODLRInternalNode **work_queue;
 
@@ -293,7 +293,12 @@ void free_tree_data(struct TreeHODLR *hodlr);
 void free_tree_data(struct TreeHODLR *hodlr, void(*free)(void *ptr));
 #endif
 
-double * multiply_vector(const struct TreeHODLR *hodlr, const double *vector, double *out);
+double * multiply_vector(
+  const struct TreeHODLR *hodlr, 
+  const double *vector, 
+  double *out,
+  int *ierr
+);
 
 double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
                               const double *matrix,

@@ -6,116 +6,131 @@
 
 
 /**
- * Multiplies off-diagonal nodes and a vector
+ * Multiplies a pair of off-diagonal nodes and a vector.
  *
- * Computes matrix-vector multiplication of both off-diagonal HODLR blocks 
- * on a node and a vector, and adds the result to the ``out`` matrix.
+ * Computes matrix-vector multiplication of both off-diagonal children of an 
+ * internal node and a vector, and adds the result to the ``out`` vector:
  *
- * :param parent: Pointer to an internal node holding the off-diagonal nodes
- *                to multiply.
- * :param vector: Pointer to an array holding the vector being multiplied.
- *                This should be a pointer to the start of the array, and the
- *                ``offset_ptr`` parameter should be used for aligning the 
- *                vector and the HODLR blocks.
- *                Must not overlap with any of the other pointers - doing so
- *                is an undefined behaviour.
- * :param out: Pointer to an array to which the results are to be saved. This
- *             should be a pointer to the start of the array, and the 
- *             ``offset_ptr`` parameter should be used for
- *             aligning it with the HODLR blocks.
- *             This array *must* be populated since the results are added to 
- *             it. The values not being set is an undefined behaviour.
- *             Must not overlap with any of the other pointers - doing so is 
- *             an undefined behaviour.
- * :param workspace: Pointer to an array that can be used as a workspace. 
- *                   Must be of at least length N where N is the number of 
- *                   columns of the top-right node on ``parent``.
- *                   Must not overlap with any of the other arrays - doing 
- *                   so is an undefined behaviour.
- * :param workspace2: Pointer to an array that can be used as a workspace. 
- *                    Must be of at least length M where M is the number of 
- *                    rows of the top-right node on ``parent``.
- *                    Must not overlap with any of the other arrays - doing 
- *                    so is an undefined behaviour.
- * :param alpha: Parameter "alpha" of the BLAS ``dgemv`` routine. Must be 1.
- * :param beta: Parameter "beta" of the BLAS ``dgemv`` routine. Must be 0.
- * :param increment: Constant of 1.
- * :param offset_ptr: Pointer to a single value of offset. This is used as the
- *                    offset into ``vector`` for the top-right node and as 
- *                    the offset into ``out`` for the bottom-left node.
- *                    Must not overlap with any of the other pointers - doing
- *                    so is an undefined behaviour. Similarly, it must not be
- *                    ``NULL`` - again undefined.
+ * * ``out[:m] += parent->children[1] @ vector[m:m+n]``
+ * * ``out[m:m+n] += parent->children[2] @ vector[:m]``
+ *
+ * where ``m`` and ``n`` are the dimensions of the two children.
+ *
+ * Parameters
+ * ----------
+ * parent
+ *     Pointer to an internal node whose off-diagonal children to multiply.
+ *     Must be fully constructed and its off-diagonal children must contain
+ *     data. Must not be ``NULL``.
+ * vector
+ *     Pointer representing an array holding the portion of the vector to be
+ *     multiplied. ``parent->m`` elements starting with the first one in 
+ *     ``vector`` will be multiplied. Must not be ``NULL`` and must not 
+ *     overlap with any of the other pointers.
+ * out
+ *     Pointer representing an array to which the results are to be saved.
+ *     ``parent->m`` elements starting with the first element in ``out`` will
+ *     be added to, the array *must* be populated. The values not being set is 
+ *     an undefined behaviour.
+ *     Must not be ``NULL`` and must not overlap with any of the other 
+ *     pointers.
+ * workspace
+ *     Pointer representing an array that can be used as a workspace. 
+ *     Must be a 1D array of at least length N where N is the number of 
+ *     columns of the top-right node on ``parent``.
+ *     Must not be ``NULL`` and must not overlap with any of the other 
+ *     pointers.
+ *
+ * Returns
+ * -------
+ * unsigned int
+ *     The offset increment, i.e. the number of elements written by this 
+ *     function - the next call of this function should pass in 
+ *     ``vector + returned_val``.
  */
-static inline int multiply_off_diagonal_vector(
+static inline unsigned int multiply_off_diagonal_vector(
   const struct HODLRInternalNode *restrict const parent,
   const double *restrict const vector,
-  double *restrict out,
-  double *restrict workspace,
-  const int increment,
-  const int offset
+  double *restrict const out,
+  double *restrict const workspace
 ) {
-  const double one = 1.0, zero = 0.0;
+  const double one = 1.0, zero = 0.0; const int increment = 1;
   const int m = parent->children[1].leaf->data.off_diagonal.m;
   const int n = parent->children[1].leaf->data.off_diagonal.n;
   int s = parent->children[1].leaf->data.off_diagonal.s;
 
-  const int offset2 = offset + m;
-
   dgemv_("T", &n, &s, &one, 
           parent->children[1].leaf->data.off_diagonal.v, 
-          &n, vector + offset2, &increment, 
+          &n, vector + m, &increment, 
           &zero, workspace, &increment);
 
   dgemv_("N", &m, &s, &one, 
           parent->children[1].leaf->data.off_diagonal.u, 
           &m, workspace, &increment,
-          &one, out + offset, &increment);
+          &one, out, &increment);
 
   s = parent->children[2].leaf->data.off_diagonal.s;
   dgemv_("T", &m, &s, &one, 
           parent->children[2].leaf->data.off_diagonal.v, 
-          &m, vector + offset, &increment, 
+          &m, vector, &increment, 
           &zero, workspace, &increment);
 
   dgemv_("N", &n, &s, &one, 
           parent->children[2].leaf->data.off_diagonal.u, 
           &n, workspace, &increment,
-          &one, out + offset2, &increment);
+          &one, out + m, &increment);
 
-  return offset2 + n;
+  return m + n;
 }
 
 
 /**
- * Multiplies a tree HODLR matrix by a vector.
+ * Multiplies a HODLR matrix and a vector.
  *
- * :param hodlr: Pointer to a tree HODLR matrix to multiply. This must be a 
- *               fully constructed HODLR tree, including all the data being 
- *               filled in. If the data has not been assigned (e.g. by using
- *               :c:func:`dense_to_tree_hodlr`), it will lead to undefined
- *               behaviour.
- *               If ``NULL``, the function will immediately abort.
- * :param vector: Pointer to an array storing the vector to use for the
- *                multiplication. Must be of length M, where M is the number
- *                of rows of ``hodlr``.
- *                Must not overlap with ``out`` and must be occupied with 
- *                values - either will lead to undefined behaviour.
- *                If ``NULL``, the function will immediately abort.
- * :param out: Pointer to an array to be used for storing the results of the
- *             multiplication. Must be of at least length M, where M is the 
- *             number of rows of ``hodlr``.
- *             Must not overlap with ``vector``, otherwise undefined behaviour
- *             will ensue, but may be both filled with value (which will be
- *             overwritten) or empty (i.e. just allocated).
- *             If ``NULL``, a new array is allocated.
- * :return: The ``out`` array with the results of the matrix-vector 
- *          multiplication stored inside.
+ * Parameters
+ * ----------
+ * hodlr
+ *     Pointer to a HODLR matrix to multiply. This must be a fully constructed
+ *     HODLR tree filled with data. Anything else will lead to undefined 
+ *     behaviour. If ``NULL``, the function will immediately abort.
+ * vector
+ *     Pointer representing an array storing the vector to be multiplied. Must
+ *     be of length M, where M is the number of rows of ``hodlr``.
+ *     Must not overlap with ``out`` and must be occupied with values - either
+ *     will lead to undefined behaviour.
+ *     If ``NULL``, the function will immediately abort.
+ * out
+ *     Pointer representing an array to be used for storing the results of the
+ *     multiplication. Must be of at least length M, where M is the number of 
+ *     rows of ``hodlr``.
+ *     Must not overlap with ``vector`` (overlap leads to undefined 
+ *     behaviour), but may be both filled with values (which will be 
+ *     overwritten) or empty (i.e. just allocated).
+ *     If ``NULL``, a new array is allocated.
+ * ierr
+ *     Pointer to an integer hodling the :c:member:`ErrorCode.SUCCESS` value. 
+ *     Used to signal the success or failure of this function. An error status 
+ *     code from :c:enum:`ErrorCode` is written into the pointer 
+ *     **if an error occurs**. Must not be ``NULL`` - doing so is undefined.
+ *
+ * Returns
+ * -------
+ * double * 
+ *     The ``out`` array with the results of the matrix-vector multiplication 
+ *     stored inside.
+ *
+ * Errors
+ * ------
+ * INPUT_ERROR
+ *     If ``hodlr`` or ``vector`` is ``NULL`` or if ``vector`` and ``out`` 
+ *     point to the same memory location.
  */
 double * multiply_vector(const struct TreeHODLR *restrict const hodlr,
                          const double *restrict const vector,
-                         double *restrict out) {
-  if (hodlr == NULL || vector == NULL) {
+                         double *restrict out,
+                         int *restrict const ierr) {
+  if (hodlr == NULL || vector == NULL || vector == out) {
+    *ierr = INPUT_ERROR;
     return NULL;
   }
   if (out == NULL) {
@@ -124,8 +139,9 @@ double * multiply_vector(const struct TreeHODLR *restrict const hodlr,
       return NULL;
     }
   }
+  *ierr = SUCCESS;
 
-  int offset = 0, idx=0, m = 0;
+  unsigned int offset = 0, idx=0;
   const int increment = 1;
   const double alpha = 1, beta = 0;
   long n_parent_nodes = hodlr->len_work_queue;
@@ -142,7 +158,7 @@ double * multiply_vector(const struct TreeHODLR *restrict const hodlr,
     queue[parent] = hodlr->innermost_leaves[2 * parent]->parent;
 
     for (int _diagonal = 0; _diagonal < 2; _diagonal++) {
-      m = hodlr->innermost_leaves[idx]->data.diagonal.m;
+      const int m = hodlr->innermost_leaves[idx]->data.diagonal.m;
       dgemv_("N", &m, &m, &alpha, 
              hodlr->innermost_leaves[idx]->data.diagonal.data, 
              &m, vector + offset, &increment, 
@@ -158,8 +174,8 @@ double * multiply_vector(const struct TreeHODLR *restrict const hodlr,
 
     for (int parent = 0; parent < n_parent_nodes; parent++) {
       for (int _child = 0; _child < 2; _child++) {
-        offset = multiply_off_diagonal_vector(
-          queue[idx], vector, out, workspace, increment, offset
+        offset += multiply_off_diagonal_vector(
+          queue[idx], vector + offset, out + offset, workspace
         );
 
         idx++;
@@ -169,9 +185,7 @@ double * multiply_vector(const struct TreeHODLR *restrict const hodlr,
     }
   }
 
-  multiply_off_diagonal_vector(
-    hodlr->root, vector, out, workspace, increment, 0
-  );
+  multiply_off_diagonal_vector(hodlr->root, vector, out, workspace);
 
   free(workspace);
         
