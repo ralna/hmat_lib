@@ -293,7 +293,12 @@ void free_tree_data(struct TreeHODLR *hodlr);
 void free_tree_data(struct TreeHODLR *hodlr, void(*free)(void *ptr));
 #endif
 
-double * multiply_vector(const struct TreeHODLR *hodlr, const double *vector, double *out);
+double * multiply_vector(
+  const struct TreeHODLR *hodlr, 
+  const double *vector, 
+  double *out,
+  int *ierr
+);
 
 int multiply_hodlr_hodlr(
   const struct TreeHODLR *hodlr1,
