@@ -16,6 +16,25 @@ void fill_full_matrix(const int m, const double val, double *matrix);
 double * construct_random_matrix(const int m, const int n);
 void fill_random_matrix(const int m, const int n, double *matrix);
 
+void fill_decay_matrix(
+  const int m, 
+  const double *vec, 
+  const double scaling_factor,
+  double *matrix
+);
+
+void fill_decay_matrix_random(
+  const int m,
+  const double scaling_factor,
+  double *matrix
+);
+
+void fill_decay_matrix_random_sorted(
+  const int m,
+  const double scaling_factor,
+  double *matrix
+);
+
 void construct_fake_hodlr(
   struct TreeHODLR *hodlr, double *matrix, const int s, const int *ss
 );

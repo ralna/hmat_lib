@@ -4,7 +4,7 @@
 
 #include "../../include/tree.h"
 
-static double DELTA = 1e-10;
+#define DELTA 1e-10f
 
 void expect_leaf_offdiagonal(struct HODLRLeafNode *leaf,
                             struct HODLRInternalNode *parent);

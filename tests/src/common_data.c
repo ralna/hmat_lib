@@ -1,4 +1,6 @@
+#include <math.h>
 #include <stdlib.h>
+
 #include <criterion/criterion.h>
 
 #include "../include/common_data.h"
@@ -106,6 +108,55 @@ void fill_random_matrix(const int m, const int n, double *matrix) {
       matrix[i + j * m] = (double)rand() / RAND_MAX;
     }
   }
+}
+
+
+void fill_decay_matrix(
+  const int m, 
+  const double *restrict const vec, 
+  const double scaling_factor,
+  double *restrict const matrix
+) {
+  for (int j = 0; j < m; j++) {
+    for (int i = 0; i < m; i++) {
+      double val = vec[i] - vec[j];
+      matrix[i + j * m] = exp(- scaling_factor * fabs(val));
+    }
+  }
+}
+
+
+void fill_decay_matrix_random(
+  const int m,
+  const double scaling_factor,
+  double *restrict const matrix
+) {
+  double *vec = cr_malloc(m * sizeof(double));
+  for (int i = 0; i < m; i++)
+    vec[i] = 1.0 - 2.0 * ((double)rand() / RAND_MAX);
+  fill_decay_matrix(m, vec, scaling_factor, matrix);
+  cr_free(vec);
+}
+
+
+static int compare_double(const void* p1, const void* p2) {
+  if (*(double*)p1 < *(double*)p2) return -1;
+  if (*(double*)p1 > *(double*)p2) return 1;
+  return 0;
+}
+
+
+void fill_decay_matrix_random_sorted(
+  const int m,
+  const double scaling_factor,
+  double *restrict const matrix
+) {
+  double *vec = cr_malloc(m * sizeof(double));
+  for (int i = 0; i < m; i++)
+    vec[i] = 1.0 - 2.0 * ((double)rand() / RAND_MAX);
+  qsort(vec, m, sizeof(double), compare_double);
+  fill_decay_matrix(m, vec, scaling_factor, matrix);
+  cr_free(vec);
 }
 
 
