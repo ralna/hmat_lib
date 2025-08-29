@@ -1037,7 +1037,8 @@ struct ParametersTestDense * generate_dense_params(int * len) {
 ParameterizedTestParameters(constructors, dense_to_tree) {
   int n_params;
   struct ParametersTestDense *params = generate_dense_params(&n_params);
-  return cr_make_param_array(struct ParametersTestDense, params, n_params, free_dense_params);
+  return cr_make_param_array(struct ParametersTestDense, params, n_params, 
+                             free_dense_params);
 }
 
 
@@ -1070,7 +1071,10 @@ ParameterizedTest(struct ParametersTestDense *params,
   const int n = result->root->children[1].leaf->data.off_diagonal.n;
   double *workspace = malloc(m * n * sizeof(double));
 
-  expect_hodlr_fake(result, params->expected, workspace);
+  expect_hodlr_decompress(
+    true, result, params->expected, workspace, NULL, NULL, NULL, DELTA
+  );
 
   free_tree_hodlr(&result, &free); free(workspace);
 }
+

@@ -175,7 +175,7 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
     vector_actual, vector_expected, m, m, 'V', &norm, &diff, 1e-6
   );
   free(vector_expected); free(vector_actual); free(vector);
-  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
+  cr_log_info("normv=%e, diff=%e, relerr=%e", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
 
   // Reference matrix mult
@@ -194,9 +194,38 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
   // Check matrix operation
   expect_matrix_double_eq_custom(matrix_actual, matrix_expected, m, m, m, m, 
                                  'M', &norm, &diff, 1e-6);
-  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
+  cr_log_info("normv=%e, diff=%e, relerr=%e", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
 
+  // HODLR x HODLR
+  struct TreeHODLR *hodlr_result = 
+    allocate_tree_monolithic(params->height, &ierr, &malloc, &free);
+
+  start_timer(&start, &wstart);
+  multiply_hodlr_hodlr(hodlr, hodlr, hodlr_result, svd_threshold, &ierr);
+  get_time(start, wstart, "HODLR-HODLR multiplied!");
+
+  // Check HODLR-HODLR
+  struct TreeHODLR *hodlr_expected =
+    allocate_tree_monolithic(params->height, &ierr, &malloc, &free);
+  copy_block_sizes(hodlr, hodlr_expected, false);
+  construct_fake_hodlr(hodlr_expected, matrix_expected, 0, NULL);
+
+  expect_hodlr_decompress(
+    true, hodlr_result, hodlr_expected, NULL, NULL, &norm, &diff, 1e-6
+  );
+  cr_log_info("normv=%e, diff=%e, relerr=%e", sqrtf(norm), sqrtf(diff),
+              sqrtf(diff) / sqrtf(norm));
+
+
   free(matrix_expected); free(matrix_actual);
+  free_tree_hodlr(&hodlr, &free);
+  free_tree_hodlr(&hodlr_result, &free);
+
+  free(hodlr_expected->innermost_leaves);
+  free(hodlr_expected->work_queue);
+  free(hodlr_expected->memory_internal_ptr);
+  free(hodlr_expected->memory_leaf_ptr);
+  free(hodlr_expected);
 }
 
