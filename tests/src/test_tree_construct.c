@@ -940,6 +940,7 @@ struct ParametersTestDense {
   int height;
   double svd_threshold;
   struct TreeHODLR *expected;
+  char name[STR_LEN];
 };
 
 
@@ -958,17 +959,6 @@ void free_dense_params(struct criterion_test_params *params) {
     cr_free(param->expected);
   }
   cr_free(params->params);
-}
-
-
-static inline void set_up_off_diagonal(struct NodeOffDiagonal *node,
-                                       int *restrict m,
-                                       int *restrict n,
-                                       const int s) {
-  node->s = s;
-  node->u = cr_calloc(node->m * s, sizeof(double));
-  node->v = cr_calloc(node->n * s, sizeof(double));
-  *m = node->m; *n = node->n;
 }
 
 
@@ -1032,6 +1022,7 @@ static inline int generate_dense_params(struct ParametersTestDense *params) {
 
   for (int mult = 0; mult < n_types; mult++) {
     for (int height = 1; height < max_height + 1; height++) {
+      strncat(params[idx].name, "L0.5S", STR_LEN);
       params[idx].matrix = construct_laplacian_matrix(m);
       params[idx].matrix[m - 1] = 0.5;
       params[idx].matrix[m * (m - 1)] = 0.5;
@@ -1052,12 +1043,74 @@ static inline int generate_dense_params(struct ParametersTestDense *params) {
 }
 
 
+static inline int generate_dense_params_decay(
+  struct ParametersTestDense *const params
+) {
+  enum {n_params = 20};
+  
+  int idx = 0;
+  const int m = 155;
+  const int *ms[n_params] = {
+    NULL, NULL, NULL, NULL, NULL,
+    arrcpy(2, (int[]){55, 100}),
+    arrcpy(4, (int[]){50, 5, 50, 50}),
+    arrcpy(8, (int[]){22, 11, 11, 11, 25, 25, 25, 25}),
+    arrcpy(16, (int[]){13, 15, 10, 4, 15, 12, 6, 3, 
+                       6, 14, 2, 4, 23, 11, 11, 6}),
+    arrcpy(32, (int[]){2, 6, 8, 2, 2, 6, 4, 6, 8, 7, 6, 7, 4, 5, 6, 7, 
+                       8, 4, 2, 3, 7, 4, 5, 2, 4, 4, 3, 6, 2, 9, 2, 4}),
+    NULL, NULL, NULL, NULL, NULL,
+    arrcpy(2, (int[]){55, 100}),
+    arrcpy(4, (int[]){50, 5, 50, 50}),
+    arrcpy(8, (int[]){22, 11, 11, 11, 25, 25, 25, 25}),
+    arrcpy(16, (int[]){13, 15, 10, 4, 15, 12, 6, 3, 
+                       6, 14, 2, 4, 23, 11, 11, 6}),
+    arrcpy(32, (int[]){2, 6, 8, 2, 1, 6, 4, 6, 8, 7, 6, 7, 4, 6, 6, 7, 
+                       8, 4, 2, 3, 7, 4, 5, 2, 4, 4, 3, 6, 2, 9, 1, 5}),
+  };
+
+  const int n_types = 2;
+  const int n_repeats = 2 * n_types, max_height = 5;
+  allocate_dense_params(params, max_height, n_repeats, m, ms);
+
+  srand(42);
+  for (int mult = 0; mult < n_types; mult++) {
+    for (int height = 1; height < max_height + 1; height++) {
+      strncat(params[idx].name, "DecaySort", STR_LEN);
+      params[idx].matrix = cr_malloc(m * m * sizeof(double));
+      fill_decay_matrix_random_sorted(m, 1.0, params[idx].matrix);
+
+      double *matrix = cr_malloc(m * m * sizeof(double));
+      memcpy(matrix, params[idx].matrix, m * m * sizeof(double));
+      construct_fake_hodlr(params[idx].expected, matrix, 1, NULL);
+      idx++;
+    }
+  }
+  for (int mult = 0; mult < n_types; mult++) {
+    for (int height = 1; height < max_height + 1; height++) {
+      strncat(params[idx].name, "Decay", STR_LEN);
+      params[idx].matrix = cr_malloc(m * m * sizeof(double));
+      fill_decay_matrix_random(m, 1.0, params[idx].matrix);
+
+      double *matrix = cr_malloc(m * m * sizeof(double));
+      memcpy(matrix, params[idx].matrix, m * m * sizeof(double));
+      construct_fake_hodlr(params[idx].expected, matrix, 0, NULL);
+      idx++;
+    }
+  }
+
+  check_n_params(idx, n_params);
+  return n_params;
+}
+
+
 ParameterizedTestParameters(constructors, dense_to_tree) {
-  const int n_params = 10;
+  const int n_params = 10+2*10;
   struct ParametersTestDense *params = 
     cr_malloc(n_params * sizeof(struct ParametersTestDense));
 
   int actual = generate_dense_params(params);
+  actual += generate_dense_params_decay(params + actual);
 
   check_n_params(actual, n_params);
   return cr_make_param_array(struct ParametersTestDense, params, n_params, 
@@ -1068,7 +1121,8 @@ ParameterizedTestParameters(constructors, dense_to_tree) {
 ParameterizedTest(struct ParametersTestDense *params, 
                   constructors, dense_to_tree) {
   int ierr;
-  cr_log_info("height=%d, m=%d, ms=%p", params->height, params->m, params->ms);
+  cr_log_info("matrix %s height=%d, m=%d, ms=%p", 
+              params->name, params->height, params->m, params->ms);
 
   struct TreeHODLR *result = allocate_tree_monolithic(params->height, &ierr,
                                                       &malloc, &free);
