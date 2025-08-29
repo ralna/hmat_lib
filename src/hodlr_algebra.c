@@ -33,15 +33,27 @@
  *     approximately zero and therefore the corresponding column vectors of 
  *     the :math:`U` and :math:`V` matrices will be discarded.
  * ierr
- *     Pointer to an integer used to signal the success or failure of this 
- *     function. An error status code from :c:enum:`ErrorCode` is written into 
- *     the pointer **if an error occurs**. Must not be ``NULL`` - doing so is 
- *     undefined.
+ *     Pointer to an integer set to the value of :c:member:`ErrorCode.SUCCESS`.
+ *     Used to signal the success or failure of this function. An error status 
+ *     code from :c:enum:`ErrorCode` is written into the pointer 
+ *     **if an error occurs**. Must not be ``NULL`` - doing so is undefined.
  *
- * Return
- * ------
+ * Returns
+ * -------
  * int
  *     The status code returned by ``dgesdd``, ``dgeqrt`` or ``dgemqrt``.
+ *
+ * Errors
+ * ------
+ * ALLOCATION_FAILURE
+ *     If one of the ``malloc`` calls fails.
+ * SVD_ALLOCATION_FAILURE
+ *     If one of the ``malloc`` calls in the :c:func:`svd_double` function
+ *     fails.
+ * SVD_FAILURE
+ *     If the ``dgesdd`` call fails for any reason.
+ * QR_FAILURE
+ *     If any of the ``dgeqrt`` or ``dgemqrt`` calls fails for any reason.
  *
  * Notes
  * -----
@@ -86,7 +98,7 @@ static inline int recompress(
   int *restrict const ierr
 ) {
   const int nb = node->s < 32 ? node->s : 32;
-  int info;
+  int info = 0;
 
   const unsigned int t_size = nb * m_smaller;
   const unsigned int w_size = nb * node->s;
@@ -229,6 +241,16 @@ static inline int recompress(
  * ------
  * int
  *     The status code returned by ``dgesdd``, ``dgeqrt`` or ``dgemqrt``.
+ *
+ * Errors
+ * ------
+ * ALLOCATION_FAILURE
+ *     If one of the ``malloc`` calls fails.
+ * SVD_ALLOCATION_FAILURE
+ *     If one of the ``malloc`` calls in the :c:func:`svd_double` function
+ *     fails.
+ * SVD_FAILURE
+ *     If the ``dgesdd`` call fails for any reason.
  *
  * Notes
  * -----
@@ -544,6 +566,11 @@ static inline void compute_higher_level_contributions_off_diagonal(
  *     function. An error status code from :c:enum:`ErrorCode` is written into 
  *     the pointer **if an error occurs**. Must not be ``NULL`` - doing so is 
  *     undefined.
+ *
+ * Errors
+ * ------
+ * ALLOCATION_FAILURE
+ *     If one of the ``malloc`` calls fails.
  */
 static inline void set_up_off_diagonal(
   const struct NodeOffDiagonal *const off_diagonal_left,
@@ -733,6 +760,19 @@ static inline void compute_inner_off_diagonal_lowest_level(
  * -------
  * int
  *     The status code returned by ``dgesdd``, ``dgeqrt`` or ``dgemqrt``.
+ *
+ * Errors
+ * ------
+ * ALLOCATION_FAILURE
+ *     If one of the ``malloc`` calls fails.
+ * SVD_ALLOCATION_FAILURE
+ *     If one of the ``malloc`` calls in the :c:func:`svd_double` function
+ *     fails.
+ * SVD_FAILURE
+ *     If the ``dgesdd`` call fails for any reason.
+ * QR_FAILURE
+ *     If any of the ``dgeqrt`` or ``dgemqrt`` calls fails for any reason.
+ *
  */
 static inline int compute_inner_off_diagonal(
   const int height,
@@ -997,6 +1037,19 @@ static inline void compute_other_off_diagonal_lowest_level(
  * -------
  * int
  *     The status code returned by ``dgesdd``, ``dgeqrt`` or ``dgemqrt``.
+ *
+ * Errors
+ * ------
+ * ALLOCATION_FAILURE
+ *     If one of the ``malloc`` calls fails.
+ * SVD_ALLOCATION_FAILURE
+ *     If one of the ``malloc`` calls in the :c:func:`svd_double` function
+ *     fails.
+ * SVD_FAILURE
+ *     If the ``dgesdd`` call fails for any reason.
+ * QR_FAILURE
+ *     If any of the ``dgeqrt`` or ``dgemqrt`` calls fails for any reason.
+ *
  */
 static inline int compute_other_off_diagonal(
   const int height,
@@ -1193,6 +1246,11 @@ static inline void add_off_diagonal_contribution(
  *     the pointer **if an error occurs**. Must not be ``NULL`` - doing so is 
  *     undefined.
  *
+ * Errors
+ * ------
+ * ALLOCATION_FAILURE
+ *     If one of the ``malloc`` calls fails.
+ *
  * Notes
  * -----
  * Concerning * and **, technically ``s1`` and ``s2`` do not have to be the
@@ -1316,20 +1374,27 @@ void compute_workspace_multiply_hodlr_hodlr(
 /**
  * Multiplies two HODLR matrices
  *
+ * Performs the ``out = hodlr1 @ hodlr2`` matrix-matrix multiplication between
+ * two HODLR matrices via the direct, output-iterative method (see notes).
+ *
  * Parameters
  * ----------
  * hodlr1
- *     Pointer to a HODLR matrix. Must be fully constructed and contain data
- *     - anything else is undefined.
+ *     Pointer to a HODLR matrix to multiply ``hodlr2``. Must be fully 
+ *     constructed and contain data - anything else is undefined. Must have 
+ *     the same height and block sizes as ``hodlr2``. If ``NULL``, immediate 
+ *     abort is performed.
  * hodlr2
- *     Pointer to a HODLR matrix. Must be fully constructed and contain data -
- *     anything else is undefined. Must have the same height as ``hodlr1``.
+ *     Pointer to a HODLR matrix to be multiplied by ``hodlr1``. Must be fully 
+ *     constructed and contain data - anything else is undefined. Must have 
+ *     the same height and block sizes as ``hodlr1``. If ``NULL``, immediate
+ *     abort is performed.
  * out
  *     Pointer to a HODLR matrix to which to save the result. Must be 
  *     fully allocated - otherwise is undefined. Must not contain any data - 
  *     all arrays on the tree will be substituted and the data will be lost,
  *     potentially leading to memory leaks. Must have the same height as 
- *     ``hodlr1``.
+ *     ``hodlr1`` and ``hodlr2``. If ``NULL``, immediate abort is performed.
  * svd_threshold
  *     The threshold for discarding singular values when recompressing 
  *     off-diagonal nodes - any singular values smaller than one 
@@ -1346,6 +1411,40 @@ void compute_workspace_multiply_hodlr_hodlr(
  * int
  *     The status code returned by ``dgesdd``, ``dgeqrt`` or ``dgemqrt`` 
  *     during recompression. ``0`` if there were no issues.
+ *
+ * Errors
+ * ------
+ * INPUT_ERROR
+ *     If ``hodlr1``, ``hodlr2``, or ``out`` is ``NULL``.
+ * ALLOCATION_FAILURE
+ *     If one of the ``malloc`` calls fails.
+ * SVD_ALLOCATION_FAILURE
+ *     If one of the ``malloc`` calls in the SVD routine fails.
+ * SVD_FAILURE
+ *     If the ``dgesdd`` call fails for any reason.
+ * QR_FAILURE
+ *     If any of the ``dgeqrt`` or ``dgemqrt`` calls fails for any reason.
+ *
+ * Notes
+ * -----
+ * The HODLR-HODLR matrix multiplication is performed by via the direct, 
+ * output-iterative method. This means that it is done:
+ *
+ * * By directly multiplying ``hodlr1`` and ``hodlr2``, which is done:
+ * * By iterating:
+ * * Over the ``out`` matrix.
+ *
+ * In other words, the multiplication is computed by looping over the output
+ * tree and calculating the matrix-matrix multiply result block by block. 
+ * I.e., first, each diagonal leaf node on the result HODLR is computed, then
+ * each highest-level off-diagonal leaf node, then each off-diagonal leaf node
+ * one level higher etc.
+ *
+ * This is done by multiplying the appropriate set of rows of ``hodlr1`` with 
+ * the appropriate set of columns of ``hodlr2``, and then recompressing the
+ * result using SVD. This does mean that some ``hodlr1`` @ ``hodlr2`` block 
+ * multiplications are repeated multiple times, but als that the number of 
+ * required recompressions is minimised.
  */
 int multiply_hodlr_hodlr(
   const struct TreeHODLR *const hodlr1,
@@ -1354,6 +1453,10 @@ int multiply_hodlr_hodlr(
   const double svd_threshold,
   int *restrict const ierr
 ) {
+  if (hodlr1 == NULL || hodlr2 == NULL || out == NULL) {
+    *ierr = INPUT_ERROR;
+    return 0;
+  }
   *ierr = SUCCESS;
   unsigned int size1, size2;
   compute_workspace_multiply_hodlr_hodlr(hodlr1, hodlr2, &size1, &size2);

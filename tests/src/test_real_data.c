@@ -175,7 +175,7 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
     vector_actual, vector_expected, m, m, 'V', &norm, &diff, 1e-6
   );
   free(vector_expected); free(vector_actual); free(vector);
-  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
+  cr_log_info("normv=%e, diff=%e, relerr=%e", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
 
   // Reference matrix mult
@@ -194,7 +194,7 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
   // Check matrix operation
   expect_matrix_double_eq_custom(matrix_actual, matrix_expected, m, m, m, m, 
                                  'M', &norm, &diff, 1e-6);
-  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
+  cr_log_info("normv=%e, diff=%e, relerr=%e", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
 
   // HODLR x HODLR
@@ -214,7 +214,7 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
   expect_hodlr_decompress(
     true, hodlr_result, hodlr_expected, NULL, NULL, &norm, &diff, 1e-6
   );
-  cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
+  cr_log_info("normv=%e, diff=%e, relerr=%e", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
 
 
