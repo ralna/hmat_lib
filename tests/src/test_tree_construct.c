@@ -23,7 +23,7 @@
 #define STR_LEN 10
 
 
-static inline void check_allocd(const int actual, const int allocd) {
+static inline void check_n_params(const int actual, const int allocd) {
   if (actual != allocd) {
     cr_log_error("INCORRECT PARAMETER ALLOCATION - allocated %d but set %d\n",
                  allocd, actual);
@@ -142,7 +142,7 @@ static int generate_block_size_params(struct ParametersBlockSizes *params) {
     }
   }
 
-  check_allocd(idx, n_params);
+  check_n_params(idx, n_params);
   idx = 0;
 
   expected_setup(params, &idx, 3, (int[]){8, 4, 4});
@@ -252,7 +252,7 @@ static int generate_block_size_params(struct ParametersBlockSizes *params) {
                          32, 32, 32, 32, 32, 32, 32, 32,
                          32, 32, 32, 32, 32, 32, 32, 32});
 
-  check_allocd(idx, n_params);
+  check_n_params(idx, n_params);
 
   return n_params;
 }
@@ -265,7 +265,7 @@ ParameterizedTestParameters(constructors, block_sizes_halves) {
 
   int actual = generate_block_size_params(params);
 
-  check_allocd(actual, n_params);
+  check_n_params(actual, n_params);
 
   return cr_make_param_array(struct ParametersBlockSizes, params, n_params, 
                              free_block_params);
@@ -351,7 +351,7 @@ static inline int generate_block_size_params_uneven(
   expected_setup(params, &idx2, 15,
                  (int[]){69, 31, 38, 21, 10, 25, 13, 10, 11, 1, 9, 5, 20, 7, 6});
 
-  check_allocd(idx1, n_params); check_allocd(idx2, n_params);
+  check_n_params(idx1, n_params); check_n_params(idx2, n_params);
 
   return n_params;
 }
@@ -428,7 +428,7 @@ ParameterizedTestParameters(constructors, block_sizes_custom) {
 
   int new = generate_block_size_params_uneven(params + actual);
 
-  check_allocd(actual + new, n_params); check_allocd(idx + new, n_params);
+  check_n_params(actual + new, n_params); check_n_params(idx + new, n_params);
 
   return cr_make_param_array(struct ParametersBlockSizes, params, n_params, 
                              free_block_params);
@@ -579,7 +579,7 @@ static inline int generate_copy_diagonal_params_halves(
     }
   }
 
-  check_allocd(idx, len_ms * len_lens);
+  check_n_params(idx, len_ms * len_lens);
   return len_ms * len_lens;
 }
 
@@ -602,7 +602,7 @@ static inline int generate_copy_diagonal_params_custom(
   block_ms_setup(params, &idx, 16, 
                    (int[]){4, 16, 8, 4, 8, 4, 4, 8, 16, 8, 8, 8, 16, 4, 8, 4});
 
-  check_allocd(idx, n_params);
+  check_n_params(idx, n_params);
 
   for (int i = 0; i < n_params; i++) {
     params[i].m = ms[i];
@@ -635,7 +635,7 @@ ParameterizedTestParameters(constructors, copy_diagonal) {
   actual_n_params += 
     generate_copy_diagonal_params_custom(params + actual_n_params);
 
-  check_allocd(actual_n_params, n_params);
+  check_n_params(actual_n_params, n_params);
 
   return cr_make_param_array(struct ParametersCopyDiag, params, n_params, 
                              free_copy_diag_params);
@@ -815,7 +815,7 @@ struct ParametersTestCompress * generate_compress_params(int * len) {
   params[idx].v_expected[params[idx].n - 1] = -1.0;
   idx++;
 
-  check_allocd(idx, n_params);
+  check_n_params(idx, n_params);
 
   return params;
 }
@@ -981,11 +981,39 @@ static inline int * arrcpy(const int len, const int src[]) {
 }
 
 
-struct ParametersTestDense * generate_dense_params(int * len) {
-  enum {n_params = 10}; int ierr = SUCCESS;
-  *len = n_params;
-  struct ParametersTestDense *params = 
-    cr_malloc(n_params * sizeof(struct ParametersTestDense));
+static inline void allocate_dense_params(
+  struct ParametersTestDense *params,
+  const int max_height,
+  const int n_types,
+  const int m,
+  const int *ms[]
+) {
+  unsigned int idx = 0; int ierr = SUCCESS;
+
+  for (int mult = 0; mult < n_types; mult++) {
+    for (int height = 1; height < max_height + 1; height++) {
+      params[idx].height = height;
+      params[idx].m = m;
+      params[idx].ms = (int*)ms[idx];
+      params[idx].svd_threshold = 1e-8;
+      params[idx].expected = 
+        allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
+
+      if (ms[idx] == NULL) {
+        compute_block_sizes_halves(params[idx].expected, m);
+      } else {
+        compute_block_sizes_custom(params[idx].expected, ms[idx]);
+      }
+      idx++;
+    }
+  }
+
+  check_n_params(idx, max_height * n_types);
+}
+
+
+static inline int generate_dense_params(struct ParametersTestDense *params) {
+  enum {n_params = 10};
   
   int idx = 0;
   const int m = 69;
@@ -998,23 +1026,15 @@ struct ParametersTestDense * generate_dense_params(int * len) {
     arrcpy(32, (int[]){1, 1, 5, 3, 2, 5, 2, 2, 1, 1, 4, 2, 2, 1, 1, 2, 
                        1, 4, 3, 3, 1, 3, 5, 1, 2, 3, 1, 1, 2, 1, 1, 2}),
   };
-  for (int mult = 0; mult < 2; mult++) {
-    for (int height = 1; height < 6; height++) {
-      params[idx].height = height;
-      params[idx].m = m;
-      params[idx].ms = (int*)ms[idx];
+
+  const int n_types = 2, max_height = 5;
+  allocate_dense_params(params, max_height, n_types, m, ms);
+
+  for (int mult = 0; mult < n_types; mult++) {
+    for (int height = 1; height < max_height + 1; height++) {
       params[idx].matrix = construct_laplacian_matrix(m);
       params[idx].matrix[m - 1] = 0.5;
       params[idx].matrix[m * (m - 1)] = 0.5;
-      params[idx].svd_threshold = 1e-8;
-      params[idx].expected = 
-        allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
-
-      if (ms[idx] == NULL) {
-        compute_block_sizes_halves(params[idx].expected, m);
-      } else {
-        compute_block_sizes_custom(params[idx].expected, ms[idx]);
-      }
 
       double *matrix = construct_laplacian_matrix(m);
       matrix[m - 1] = 0.5;
@@ -1023,20 +1043,23 @@ struct ParametersTestDense * generate_dense_params(int * len) {
 
       params[idx].expected->root->children[1].leaf->data.off_diagonal.s = 2;
       params[idx].expected->root->children[2].leaf->data.off_diagonal.s = 2;
-
       idx++;
     }
   }
 
-  check_allocd(idx, n_params);
-  
-  return params;
+  check_n_params(idx, n_params);
+  return n_params;
 }
 
 
 ParameterizedTestParameters(constructors, dense_to_tree) {
-  int n_params;
-  struct ParametersTestDense *params = generate_dense_params(&n_params);
+  const int n_params = 10;
+  struct ParametersTestDense *params = 
+    cr_malloc(n_params * sizeof(struct ParametersTestDense));
+
+  int actual = generate_dense_params(params);
+
+  check_n_params(actual, n_params);
   return cr_make_param_array(struct ParametersTestDense, params, n_params, 
                              free_dense_params);
 }
