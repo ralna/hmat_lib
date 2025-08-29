@@ -186,7 +186,11 @@ ParameterizedTest(struct ParametersTestHxV *params, vector_algebra,
               params->hodlr_name, params->hodlr->height, 
               params->hodlr->root->m, params->vector_name, params->len);
 
-  double * result = multiply_vector(params->hodlr, params->vector, NULL);
+  int ierr;
+  double * result = 
+    multiply_vector(params->hodlr, params->vector, NULL, &ierr);
+
+  cr_expect(eq(int, ierr, SUCCESS));
 
   double norm, diff;
   expect_vector_double_eq_safe(result, params->expected, params->len, 
@@ -340,7 +344,8 @@ ParameterizedTest(struct ParametersTestOffdiagxV *params, vector_algebra,
   double *workspace = malloc(m * sizeof(double));
 
   multiply_off_diagonal_vector(
-    params->parent, params->vector, params->out, workspace, 1, params->offset
+    params->parent, params->vector + params->offset, 
+    params->out + params->offset, workspace
   );
 
   double norm, diff;
