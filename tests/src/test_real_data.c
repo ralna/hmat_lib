@@ -23,6 +23,7 @@
 #include "../../include/hmat_lib/constructors.h"
 #include "../../include/hmat_lib/vector_algebra.h"
 #include "../../include/hmat_lib/dense_algebra.h"
+#include "../../include/hmat_lib/hodlr_algebra.h"
 #include "../../include/internal/blas_wrapper.h"
 
 #include "../include/io.h"
