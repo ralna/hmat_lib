@@ -10,8 +10,8 @@
 #include <criterion/new/assert.h>
 #include <criterion/logging.h>
 
-#include "../include/utils.h"
-#include "../include/common_data.h"
+#include "../utils/utils.h"
+#include "../utils/common_data.h"
 
 #include "../../src/dense_algebra.c"
 #include "../../include/hmat_lib/allocators.h"

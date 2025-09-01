@@ -1,8 +1,12 @@
 SRC_DIR := ../src
-TESTS_DIR := src
-UTIL_INCLUDE_DIR := include
+TESTS_DIR := unit_tests
+
+HOME_DIR := ./
+UTIL_DIR := utils
+
 INCLUDE_DIR := ../include/hmat_lib
 INTERNAL_INCLUDE_DIR := ../include/internal
+
 DEV_DIR := ../dev
 BUILD_DIR := build
 OUT_DIR := ../bin
@@ -41,19 +45,6 @@ test_hodlr_algebra.o: ${TESTS_DIR}/test_hodlr_hodlr_algebra.c
 		${WARNINGS} \
 		${EXTRA_FLAGS}
 
-test_dense_algebra: test_dense_algebra.o allocators.o constructors.o main_utils.o
-	gcc \
-		${BUILD_DIR}/test_dense_algebra.o \
-		${BUILD_DIR}/lapack_wrapper.o \
-		${BUILD_DIR}/utils.o \
-		${BUILD_DIR}/main_utils.o \
-		${BUILD_DIR}/common_data.o \
-		${BUILD_DIR}/allocators.o \
-		${BUILD_DIR}/constructors.o \
-		-o ${OUT_DIR}/test_dense_algebra \
-		-lopenblas -lm -lcriterion \
-		${EXTRA_FLAGS}
-
 test_dense_algebra.o: ${TESTS_DIR}/test_hodlr_dense_algebra.c lapack_wrapper.o utils.o common_data.o
 	gcc \
 		-c ${TESTS_DIR}/test_hodlr_dense_algebra.c \
@@ -63,37 +54,12 @@ test_dense_algebra.o: ${TESTS_DIR}/test_hodlr_dense_algebra.c lapack_wrapper.o u
 		${WARNINGS} \
 		${EXTRA_FLAGS}
 
-
-test_vector_algebra: test_vector_algebra.o
-	gcc \
-		${BUILD_DIR}/test_vector_algebra.o \
-		${BUILD_DIR}/lapack_wrapper.o \
-		${BUILD_DIR}/utils.o \
-		${BUILD_DIR}/common_data.o \
-		-o ${OUT_DIR}/test_vector_algebra \
-		-lopenblas -lm -lcriterion \
-		-Wall -Wextra \
-		${EXTRA_FLAGS}
-
 test_vector_algebra.o: ${TESTS_DIR}/test_vector_algebra.c lapack_wrapper.o utils.o common_data.o 
 	gcc \
 		-c ${TESTS_DIR}/test_vector_algebra.c \
 		-o ${BUILD_DIR}/test_vector_algebra.o \
 		-lopenblas -lm -lcriterion -lmimick \
 		-I ${INCLUDE_DIR} -I ${INTERNAL_INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
-		${EXTRA_FLAGS}
-
-
-test_tree_construct: test_tree_construct.o allocators.o lapack_wrapper.o utils.o common_data.o 
-	gcc \
-		${BUILD_DIR}/test_tree_construct.o \
-		${BUILD_DIR}/allocators.o \
-		${BUILD_DIR}/lapack_wrapper.o  \
-		${BUILD_DIR}/utils.o \
-		${BUILD_DIR}/common_data.o \
-		-o ${OUT_DIR}/test_tree_construct \
-		-lopenblas -lm -lcriterion \
-		-Wall -Wextra \
 		${EXTRA_FLAGS}
 
 test_tree_construct.o: ${TESTS_DIR}/test_tree_construct.c
@@ -105,21 +71,14 @@ test_tree_construct.o: ${TESTS_DIR}/test_tree_construct.c
 		${WARNINGS} \
 		${EXTRA_FLAGS}
 
-test_allocators: test_allocators.o utils.o
-	gcc \
-		${BUILD_DIR}/test_allocators.o \
-		${BUILD_DIR}/utils.o \
-		-o ${OUT_DIR}/test_allocators \
-		-lopenblas -lm -lcriterion \
-		-Wall -Wextra \
-		${EXTRA_FLAGS}
-
 test_allocators.o: ${TESTS_DIR}/test_allocators.c
 	gcc \
 		-c ${TESTS_DIR}/test_allocators.c \
 		-o ${BUILD_DIR}/test_allocators.o \
 		-I ${INCLUDE_DIR} -I ${INTERNAL_INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${EXTRA_FLAGS}
+
+
 
 test_real_data: test_real_data.o utils.o common_data.o io.o allocators.o constructors_omp.o lapack_wrapper.o vector_algebra.o dense_algebra.o common.o hodlr_algebra.o main_utils.o
 	gcc \
@@ -142,17 +101,14 @@ test_real_data: test_real_data.o utils.o common_data.o io.o allocators.o constru
 		-fopenmp \
 		${REAL_DATA_PRINT_S}
 
-test_real_data.o: ${TESTS_DIR}/test_real_data.c
+test_real_data.o: ${HOME_DIR}/test_real_data.c
 	gcc \
-		-c ${TESTS_DIR}/test_real_data.c \
+	  -c ${HOME_DIR}/test_real_data.c \
 		-o ${BUILD_DIR}/test_real_data.o \
 		-I ${INCLUDE_DIR} -I ${INTERNAL_INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${EXTRA_FLAGS} ${REAL_DATA_PRINT_S} -fopenmp
 
 
-
-tree.o: ${SRC_DIR}/tree.c lapack_wrapper.o
-	gcc -c ${SRC_DIR}/tree.c -o ${BUILD_DIR}/tree.o -I ${INCLUDE_DIR} -lm -Wall -Wextra -g
 
 allocators.o: ${SRC_DIR}/allocators.c
 	${COMPILER} \
@@ -207,28 +163,28 @@ hodlr_algebra.o: ${SRC_DIR}/hodlr_algebra.c
 
 
 
-utils.o: ${TESTS_DIR}/utils.c
+utils.o: ${UTIL_DIR}/utils.c
 	gcc \
-		-c ${TESTS_DIR}/utils.c \
+		-c ${UTIL_DIR}/utils.c \
 		-o ${BUILD_DIR}/utils.o \
 		-lm -lcriterion \
-		-I ${UTIL_INCLUDE_DIR} \
+		-I ${UTIL_DIR} \
 		${EXTRA_FLAGS}
 
-common_data.o: ${TESTS_DIR}/common_data.c
+common_data.o: ${UTIL_DIR}/common_data.c
 	gcc \
-		-c ${TESTS_DIR}/common_data.c \
+		-c ${UTIL_DIR}/common_data.c \
 		-o ${BUILD_DIR}/common_data.o \
 		-lcriterion \
-		-I ${UTIL_INCLUDE_DIR} \
+		-I ${UTIL_DIR} \
 		${EXTRA_FLAGS}
 
-io.o: ${TESTS_DIR}/io.c
+io.o: ${UTIL_DIR}/io.c
 	gcc \
-		-c ${TESTS_DIR}/io.c \
+		-c ${UTIL_DIR}/io.c \
 		-o ${BUILD_DIR}/io.o \
 		-lcriterion \
-		-I ${UTIL_INCLUDE_DIR} \
+		-I ${UTIL_DIR} \
 		${WARNINGS} ${EXTRA_FLAGS} -D_TEST_HODLR
 
 common.o: ${DEV_DIR}/common.c
