@@ -17,7 +17,7 @@
 #include "../../src/constructors.c"
 #include "../../include/error.h"
 #include "../../include/blas_wrapper.h"
-#include "../../include/tree.h"
+#include "../../include/hodlr.h"
 
 
 #define STR_LEN 10

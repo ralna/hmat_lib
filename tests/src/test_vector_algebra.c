@@ -13,7 +13,6 @@
 #include "../include/utils.h"
 #include "../include/common_data.h"
 
-#include "../../include/tree.h"
 #include "../../src/vector_algebra.c"
 
 

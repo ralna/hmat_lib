@@ -13,8 +13,6 @@
 #include "../include/utils.h"
 #include "../include/common_data.h"
 
-#include "../../include/tree.h"
-#include "../../include/error.h"
 #include "../../src/dense_algebra.c"
 
 

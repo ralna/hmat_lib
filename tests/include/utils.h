@@ -2,7 +2,7 @@
 #define _TEST_HODLR 1
 #endif
 
-#include "../../include/tree.h"
+#include "../../include/hodlr.h"
 
 #define DELTA 1e-10f
 

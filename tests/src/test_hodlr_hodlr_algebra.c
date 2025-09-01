@@ -14,7 +14,6 @@
 #include "../include/utils.h"
 #include "../include/common_data.h"
 
-#include "../../include/tree.h"
 #include "../../include/utils.h"
 #include "../../src/hodlr_algebra.c"
 

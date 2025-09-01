@@ -1,4 +1,4 @@
-#include "../../include/tree.h"
+#include "../../include/hodlr.h"
 
 double * construct_any_matrix(const int m, 
                               void(*matrix_func)(const int, double *));
