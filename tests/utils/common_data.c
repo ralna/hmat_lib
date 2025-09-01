@@ -3,7 +3,7 @@
 
 #include <criterion/criterion.h>
 
-#include "../include/common_data.h"
+#include "./common_data.h"
 #include "../../include/hmat_lib/hodlr.h"
 
 

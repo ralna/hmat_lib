@@ -9,7 +9,7 @@
 #include "../include/hmat_lib/vector_algebra.h"
 #include "../include/hmat_lib/dense_algebra.h"
 
-#include "../tests/include/io.h"
+#include "../tests/utils/io.h"
 #include "../include/internal/blas_wrapper.h"
 
 

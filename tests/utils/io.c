@@ -9,6 +9,9 @@
 #endif
 
 
+#include "./io.h"
+
+
 double * read_dense_matrix(char *path, 
                            int *size,
                            void *(*malloc)(size_t size),

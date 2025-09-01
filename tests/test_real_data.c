@@ -17,18 +17,18 @@
 #include <criterion/new/assert.h>
 #include <criterion/logging.h>
 
-#include "../../include/hmat_lib/hodlr.h"
-#include "../../include/hmat_lib/error.h"
-#include "../../include/hmat_lib/allocators.h"
-#include "../../include/hmat_lib/constructors.h"
-#include "../../include/hmat_lib/vector_algebra.h"
-#include "../../include/hmat_lib/dense_algebra.h"
-#include "../../include/hmat_lib/hodlr_algebra.h"
-#include "../../include/internal/blas_wrapper.h"
+#include "../include/hmat_lib/hodlr.h"
+#include "../include/hmat_lib/error.h"
+#include "../include/hmat_lib/allocators.h"
+#include "../include/hmat_lib/constructors.h"
+#include "../include/hmat_lib/vector_algebra.h"
+#include "../include/hmat_lib/dense_algebra.h"
+#include "../include/hmat_lib/hodlr_algebra.h"
+#include "../include/internal/blas_wrapper.h"
 
-#include "../include/io.h"
-#include "../include/utils.h"
-#include "../include/common_data.h"
+#include "./utils/io.h"
+#include "./utils/utils.h"
+#include "./utils/common_data.h"
 
 #ifdef HODLR_REAL_DATA_PRINT_S
 #include "../../dev/common.h"
