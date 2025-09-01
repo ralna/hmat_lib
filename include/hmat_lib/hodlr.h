@@ -263,13 +263,6 @@ struct TreeHODLR {
 };
 
 
-double * multiply_vector(
-  const struct TreeHODLR *hodlr, 
-  const double *vector, 
-  double *out,
-  int *ierr
-);
-
 int multiply_hodlr_hodlr(
   const struct TreeHODLR *hodlr1,
   const struct TreeHODLR *hodlr2,
