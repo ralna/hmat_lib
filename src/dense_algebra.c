@@ -2,7 +2,7 @@
 #include <math.h>
 
 #include "../include/lapack_wrapper.h"
-#include "../include/tree.h"
+#include "../include/hodlr.h"
 #include "../include/error.h"
 #include "../include/utils.h"
 #include "../include/blas_wrapper.h"

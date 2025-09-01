@@ -7,7 +7,7 @@
 #include <criterion/new/assert.h>
 
 #include "../include/utils.h"
-#include "../../include/tree.h"
+#include "../../include/hodlr.h"
 #include "../../include/blas_wrapper.h"
 
 

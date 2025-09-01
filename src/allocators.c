@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "../include/tree.h"
+#include "../include/hodlr.h"
 #include "../include/error.h"
 
 

@@ -17,7 +17,7 @@
 #include <criterion/new/assert.h>
 #include <criterion/logging.h>
 
-#include "../../include/tree.h"
+#include "../../include/hodlr.h"
 #include "../../include/error.h"
 #include "../../include/blas_wrapper.h"
 

@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-#include "../include/tree.h"
+#include "../include/hodlr.h"
 #include "../include/error.h"
 #include "../include/blas_wrapper.h"
 
