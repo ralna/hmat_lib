@@ -76,5 +76,6 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/${CMAKE_INSTALL_BINDIR})
 
 ##### MAIN #####
 add_subdirectory(src)
+add_subdirectory(dev)
 
 

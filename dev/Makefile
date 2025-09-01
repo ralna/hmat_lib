@@ -14,12 +14,13 @@ OMP := #-fopenmp
 
 WARNINGS := -Wall -Wextra -Wno-unknown-pragmas
 
-SRC_DIR := src
-INCLUDE_DIR := include
-BUILD_DIR := build
-OUT_DIR := bin
+SRC_DIR := ../src
+DEV_DIR := ./
+INCLUDE_DIR := ../include
+BUILD_DIR := ../build
+OUT_DIR := ../bin
 
-OTHER_DIR := ignore
+OTHER_DIR := ../ignore
 
 
 test: test.o allocators.o constructors.o vector_algebra.o dense_algebra.o io.o utils.o
@@ -38,8 +39,8 @@ test: test.o allocators.o constructors.o vector_algebra.o dense_algebra.o io.o u
 		${OMP} \
 		${EXTRA_FLAGS}
 
-test.o: ${SRC_DIR}/test.c
-	${COMPILER} -c ${SRC_DIR}/test.c -o ${BUILD_DIR}/test.o -I ${INCLUDE_DIR} ${EXTRA_FLAGS}
+test.o: ${DEV_DIR}/test.c
+	${COMPILER} -c ${DEV_DIR}/test.c -o ${BUILD_DIR}/test.o -I ${INCLUDE_DIR} ${EXTRA_FLAGS}
 
 compare: compare.o lapack_wrapper.o
 	${COMPILER} \

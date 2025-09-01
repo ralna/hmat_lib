@@ -179,7 +179,7 @@ int main(int argc, char **argv) {
   }
 
   printf("HODLR vector multiplication:\n");
-  double *result = multiply_vector(hodlr, vector, NULL);
+  double *result = multiply_vector(hodlr, vector, NULL, &ierr);
   if (m < 4 * MAX_PRINT_M) {
     print_vector(m, result);
   }
@@ -213,13 +213,13 @@ int main(int argc, char **argv) {
   //printf("\n\n");
   printf("\n\nHODLR dense matrix multiplication:\n");
 
-  result = multiply_hodlr_dense(hodlr, matrix, m, m, NULL, m);
+  result = multiply_hodlr_dense(hodlr, matrix, m, m, NULL, m, &ierr);
   if (m < MAX_PRINT_M) {
     print_matrix(m, m, result);
   }
   free(result);
 
-  result = multiply_dense_hodlr(hodlr, matrix, m, m, NULL, m);
+  result = multiply_dense_hodlr(hodlr, matrix, m, m, NULL, m, &ierr);
   if (m < MAX_PRINT_M) {
     print_matrix(m, m, result);
   }
