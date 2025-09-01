@@ -350,6 +350,12 @@ static inline int multiply_off_diagonal_transpose_dense(
  *     point to the same memory location.
  * ALLOCATION_FAILURE
  *     If ``out == NULL`` and its allocation fails.
+ *
+ * See Also
+ * --------
+ * multiply_hodlr_transpose_dense : Performs a transpose.
+ * multiply_dense_hodlr : Other side of multiplication.
+ * multiply_internal_node_dense : Uses internal node instead of HODLR struct.
  */
 double * multiply_hodlr_dense(
   const struct TreeHODLR *restrict const hodlr,
@@ -475,6 +481,12 @@ double * multiply_hodlr_dense(
  *     array. Must be greater than or equal to the number of rows of 
  *     ``hodlr``, even if ``out == NULL``, in which case ``out`` will be 
  *     allocated with size ``out_ld`` x ``matrix_n``.
+ *
+ * See Also
+ * --------
+ * multiply_hodlr_dense : Uses HODLR struct instead of internal node.
+ * multiply_internal_node_transpose_dense : Performs transpose.
+ * multiply_dense_internal_node : Other side of multiplication.
  */
 void multiply_internal_node_dense(
   const struct HODLRInternalNode *restrict const internal,
@@ -595,6 +607,11 @@ void multiply_internal_node_dense(
  *     point to the same memory location.
  * ALLOCATION_FAILURE
  *     If ``out == NULL`` and its allocation fails.
+ *
+ * See Also
+ * --------
+ * multiply_hodlr_dense : Does not transpose.
+ * multiply_internal_node_transpose_dense : Uses internal node not HODLR struct.
  */
 double * multiply_hodlr_transpose_dense(
   const struct TreeHODLR *restrict const hodlr,
@@ -683,6 +700,11 @@ double * multiply_hodlr_transpose_dense(
  *     array. Must be greater than or equal to the number of rows of 
  *     ``hodlr``, even if ``out == NULL``, in which case ``out`` will be 
  *     allocated with size ``out_ld`` x ``matrix_n``.
+ *
+ * See Also
+ * --------
+ * multiply_hodlr_transpose_dense : Uses HODLR struct instead of internal node.
+ * multiply_internal_node_dense : Does not transpose.
  */
 void multiply_internal_node_transpose_dense(
   const struct HODLRInternalNode *restrict const internal,
@@ -925,6 +947,11 @@ static inline int multiply_dense_off_diagonal(
  *     point to the same memory location.
  * ALLOCATION_FAILURE
  *     If ``out == NULL`` and its allocation fails.
+ *
+ * See Also
+ * --------
+ * multiply_hodlr_dense : Other side of multiplication.
+ * multiply_dense_internal_node : Uses an internal node instead of HODLR struct.
  */
 double * multiply_dense_hodlr(
   const struct TreeHODLR *restrict const hodlr,
@@ -999,7 +1026,7 @@ double * multiply_dense_hodlr(
 
 
 /**
- * Multiplies a dense matryx by a HODLR matrix represented by an internal 
+ * Multiplies a dense matrix by a HODLR matrix represented by an internal 
  * node.
  *
  * Given a dense matrix, and an internal node and its height, computes their
@@ -1050,6 +1077,11 @@ double * multiply_dense_hodlr(
  *     array. Must be greater than or equal to ``matrix_m``, even if 
  *     ``out == NULL``, in which case ``out`` will be allocated with size 
  *     ``out_ld`` x M.
+ *
+ * See Also
+ * --------
+ * multiply_dense_hodlr : Takes a HODLR struct instead of internal node.
+ * multiply_internal_node_dense : Other side of multiplication.
  */
 void multiply_dense_internal_node(
   const struct HODLRInternalNode *restrict const internal,
