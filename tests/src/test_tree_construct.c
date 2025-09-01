@@ -16,8 +16,9 @@
 
 #include "../../src/constructors.c"
 #include "../../include/hmat_lib/error.h"
-#include "../../include/internal/blas_wrapper.h"
 #include "../../include/hmat_lib/hodlr.h"
+#include "../../include/hmat_lib/allocators.h"
+#include "../../include/internal/blas_wrapper.h"
 
 
 #define STR_LEN 10

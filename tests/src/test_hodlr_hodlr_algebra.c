@@ -16,6 +16,7 @@
 
 #include "../../include/hmat_lib/utils.h"
 #include "../../src/hodlr_algebra.c"
+#include "../../include/hmat_lib/allocators.h"
 
 
 #define STR_LEN 10

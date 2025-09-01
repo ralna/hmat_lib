@@ -4,6 +4,7 @@
 
 #include "../include/hmat_lib/hodlr.h"
 #include "../include/hmat_lib/error.h"
+#include "../include/hmat_lib/allocators.h"
 
 
 /**

@@ -14,6 +14,7 @@
 #include "../include/common_data.h"
 
 #include "../../src/vector_algebra.c"
+#include "../../include/hmat_lib/allocators.h"
 
 
 #define STR_LEN 10
