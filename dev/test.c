@@ -3,9 +3,9 @@
 #include <math.h>
 #include <string.h>
 
-#include "../include/tree.h"
+#include "../include/hmat_lib/hodlr.h"
 #include "../tests/include/io.h"
-#include "../include/blas_wrapper.h"
+#include "../include/internal/blas_wrapper.h"
 
 
 #define MAX_PRINT_M 25

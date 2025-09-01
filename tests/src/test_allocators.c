@@ -12,8 +12,8 @@
 #include "../include/utils.h"
 
 #include "../../src/allocators.c"
-#include "../../include/error.h"
-#include "../../include/blas_wrapper.h"
+#include "../../include/hmat_lib/error.h"
+#include "../../include/internal/blas_wrapper.h"
 
 
 Test(allocators, initialise_leaf_offdiagonal) {

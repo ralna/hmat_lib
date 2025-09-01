@@ -17,9 +17,9 @@
 #include <criterion/new/assert.h>
 #include <criterion/logging.h>
 
-#include "../../include/hodlr.h"
-#include "../../include/error.h"
-#include "../../include/blas_wrapper.h"
+#include "../../include/hmat_lib/hodlr.h"
+#include "../../include/hmat_lib/error.h"
+#include "../../include/internal/blas_wrapper.h"
 
 #include "../include/io.h"
 #include "../include/utils.h"
@@ -166,7 +166,7 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
 
   // HODLR x vector
   start_timer(&start, &wstart);
-  double *vector_actual = multiply_vector(hodlr, vector, NULL);
+  double *vector_actual = multiply_vector(hodlr, vector, NULL, &ierr);
   get_time(start, wstart, "Vector multiplied!");
 
   // Check vector operation
@@ -188,7 +188,7 @@ ParameterizedTest(struct Parameters *params, real_data, H) {
   // HODLR x dense matrix
   start_timer(&start, &wstart);
   double *matrix_actual = multiply_hodlr_dense(hodlr, params->matrix, 
-                                               m, m, NULL, m);
+                                               m, m, NULL, m, &ierr);
   get_time(start, wstart, "Matrix multiplied!");
 
   // Check matrix operation

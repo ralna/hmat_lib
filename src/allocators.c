@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "../include/hodlr.h"
-#include "../include/error.h"
+#include "../include/hmat_lib/hodlr.h"
+#include "../include/hmat_lib/error.h"
 
 
 /**
