@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "../include/tree.h"
+#include "../include/hmat_lib/hodlr.h"
 
 #ifdef _TEST_HODLR
 #include <criterion/logging.h>

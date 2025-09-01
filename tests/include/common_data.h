@@ -1,4 +1,4 @@
-#include "../../include/hodlr.h"
+#include "../../include/hmat_lib/hodlr.h"
 
 double * construct_any_matrix(const int m, 
                               void(*matrix_func)(const int, double *));

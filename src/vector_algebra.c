@@ -1,8 +1,8 @@
 #include <stdlib.h>
 
-#include "../include/hodlr.h"
-#include "../include/error.h"
-#include "../include/blas_wrapper.h"
+#include "../include/hmat_lib/hodlr.h"
+#include "../include/hmat_lib/error.h"
+#include "../include/internal/blas_wrapper.h"
 
 
 /**

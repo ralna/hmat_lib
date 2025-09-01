@@ -1,11 +1,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../include/hodlr.h"
-#include "../include/error.h"
-#include "../include/utils.h"
-#include "../include/blas_wrapper.h"
-#include "../include/lapack_wrapper.h"
+#include "../include/hmat_lib/hodlr.h"
+#include "../include/hmat_lib/error.h"
+#include "../include/hmat_lib/utils.h"
+#include "../include/internal/blas_wrapper.h"
+#include "../include/internal/lapack_wrapper.h"
 
 
 /**

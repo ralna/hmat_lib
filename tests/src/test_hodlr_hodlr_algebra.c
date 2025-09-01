@@ -14,7 +14,7 @@
 #include "../include/utils.h"
 #include "../include/common_data.h"
 
-#include "../../include/utils.h"
+#include "../../include/hmat_lib/utils.h"
 #include "../../src/hodlr_algebra.c"
 
 

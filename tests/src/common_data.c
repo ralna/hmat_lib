@@ -4,7 +4,7 @@
 #include <criterion/criterion.h>
 
 #include "../include/common_data.h"
-#include "../../include/hodlr.h"
+#include "../../include/hmat_lib/hodlr.h"
 
 
 double * construct_any_matrix(const int m, 

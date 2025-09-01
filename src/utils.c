@@ -1,5 +1,5 @@
-#include "../include/hodlr.h"
-#include "../include/utils.h"
+#include "../include/hmat_lib/hodlr.h"
+#include "../include/hmat_lib/utils.h"
 
 
 int get_highest_s(const struct TreeHODLR *const hodlr) {

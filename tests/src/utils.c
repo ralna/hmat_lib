@@ -7,8 +7,8 @@
 #include <criterion/new/assert.h>
 
 #include "../include/utils.h"
-#include "../../include/hodlr.h"
-#include "../../include/blas_wrapper.h"
+#include "../../include/hmat_lib/hodlr.h"
+#include "../../include/internal/blas_wrapper.h"
 
 
 void print_matrix(int m, int n, double *matrix, int lda) {

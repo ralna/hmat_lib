@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "../include/lapack_wrapper.h"
-#include "../include/error.h"
+#include "../include/internal/lapack_wrapper.h"
+#include "../include/hmat_lib/error.h"
 
 
 int svd_double(int m,

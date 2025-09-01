@@ -2,7 +2,7 @@
 #define _TEST_HODLR 1
 #endif
 
-#include "../../include/hodlr.h"
+#include "../../include/hmat_lib/hodlr.h"
 
 #define DELTA 1e-10f
 
