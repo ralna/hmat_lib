@@ -15,6 +15,7 @@
 
 #include "../../src/dense_algebra.c"
 #include "../../include/hmat_lib/allocators.h"
+#include "../../include/hmat_lib/constructors.h"
 
 
 #define STR_LEN 10
@@ -57,7 +58,7 @@ ParameterizedTestParameters(dense_algebra, compute_workspace_size) {
   struct ParametersWorkspaceSize *params = 
     cr_malloc(n_params * sizeof(struct ParametersWorkspaceSize));
   
-  int idx = 0, ierr = SUCCESS, m = 0;
+  int idx = 0, ierr = SUCCESS;
   for (int height = 1; height < max_height+1; height++) {
     arrset(ss, ss_len, height);
     params[idx].expected_s = height;

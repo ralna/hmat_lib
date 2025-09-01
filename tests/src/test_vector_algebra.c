@@ -15,6 +15,7 @@
 
 #include "../../src/vector_algebra.c"
 #include "../../include/hmat_lib/allocators.h"
+#include "../../include/hmat_lib/constructors.h"
 
 
 #define STR_LEN 10

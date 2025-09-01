@@ -1,9 +1,11 @@
 #include <stdlib.h>
 
-#include "../include/internal/lapack_wrapper.h"
-#include "../include/internal/blas_wrapper.h"
 #include "../include/hmat_lib/hodlr.h"
 #include "../include/hmat_lib/error.h"
+#include "../include/hmat_lib/constructors.h"
+
+#include "../include/internal/lapack_wrapper.h"
+#include "../include/internal/blas_wrapper.h"
 
 
 /**
