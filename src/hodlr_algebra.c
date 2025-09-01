@@ -4,6 +4,7 @@
 #include "../include/hmat_lib/hodlr.h"
 #include "../include/hmat_lib/error.h"
 #include "../include/hmat_lib/utils.h"
+#include "../include/hmat_lib/dense_algebra.h"
 #include "../include/internal/blas_wrapper.h"
 #include "../include/internal/lapack_wrapper.h"
 
