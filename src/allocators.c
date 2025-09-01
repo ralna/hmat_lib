@@ -199,6 +199,13 @@ static inline void initialise_internal(
  *     Any partially allocated memory is automatically freed on failure and 
  *     ``NULL`` is returned.
  *
+ * Errors
+ * ------
+ * INPUT_ERROR
+ *     If ``height < 1``.
+ * ALLOCATION_FAILURE
+ *     If any of the ``malloc`` calls fails.
+ *
  * Warnings
  * --------
  * The tree obtained from this function should only be passed into a function 
@@ -367,6 +374,13 @@ struct TreeHODLR* allocate_tree(const int height, int *ierr) {
  *     Any partially allocated memory is automatically freed on failure and 
  *     ``NULL`` is returned.
  *
+ * Errors
+ * ------
+ * INPUT_ERROR
+ *     If ``height < 1``.
+ * ALLOCATION_FAILURE
+ *     If any of the ``malloc`` calls fails.
+ *
  * Warnings
  * --------
  * The tree obtained from this function should only be passed into a function 
@@ -393,6 +407,10 @@ struct TreeHODLR * allocate_tree_monolithic(const int height, int *ierr,
                                             void *(*malloc)(size_t size),
                                             void(*free)(void *ptr)) {
 #endif
+  if (height < 1) {
+    *ierr = INPUT_ERROR;
+    return NULL;
+  }
   size_t size_internal_nodes, size_leaf_nodes;
   size_t size_work_queue, size_innermost_leaves;
   *ierr = SUCCESS;
