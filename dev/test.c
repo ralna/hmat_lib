@@ -4,6 +4,9 @@
 #include <string.h>
 
 #include "../include/hmat_lib/hodlr.h"
+#include "../include/hmat_lib/allocators.h"
+#include "../include/hmat_lib/constructors.h"
+
 #include "../tests/include/io.h"
 #include "../include/internal/blas_wrapper.h"
 
