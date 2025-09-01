@@ -124,6 +124,8 @@ static inline unsigned int multiply_off_diagonal_vector(
  * INPUT_ERROR
  *     If ``hodlr`` or ``vector`` is ``NULL`` or if ``vector`` and ``out`` 
  *     point to the same memory location.
+ * ALLOCATION_FAILURE
+ *     If ``out == NULL`` and its allocation fails.
  */
 double * multiply_vector(const struct TreeHODLR *restrict const hodlr,
                          const double *restrict const vector,
@@ -136,6 +138,7 @@ double * multiply_vector(const struct TreeHODLR *restrict const hodlr,
   if (out == NULL) {
     out = malloc(hodlr->root->m * sizeof(double));
     if (out == NULL) {
+      *ierr = ALLOCATION_FAILURE;
       return NULL;
     }
   }

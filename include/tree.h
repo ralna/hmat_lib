@@ -318,14 +318,16 @@ double * multiply_hodlr_dense(const struct TreeHODLR *hodlr,
                               const int matrix_n,
                               const int matrix_ld,
                               double *out,
-                              const int out_ld);
+                              const int out_ld,
+                              int *ierr);
 
 double * multiply_hodlr_transpose_dense(const struct TreeHODLR *hodlr,
                                         const double *matrix,
                                         const int matrix_n,
                                         const int matrix_ld,
                                         double *out,
-                                        const int out_ld);
+                                        const int out_ld,
+                                        int *ierr);
 
 void multiply_internal_node_dense(
   const struct HODLRInternalNode *internal,
@@ -356,7 +358,8 @@ double * multiply_dense_hodlr(const struct TreeHODLR *hodlr,
                               const int matrix_m,
                               const int matrix_ld,
                               double * out,
-                              const int out_ld);
+                              const int out_ld,
+                              int *ierr);
  
 void compute_construct_tree_array_sizes(const int height,
                                         size_t *size_internal_nodes,

@@ -312,9 +312,13 @@ ParameterizedTest(
               params->hodlr_name, params->hodlr->height, params->dense_name, 
               params->m, params->dense_n, params->dense_ld);
 
+  int ierr;
   double * result = multiply_hodlr_dense(
-    params->hodlr, params->dense, params->dense_n, params->dense_ld, NULL, m
+    params->hodlr, params->dense, params->dense_n, params->dense_ld, NULL, m, 
+    &ierr
   );
+
+  cr_assert(eq(int, ierr, SUCCESS));
 
   double norm, diff;
   expect_matrix_double_eq_safe(
@@ -404,9 +408,13 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra,
               params->hodlr_name, params->hodlr->height, params->dense_name, 
               params->m, params->dense_n, params->dense_ld);
 
+  int ierr;
   double * result = multiply_hodlr_transpose_dense(
-    params->hodlr, params->dense, params->dense_n, params->dense_ld, NULL, m
+    params->hodlr, params->dense, params->dense_n, params->dense_ld, NULL, m,
+    &ierr
   );
+
+  cr_expect(eq(int, ierr, SUCCESS));
 
   double norm, diff;
   expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
@@ -487,16 +495,22 @@ ParameterizedTestParameters(dense_algebra, dense_hodlr) {
 }
 
 
-ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, dense_hodlr) {
+ParameterizedTest(
+  struct ParametersTestHxD *params, dense_algebra, dense_hodlr
+) {
   int m = params->hodlr->root->m;
 
   cr_log_info("%.10s (height=%d) x %.10s (%dx%d, lda=%d)",
               params->hodlr_name, params->hodlr->height, params->dense_name, 
               params->m, params->dense_n, params->dense_ld);
 
+  int ierr;
   double * result = multiply_dense_hodlr(
-    params->hodlr, params->dense, params->dense_n, params->dense_ld, NULL, m
+    params->hodlr, params->dense, params->dense_n, params->dense_ld, NULL, m,
+    &ierr
   );
+
+  cr_expect(eq(int, ierr, SUCCESS));
 
   double norm, diff;
   expect_matrix_double_eq_safe(
