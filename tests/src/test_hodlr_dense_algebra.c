@@ -64,7 +64,8 @@ ParameterizedTestParameters(dense_algebra, compute_workspace_size) {
     params[idx].expected_s = height;
 
     params[idx].matrix_a = 2048;
-    params[idx].hodlr = allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
+    params[idx].hodlr = 
+      allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
     fill_leaf_node_ints(params[idx].hodlr, 42, ss);
 
     params[idx].expected = ss[0] * params[idx].matrix_a;
@@ -80,7 +81,8 @@ ParameterizedTestParameters(dense_algebra, compute_workspace_size) {
 
     ss[2 * height] = highest_s;
     params[idx].matrix_a = 42;
-    params[idx].hodlr = allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
+    params[idx].hodlr = 
+      allocate_tree_monolithic(height, &ierr, &cr_malloc, &cr_free);
     fill_leaf_node_ints(params[idx].hodlr, 2048, ss);
 
     params[idx].expected = highest_s * params[idx].matrix_a;
@@ -146,12 +148,12 @@ struct ParametersTestHxD {
 
 void free_hd_params(struct criterion_test_params *params) {
   for (size_t i = 0; i < params->length; i++) {
-    struct ParametersTestHxD *param = (struct ParametersTestHxD *) params->params + i;
+    struct ParametersTestHxD *param = 
+      (struct ParametersTestHxD *) params->params + i;
     
     free_tree_hodlr(&(param->hodlr), &cr_free);
     cr_free(param->expected);
     cr_free(param->dense);
-    //cr_free(param);
   }
   cr_free(params->params);
 }
@@ -203,7 +205,8 @@ static int laplacian_matrix(struct ParametersTestHxD *params,
     for (int j = 0; j < n_cases; j++) {
       strncat(params[i+j].dense_name, "10", STR_LEN);
       params[i+j].dense = construct_full_matrix(params[i+j].m, 10.0);
-      params[i+j].expected = cr_calloc(params[i+j].m * params[i+j].m, sizeof(double));
+      params[i+j].expected = 
+        cr_calloc(params[i+j].m * params[i+j].m, sizeof(double));
     }
 
     // LAPLACIAN MATRIX
@@ -258,8 +261,10 @@ static int identity_matrix(struct ParametersTestHxD *params) {
     params[idx].expected = construct_identity_matrix(params[idx].m);
 
     strncat(params[idx+1].dense_name, "0", STR_LEN);
-    params[idx+1].dense = cr_calloc(params[idx+1].m * params[idx+1].m, sizeof(double));
-    params[idx+1].expected = cr_calloc(params[idx+1].m * params[idx+1].m, sizeof(double));
+    params[idx+1].dense = 
+      cr_calloc(params[idx+1].m * params[idx+1].m, sizeof(double));
+    params[idx+1].expected = 
+      cr_calloc(params[idx+1].m * params[idx+1].m, sizeof(double));
 
     strncat(params[idx+2].dense_name, "L", STR_LEN);
     params[idx+2].dense = construct_laplacian_matrix(params[idx].m);
@@ -274,7 +279,8 @@ struct ParametersTestHxD * generate_hodlr_dense_params(int * len) {
   const int n_params = 9+9;
   int actual = 0;
   *len = n_params;
-  struct ParametersTestHxD *params = cr_malloc(n_params * sizeof(struct ParametersTestHxD));
+  struct ParametersTestHxD *params = 
+    cr_malloc(n_params * sizeof(struct ParametersTestHxD));
 
   actual += laplacian_matrix(params, &fill_matrix_row, false);
   actual += identity_matrix(params + actual);
@@ -292,23 +298,29 @@ ParameterizedTestParameters(dense_algebra, test_hodlr_dense) {
   int n_params;
   struct ParametersTestHxD *params = generate_hodlr_dense_params(&n_params);
 
-  return cr_make_param_array(struct ParametersTestHxD, params, n_params, free_hd_params);
+  return cr_make_param_array(struct ParametersTestHxD, params, n_params, 
+                             free_hd_params);
 }
 
 
-ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, test_hodlr_dense) {
+ParameterizedTest(
+  struct ParametersTestHxD *params, dense_algebra, test_hodlr_dense
+) {
   int m = params->hodlr->root->m;
 
   cr_log_info("%.10s (height=%d) x %.10s (%dx%d, lda=%d)",
               params->hodlr_name, params->hodlr->height, params->dense_name, 
               params->m, params->dense_n, params->dense_ld);
 
-  double * result = multiply_hodlr_dense(params->hodlr, params->dense, params->dense_n, 
-                                         params->dense_ld, NULL, m);
+  double * result = multiply_hodlr_dense(
+    params->hodlr, params->dense, params->dense_n, params->dense_ld, NULL, m
+  );
 
   double norm, diff;
-  expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M', "", &norm, &diff);
+  expect_matrix_double_eq_safe(
+    result, params->expected, m, params->dense_n, m, params->dense_n, m, m, 
+    'M', "", &norm, &diff
+  );
   cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
 
@@ -320,7 +332,8 @@ ParameterizedTestParameters(dense_algebra, test_internal_dense) {
   int n_params;
   struct ParametersTestHxD *params = generate_hodlr_dense_params(&n_params);
 
-  return cr_make_param_array(struct ParametersTestHxD, params, n_params, free_hd_params);
+  return cr_make_param_array(struct ParametersTestHxD, params, n_params, 
+                             free_hd_params);
 }
 
 
@@ -345,8 +358,10 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra,
   );
 
   double norm, diff;
-  expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M', "", &norm, &diff);
+  expect_matrix_double_eq_safe(
+    result, params->expected, m, params->dense_n, m, params->dense_n, m, m, 
+    'M', "", &norm, &diff
+  );
   cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
 
@@ -432,11 +447,12 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra,
   );
 
   double norm, diff;
-  expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M', "", &norm, &diff);
+  expect_matrix_double_eq_safe(
+    result, params->expected, m, params->dense_n, m, params->dense_n, m, m, 
+    'M', "", &norm, &diff
+  );
   cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
-
 
   free(result); free(workspace);
 }
@@ -447,7 +463,8 @@ struct ParametersTestHxD * generate_dense_hodlr_params(int * len) {
   const int n_params = 9+9;
   int actual = 0;
   *len = n_params;
-  struct ParametersTestHxD *params = cr_malloc(n_params * sizeof(struct ParametersTestHxD));
+  struct ParametersTestHxD *params = 
+    cr_malloc(n_params * sizeof(struct ParametersTestHxD));
 
   actual += laplacian_matrix(params, &fill_matrix_column, true);
   actual += identity_matrix(params + actual);
@@ -465,7 +482,8 @@ ParameterizedTestParameters(dense_algebra, dense_hodlr) {
   int n_params;
   struct ParametersTestHxD *params = generate_dense_hodlr_params(&n_params);
 
-  return cr_make_param_array(struct ParametersTestHxD, params, n_params, free_hd_params);
+  return cr_make_param_array(struct ParametersTestHxD, params, n_params, 
+                             free_hd_params);
 }
 
 
@@ -481,8 +499,10 @@ ParameterizedTest(struct ParametersTestHxD *params, dense_algebra, dense_hodlr) 
   );
 
   double norm, diff;
-  expect_matrix_double_eq_safe(result, params->expected, m, params->dense_n, 
-                               m, params->dense_n, m, m, 'M', "", &norm, &diff);
+  expect_matrix_double_eq_safe(
+    result, params->expected, m, params->dense_n, m, params->dense_n, m, m, 
+    'M', "", &norm, &diff
+  );
   cr_log_info("normv=%f, diff=%f, relerr=%f", sqrtf(norm), sqrtf(diff),
               sqrtf(diff) / sqrtf(norm));
 
@@ -494,7 +514,8 @@ ParameterizedTestParameters(dense_algebra, dense_internal) {
   int n_params;
   struct ParametersTestHxD *params = generate_dense_hodlr_params(&n_params);
 
-  return cr_make_param_array(struct ParametersTestHxD, params, n_params, free_hd_params);
+  return cr_make_param_array(struct ParametersTestHxD, params, n_params, 
+                             free_hd_params);
 }
 
 

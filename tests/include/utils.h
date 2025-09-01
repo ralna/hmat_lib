@@ -4,6 +4,8 @@
 
 #include "../../include/tree.h"
 
+#define DELTA 1e-10f
+
 void expect_leaf_offdiagonal(struct HODLRLeafNode *leaf,
                             struct HODLRInternalNode *parent);
 
@@ -18,12 +20,36 @@ int expect_tree_consistent(struct TreeHODLR *hodlr,
                            int height,
                            const long max_depth_n);
 
+int expect_off_diagonal(
+  const struct NodeOffDiagonal *actual,
+  const struct NodeOffDiagonal *expected,
+  const char *buffer
+);
+
+void expect_off_diagonal_decompress(
+  const struct NodeOffDiagonal *actual,
+  const struct NodeOffDiagonal *expected,
+  const int ld_expected,
+  const char *buffer,
+  double *workspace,
+  double *workspace2,
+  double *norm_out,
+  double *diff_out,
+  const double delta
+);
 
 int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected);
 
-void expect_hodlr_fake(const struct TreeHODLR *actual, 
-                       const struct TreeHODLR *expected,
-                       double *workspace);
+void expect_hodlr_decompress(
+  const bool fake_hodlr,
+  const struct TreeHODLR *actual, 
+  const struct TreeHODLR *expected,
+  double *workspace,
+  double *workspace2,
+  double *norm_out,
+  double *diff_out,
+  const double delta
+  );
  
 void log_matrix(const double *matrix, const int m, const int n, const int lda);
 
@@ -105,3 +131,10 @@ int expect_vector_double_eq_custom(
 
 void fill_leaf_node_ints(struct TreeHODLR *hodlr, const int m, int *ss);
 
+void print_matrix(int m, int n, double *matrix, int lda);
+
+void copy_block_sizes(
+  const struct TreeHODLR *src,
+  struct TreeHODLR *dest,
+  const bool copy_s
+);

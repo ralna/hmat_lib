@@ -10,7 +10,16 @@
 #include "../../include/tree.h"
 #include "../../include/blas_wrapper.h"
 
-static double DELTA = 1e-10;
+
+void print_matrix(int m, int n, double *matrix, int lda) {
+  for (int i=0; i<m; i++) {
+    for (int j=0; j < n; j++) {
+      printf("%f    ", matrix[j * lda + i]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
 
 
 inline void expect_leaf_offdiagonal(struct HODLRLeafNode *leaf,
@@ -91,6 +100,25 @@ int expect_tree_consistent(struct TreeHODLR *hodlr,
 }
 
 
+int expect_off_diagonal(
+  const struct NodeOffDiagonal *restrict const actual,
+  const struct NodeOffDiagonal *restrict const expected,
+  const char *restrict const buffer
+) {
+  int err = expect_matrix_double_eq_safe(
+    actual->u, expected->u, actual->m, actual->s, expected->m, expected->s,
+    actual->m, expected->m, 'U', buffer, NULL, NULL
+  );
+  
+  err += expect_matrix_double_eq_safe(
+    actual->v, expected->v, actual->n, expected->s, expected->n, expected->s, 
+    actual->n, expected->n, 'V', buffer, NULL, NULL
+  );
+
+  return err;
+}
+
+
 int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
   cr_expect(eq(actual->height, expected->height));
   if (actual->height != expected->height) {
@@ -113,43 +141,32 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
   queue_a[0] = actual->root;
   queue_e[0] = expected->root;
 
-  for (int i = 1; i < expected->height; i++) {
-    for (int j = 0; j < len_queue; j++) {
-      for (int k = 1; k < 3; k++) {
-        act = &(queue_a[j]->children[k].leaf->data);
-        exp = &(queue_e[j]->children[k].leaf->data);
+  for (int level = 1; level < expected->height; level++) {
+    for (int parent = 0; parent < len_queue; parent++) {
+      for (int child = 1; child < 3; child++) {
+        snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", 
+                expected->height, parent, child);
 
-        snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", i, j, k);
-        err += expect_matrix_double_eq_safe(
-          act->off_diagonal.u, exp->off_diagonal.u,
-          act->off_diagonal.m, act->off_diagonal.s, 
-          exp->off_diagonal.m, exp->off_diagonal.s,
-          act->off_diagonal.m, exp->off_diagonal.m,
-          'U', buffer, NULL, NULL
-        );
-        
-        err += expect_matrix_double_eq_safe(
-          act->off_diagonal.v, exp->off_diagonal.v,
-          act->off_diagonal.n, exp->off_diagonal.s,
-          exp->off_diagonal.n, exp->off_diagonal.s,
-          act->off_diagonal.n, exp->off_diagonal.n,
-          'V', buffer, NULL, NULL
+        expect_off_diagonal(
+          &queue_a[parent]->children[child].leaf->data.off_diagonal,
+          &queue_e[parent]->children[child].leaf->data.off_diagonal,
+          buffer
         );
       }
 
-      cr_expect(eq(int, queue_a[j]->children[0].internal->m, 
-                   queue_e[j]->children[0].internal->m),
-                "level=%d, node=%d, internal=0", i, j);
+      cr_expect(eq(int, queue_a[parent]->children[0].internal->m, 
+                   queue_e[parent]->children[0].internal->m),
+                "level=%d, node=%d, internal=0", level, parent);
 
-      cr_expect(eq(int, queue_a[j]->children[3].internal->m, 
-                   queue_e[j]->children[3].internal->m),
-                "level=%d, node=%d, internal=1", i, j);
+      cr_expect(eq(int, queue_a[parent]->children[3].internal->m, 
+                   queue_e[parent]->children[3].internal->m),
+                "level=%d, node=%d, internal=1", level, parent);
 
-      next_level_a[2 * j] = queue_a[j]->children[0].internal;
-      next_level_a[2 * j + 1] = queue_a[j]->children[3].internal;
+      next_level_a[2 * parent] = queue_a[parent]->children[0].internal;
+      next_level_a[2 * parent + 1] = queue_a[parent]->children[3].internal;
 
-      next_level_e[2 * j] = queue_e[j]->children[0].internal;
-      next_level_e[2 * j + 1] = queue_e[j]->children[3].internal;
+      next_level_e[2 * parent] = queue_e[parent]->children[0].internal;
+      next_level_e[2 * parent + 1] = queue_e[parent]->children[3].internal;
 
     }
     temp_pointer = queue_a;
@@ -164,26 +181,16 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
   }
 
   for (int i = 0; i < len_queue; i++) {
-    for (int j = 1; j < 3; j ++) {
-      act = &(queue_a[i]->children[j].leaf->data);
-      exp = &(queue_e[i]->children[j].leaf->data);
-        
-      snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", expected->height, i, j);
-      err += expect_matrix_double_eq_safe(
-        act->off_diagonal.u, exp->off_diagonal.u,
-        act->off_diagonal.m, act->off_diagonal.s,
-        exp->off_diagonal.m, exp->off_diagonal.s,
-        act->off_diagonal.m, exp->off_diagonal.m,
-        'U', buffer, NULL, NULL
-      );
-      err += expect_matrix_double_eq_safe(
-        act->off_diagonal.v, exp->off_diagonal.v,
-        act->off_diagonal.n, exp->off_diagonal.s,
-        exp->off_diagonal.n, exp->off_diagonal.s,
-        act->off_diagonal.n, exp->off_diagonal.n,
-        'V', buffer, NULL, NULL
+    for (int child = 1; child < 3; child++) {
+      snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", 
+               expected->height, i, child);
+      expect_off_diagonal(
+        &queue_a[i]->children[child].leaf->data.off_diagonal,
+        &queue_e[i]->children[child].leaf->data.off_diagonal,
+        buffer
       );
     }
+
     act = &(queue_a[i]->children[0].leaf->data);
     exp = &(queue_e[i]->children[0].leaf->data);
 
@@ -213,35 +220,73 @@ int expect_tree_hodlr(struct TreeHODLR *actual, struct TreeHODLR *expected) {
 }
 
 
-
-void expect_off_diagonal_recompress(
+void expect_off_diagonal_decompress(
   const struct NodeOffDiagonal *restrict const actual,
   const struct NodeOffDiagonal *restrict const expected,
   const int ld_expected,
-  double *restrict const workspace
+  const char *restrict const buffer,
+  double *restrict const workspace,
+  double *restrict const workspace2,
+  double *restrict norm_out,
+  double *restrict diff_out,
+  const double delta
 ) {
-  cr_expect(eq(int, actual->s, expected->s));
+  if (expected->s > 0)
+    cr_expect(eq(int, actual->s, expected->s), "%s", buffer);
 
   const double alpha = 1.0, beta = 0.0;
   dgemm_("N", "T", &actual->m, &actual->n, &actual->s, &alpha,
          actual->u, &actual->m, actual->v, &actual->n, &beta,
          workspace, &actual->m);
 
-  expect_matrix_double_eq_safe(
-    workspace, expected->u, actual->m, actual->n, expected->m, expected->n,
-    actual->m, ld_expected, 'O', "", NULL, NULL
-  );
+  if (expected->v == NULL) {
+    expect_matrix_double_eq_custom_safe(
+      workspace, expected->u, actual->m, actual->n, expected->m, expected->n,
+      actual->m, ld_expected, 'O', buffer, norm_out, diff_out, delta
+    );
+  } else {
+    dgemm_("N", "T", &expected->m, &expected->n, &expected->s, &alpha,
+           expected->u, &expected->m, expected->v, &expected->n, &beta,
+           workspace2, &expected->m);
+
+    expect_matrix_double_eq_custom_safe(
+      workspace, workspace2, actual->m, actual->n, expected->m, expected->n,
+      actual->m, expected->m, 'O', buffer, norm_out, diff_out, delta
+    );
+  }
 }
 
 
-void expect_hodlr_fake(const struct TreeHODLR *restrict const actual, 
-                       const struct TreeHODLR *restrict const expected,
-                       double *restrict const workspace) {
+void expect_hodlr_decompress(
+  const bool fake_hodlr,
+  const struct TreeHODLR *restrict const actual, 
+  const struct TreeHODLR *restrict const expected,
+  double *restrict workspace,
+  double *restrict workspace2,
+  double *restrict const norm_out,
+  double *restrict const diff_out,
+  const double delta
+) {
+  bool free_wksp = false;
+  if (workspace == NULL) {
+    const int m = expected->root->children[1].leaf->data.off_diagonal.m;
+    const int n = expected->root->children[1].leaf->data.off_diagonal.n;
+
+    workspace = malloc(2 * m * n * sizeof(double));
+    workspace2 = workspace + m * n;
+    free_wksp = true;
+  }
+
+  double norm = 0.0, diff = 0.0;
+
   struct HODLRInternalNode **queue_a = actual->work_queue;
   struct HODLRInternalNode **queue_e = expected->work_queue;
 
   long n_parent_nodes = actual->len_work_queue;
-  const int ld_expected = expected->root->m;
+  int ld_expected = expected->root->m;
+
+  const size_t sbuff = 50 * sizeof(char);
+  char *buffer = malloc(sbuff);
 
   int offset = 0;
   for (int parent = 0; parent < n_parent_nodes; parent++) {
@@ -254,49 +299,61 @@ void expect_hodlr_fake(const struct TreeHODLR *restrict const actual,
     const int me = expected->innermost_leaves[2 * parent]->data.diagonal.m;
     const int ne = expected->innermost_leaves[2 * parent + 1]->data.diagonal.m;
 
-    expect_matrix_double_eq_safe(
+    double n = 0., d = 0.;
+    if (fake_hodlr == false) ld_expected = me;
+    expect_matrix_double_eq_custom_safe(
       actual->innermost_leaves[2 * parent]->data.diagonal.data, 
       expected->innermost_leaves[2 * parent]->data.diagonal.data, 
-      ma, ma, me, me, ma, ld_expected, 'D', "", NULL, NULL
+      ma, ma, me, me, ma, ld_expected, 'D', "", &n, &d, delta
     );
-    expect_matrix_double_eq_safe(
+    norm += n; diff += d;
+
+    if (fake_hodlr == false) ld_expected = ne;
+    expect_matrix_double_eq_custom_safe(
       actual->innermost_leaves[2 * parent + 1]->data.diagonal.data, 
       expected->innermost_leaves[2 * parent + 1]->data.diagonal.data, 
-      na, na, ne, ne, na, ld_expected, 'D', "", NULL, NULL
+      na, na, ne, ne, na, ld_expected, 'D', "", &n, &d, delta
     );
+    norm += n; diff += d;
 
-    expect_off_diagonal_recompress(
-      &queue_a[parent]->children[1].leaf->data.off_diagonal,
-      &queue_e[parent]->children[1].leaf->data.off_diagonal,
-      ld_expected, workspace
-    );
-
-    expect_off_diagonal_recompress(
-      &queue_a[parent]->children[2].leaf->data.off_diagonal,
-      &queue_e[parent]->children[2].leaf->data.off_diagonal,
-      ld_expected, workspace
-    );
+    for (int leaf = 1; leaf < 3; leaf++) {
+      snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", 
+              expected->height, parent, leaf);
+      double n = 0., d = 0.;
+      expect_off_diagonal_decompress(
+        &queue_a[parent]->children[leaf].leaf->data.off_diagonal,
+        &queue_e[parent]->children[leaf].leaf->data.off_diagonal,
+        ld_expected, buffer, workspace, workspace2, &n, &d, delta
+      );
+      norm += n; diff += d;
+    }
   }
 
-  for (int level = actual->height; level > 1; level--) {
+  for (int level = actual->height - 1; level > 0; level--) {
     n_parent_nodes /= 2;
     for (int parent = 0; parent < n_parent_nodes; parent++) {
       queue_a[parent] = queue_a[2 * parent]->parent;
       queue_e[parent] = queue_e[2 * parent]->parent;
 
-      expect_off_diagonal_recompress(
-        &queue_a[parent]->children[1].leaf->data.off_diagonal,
-        &queue_e[parent]->children[1].leaf->data.off_diagonal,
-        ld_expected, workspace
-      );
-
-      expect_off_diagonal_recompress(
-        &queue_a[parent]->children[2].leaf->data.off_diagonal,
-        &queue_e[parent]->children[2].leaf->data.off_diagonal,
-        ld_expected, workspace
-      );
+      for (int leaf = 1; leaf < 3; leaf++) {
+        snprintf(buffer, sbuff, "level=%d, node=%d, leaf=%d", 
+                 level, parent, leaf);
+        double n = 0., d = 0.;
+        expect_off_diagonal_decompress(
+          &queue_a[parent]->children[leaf].leaf->data.off_diagonal,
+          &queue_e[parent]->children[leaf].leaf->data.off_diagonal,
+          ld_expected, buffer, workspace, workspace2, &n, &d, delta
+        );
+        norm += n; diff += d;
+      }
     }
   }
+
+  free(buffer);
+  if (free_wksp == true) free(workspace);
+
+  if (norm_out != NULL) *norm_out = norm;
+  if (diff_out != NULL) *diff_out = diff;
 }
 
 
@@ -526,6 +583,72 @@ int expect_vector_double_eq_custom(
   }
 
   return errors;
+}
+
+
+void copy_block_sizes(
+  const struct TreeHODLR *restrict const src,
+  struct TreeHODLR *restrict const dest,
+  const bool copy_s
+) {
+  if (src->height != dest->height) {
+    cr_fail("copy_block_sizes: heights do not match (src=%d, dest=%d)",
+            src->height, dest->height);
+  }
+
+  struct HODLRInternalNode **queue_s = src->work_queue;
+  struct HODLRInternalNode **queue_d = dest->work_queue;
+
+  long n_parent_nodes = src->len_work_queue;
+
+  for (int parent = 0; parent < n_parent_nodes; parent++) {
+    queue_s[parent] = src->innermost_leaves[2 * parent]->parent;
+    queue_d[parent] = dest->innermost_leaves[2 * parent]->parent;
+
+    queue_d[parent]->m = queue_s[parent]->m;
+
+    queue_d[parent]->children[0].leaf->data.diagonal.m =
+      queue_s[parent]->children[0].leaf->data.diagonal.m;
+    queue_d[parent]->children[3].leaf->data.diagonal.m =
+      queue_s[parent]->children[3].leaf->data.diagonal.m;
+
+    queue_d[parent]->children[1].leaf->data.off_diagonal.m =
+      queue_s[parent]->children[1].leaf->data.off_diagonal.m;
+    queue_d[parent]->children[1].leaf->data.off_diagonal.n =
+      queue_s[parent]->children[1].leaf->data.off_diagonal.n;
+
+    queue_d[parent]->children[2].leaf->data.off_diagonal.m =
+      queue_s[parent]->children[2].leaf->data.off_diagonal.m;
+    queue_d[parent]->children[2].leaf->data.off_diagonal.n =
+      queue_s[parent]->children[2].leaf->data.off_diagonal.n;
+
+    if (copy_s == true) {
+      queue_d[parent]->children[1].leaf->data.off_diagonal.s =
+        queue_s[parent]->children[1].leaf->data.off_diagonal.s;
+      queue_d[parent]->children[2].leaf->data.off_diagonal.s =
+        queue_s[parent]->children[2].leaf->data.off_diagonal.s;
+    }
+  }
+
+  for (int _ = src->height - 1; _ > 0; _--) {
+    n_parent_nodes /= 2;
+    for (int parent = 0; parent < n_parent_nodes; parent++) {
+      queue_d[parent] = queue_d[2 * parent]->parent;
+      queue_s[parent] = queue_s[2 * parent]->parent;
+
+      queue_d[parent]->m = queue_s[parent]->m;
+
+      queue_d[parent]->children[1].leaf->data.off_diagonal.m =
+        queue_s[parent]->children[1].leaf->data.off_diagonal.m;
+      queue_d[parent]->children[1].leaf->data.off_diagonal.n =
+        queue_s[parent]->children[1].leaf->data.off_diagonal.n;
+
+      queue_d[parent]->children[2].leaf->data.off_diagonal.m =
+        queue_s[parent]->children[2].leaf->data.off_diagonal.m;
+      queue_d[parent]->children[2].leaf->data.off_diagonal.n =
+        queue_s[parent]->children[2].leaf->data.off_diagonal.n;
+    }
+  }
 }
 
 
