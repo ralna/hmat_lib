@@ -11,6 +11,7 @@
 #include <criterion/logging.h>
 
 #include "../utils/utils.h"
+#include "../utils/hodlr.h"
 #include "../utils/common_data.h"
 
 #include "../../src/dense_algebra.c"

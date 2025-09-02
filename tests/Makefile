@@ -20,7 +20,7 @@ COMPILER := gcc
 REAL_DATA_PRINT_S := #-DHODLR_REAL_DATA_PRINT_S
 
 
-unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_dense_algebra.o test_hodlr_algebra.o lapack_wrapper.o utils.o common_data.o main_utils.o
+unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_dense_algebra.o test_hodlr_algebra.o lapack_wrapper.o utils.o common_data.o main_utils.o hodlr.o
 	gcc \
 		${BUILD_DIR}/test_allocators.o \
 		${BUILD_DIR}/test_vector_algebra.o \
@@ -29,6 +29,7 @@ unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_d
 		${BUILD_DIR}/test_hodlr_algebra.o \
 		${BUILD_DIR}/lapack_wrapper.o \
 		${BUILD_DIR}/utils.o \
+		${BUILD_DIR}/hodlr.o \
 		${BUILD_DIR}/main_utils.o \
 		${BUILD_DIR}/common_data.o \
 		-o ${OUT_DIR}/unit_test \
@@ -86,6 +87,7 @@ test_real_data: test_real_data.o utils.o common_data.o io.o allocators.o constru
 		${BUILD_DIR}/allocators.o \
 		${BUILD_DIR}/constructors_omp.o \
 		${BUILD_DIR}/utils.o \
+		${BUILD_DIR}/hodlr.o \
 		${BUILD_DIR}/main_utils.o \
 		${BUILD_DIR}/common_data.o \
 		${BUILD_DIR}/io.o \
@@ -167,6 +169,14 @@ utils.o: ${UTIL_DIR}/utils.c
 	gcc \
 		-c ${UTIL_DIR}/utils.c \
 		-o ${BUILD_DIR}/utils.o \
+		-lm -lcriterion \
+		-I ${UTIL_DIR} \
+		${EXTRA_FLAGS}
+
+hodlr.o: ${UTIL_DIR}/hodlr.c
+	gcc \
+		-c ${UTIL_DIR}/hodlr.c \
+		-o ${BUILD_DIR}/hodlr.o \
 		-lm -lcriterion \
 		-I ${UTIL_DIR} \
 		${EXTRA_FLAGS}

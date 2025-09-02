@@ -28,6 +28,7 @@
 
 #include "./utils/io.h"
 #include "./utils/utils.h"
+#include "./utils/hodlr.h"
 #include "./utils/common_data.h"
 
 #ifdef HODLR_REAL_DATA_PRINT_S
