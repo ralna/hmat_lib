@@ -21,7 +21,7 @@ REAL_DATA_PRINT_S := #-DHODLR_REAL_DATA_PRINT_S
 
 
 unit_tests: test_allocators.o \
-	test_tree_construct.o \
+	test_constructors.o \
 	test_vector_algebra.o \
 	test_dense_algebra.o \
 	test_hodlr_algebra.o \
@@ -33,7 +33,7 @@ unit_tests: test_allocators.o \
 	gcc \
 		${BUILD_DIR}/test_allocators.o \
 		${BUILD_DIR}/test_vector_algebra.o \
-		${BUILD_DIR}/test_tree_construct.o \
+		${BUILD_DIR}/test_constructors.o \
 		${BUILD_DIR}/test_dense_algebra.o \
 		${BUILD_DIR}/test_hodlr_algebra.o \
 		${BUILD_DIR}/lapack_wrapper.o \
@@ -72,10 +72,10 @@ test_vector_algebra.o: ${TESTS_DIR}/test_vector_algebra.c
 		-I ${INCLUDE_DIR} -I ${INTERNAL_INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${EXTRA_FLAGS}
 
-test_tree_construct.o: ${TESTS_DIR}/test_tree_construct.c
+test_constructors.o: ${TESTS_DIR}/test_constructors.c
 	gcc \
-		-c ${TESTS_DIR}/test_tree_construct.c \
-		-o ${BUILD_DIR}/test_tree_construct.o \
+		-c ${TESTS_DIR}/test_constructors.c \
+		-o ${BUILD_DIR}/test_constructors.o \
 		-lopenblas \
 		-I ${INCLUDE_DIR} -I ${INTERNAL_INCLUDE_DIR} -I ${UTIL_INCLUDE_DIR} \
 		${WARNINGS} \

@@ -4,7 +4,7 @@ if(BUILD_TESTING)
   add_executable(
     unit_test 
     test_allocators.c 
-    test_tree_construct.c 
+    test_constructors.c 
     test_vector_algebra.c 
     test_hodlr_dense_algebra.c 
     test_hodlr_hodlr_algebra.c
@@ -30,7 +30,7 @@ if(BUILD_TESTING)
     add_executable(
       test_constructors_omp 
       test_allocators.c 
-      test_tree_construct.c 
+      test_constructors.c 
       ../../src/utils.c
       ../../src/lapack_wrapper.c 
     )
