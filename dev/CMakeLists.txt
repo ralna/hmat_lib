@@ -9,7 +9,7 @@ if(ASAN)
   target_link_libraries(test_asan hmat_lib)
 else()
   message(STATUS "Building executable test_unsafe")
-  add_executable(test_unsafe test.c ../tests/src/io.c)
+  add_executable(test_unsafe test.c ../tests/utils/io.c)
   set_target_properties(test_unsafe PROPERTIES
     EXCLUDE_FROM_ALL $<NOT:$<CONFIG:Debug>>
   )
