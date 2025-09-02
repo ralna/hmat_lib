@@ -10,6 +10,13 @@
 #include "../tests/utils/common_data.h"
 
 
+static int compare_double(const void* p1, const void* p2) {
+  if (*(double*)p1 < *(double*)p2) return -1;
+  if (*(double*)p1 > *(double*)p2) return 1;
+  return 0;
+}
+
+
 int main(int argc, char *argv[]) {
   const int omp_n_threads = argc > 1 ? atoi(argv[1]) : 1;
 
@@ -18,10 +25,17 @@ int main(int argc, char *argv[]) {
 
   enum {n_ms = 8, n_heights = 5};
   const int ms[n_ms] = {64, 128, 256, 512, 1024, 2048, 4096, 8192};
+  const int max_m = ms[n_ms - 1];
 
   int ierr;
 
-  double *matrix = malloc(ms[n_ms - 1] * ms[n_ms - 1] * sizeof(double));
+  srand(42);
+  double *vec = malloc(max_m * sizeof(double));
+  for (int i = 0; i < max_m; i++)
+    vec[i] = 1.0 - 2.0 * ((double)rand() / RAND_MAX);
+  qsort(vec, max_m, sizeof(double), compare_double);
+
+  double *matrix = malloc(max_m * max_m * sizeof(double));
 
   for (int height = 1; height < n_heights + 1; height++) {
     for (int midx = 0; midx < n_ms; midx++) {
@@ -33,7 +47,7 @@ int main(int argc, char *argv[]) {
         end = omp_get_wtime();
         const double time_alloc = end - start;
 
-        fill_decay_matrix_random_sorted(m, 1.0, matrix);
+        fill_decay_matrix(m, vec, 1.0, matrix);
 
         start = omp_get_wtime();
         dense_to_tree_hodlr(hodlr, m, NULL, matrix, svd_threshold, &ierr);
@@ -51,5 +65,5 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  free(matrix);
+  free(matrix); free(vec);
 }
