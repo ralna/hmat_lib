@@ -13,7 +13,7 @@ if(BUILD_TESTING)
       ../src/allocators.c ../src/constructors.c 
       ../src/vector_algebra.c ../src/dense_algebra.c
       ../src/hodlr_algebra.c
-      .../src/utils.c ./src/lapack_wrapper.c 
+      ../src/utils.c ./src/lapack_wrapper.c 
     )
 
     target_link_libraries(test_real_data ${MATH_LIBRARY})

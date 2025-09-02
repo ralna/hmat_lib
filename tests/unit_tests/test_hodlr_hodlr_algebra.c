@@ -11,7 +11,7 @@
 #include <criterion/new/assert.h>
 #include <criterion/logging.h>
 
-#include "../utils/utils.h"
+#include "../utils/expect.h"
 #include "../utils/common_data.h"
 
 #include "../../include/hmat_lib/utils.h"

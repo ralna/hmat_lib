@@ -9,7 +9,7 @@
 #include <criterion/new/assert.h>
 #include <criterion/logging.h>
 
-#include "../utils/utils.h"
+#include "../utils/expect.h"
 
 #include "../../src/allocators.c"
 #include "../../include/hmat_lib/error.h"

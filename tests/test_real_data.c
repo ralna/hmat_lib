@@ -27,7 +27,7 @@
 #include "../include/internal/blas_wrapper.h"
 
 #include "./utils/io.h"
-#include "./utils/utils.h"
+#include "./utils/expect.h"
 #include "./utils/hodlr.h"
 #include "./utils/common_data.h"
 

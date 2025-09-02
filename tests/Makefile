@@ -20,7 +20,16 @@ COMPILER := gcc
 REAL_DATA_PRINT_S := #-DHODLR_REAL_DATA_PRINT_S
 
 
-unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_dense_algebra.o test_hodlr_algebra.o lapack_wrapper.o utils.o common_data.o main_utils.o hodlr.o
+unit_tests: test_allocators.o \
+	test_tree_construct.o \
+	test_vector_algebra.o \
+	test_dense_algebra.o \
+	test_hodlr_algebra.o \
+	lapack_wrapper.o \
+	expect.o \
+	common_data.o \
+	main_utils.o \
+	hodlr.o
 	gcc \
 		${BUILD_DIR}/test_allocators.o \
 		${BUILD_DIR}/test_vector_algebra.o \
@@ -28,7 +37,7 @@ unit_tests: test_allocators.o test_tree_construct.o test_vector_algebra.o test_d
 		${BUILD_DIR}/test_dense_algebra.o \
 		${BUILD_DIR}/test_hodlr_algebra.o \
 		${BUILD_DIR}/lapack_wrapper.o \
-		${BUILD_DIR}/utils.o \
+		${BUILD_DIR}/expect.o \
 		${BUILD_DIR}/hodlr.o \
 		${BUILD_DIR}/main_utils.o \
 		${BUILD_DIR}/common_data.o \
@@ -46,7 +55,7 @@ test_hodlr_algebra.o: ${TESTS_DIR}/test_hodlr_hodlr_algebra.c
 		${WARNINGS} \
 		${EXTRA_FLAGS}
 
-test_dense_algebra.o: ${TESTS_DIR}/test_hodlr_dense_algebra.c lapack_wrapper.o utils.o common_data.o
+test_dense_algebra.o: ${TESTS_DIR}/test_hodlr_dense_algebra.c
 	gcc \
 		-c ${TESTS_DIR}/test_hodlr_dense_algebra.c \
 		-o ${BUILD_DIR}/test_dense_algebra.o \
@@ -55,7 +64,7 @@ test_dense_algebra.o: ${TESTS_DIR}/test_hodlr_dense_algebra.c lapack_wrapper.o u
 		${WARNINGS} \
 		${EXTRA_FLAGS}
 
-test_vector_algebra.o: ${TESTS_DIR}/test_vector_algebra.c lapack_wrapper.o utils.o common_data.o 
+test_vector_algebra.o: ${TESTS_DIR}/test_vector_algebra.c 
 	gcc \
 		-c ${TESTS_DIR}/test_vector_algebra.c \
 		-o ${BUILD_DIR}/test_vector_algebra.o \
@@ -81,12 +90,12 @@ test_allocators.o: ${TESTS_DIR}/test_allocators.c
 
 
 
-test_real_data: test_real_data.o utils.o common_data.o io.o allocators.o constructors_omp.o lapack_wrapper.o vector_algebra.o dense_algebra.o common.o hodlr_algebra.o main_utils.o
+test_real_data: test_real_data.o expect.o common_data.o io.o allocators.o constructors_omp.o lapack_wrapper.o vector_algebra.o dense_algebra.o common.o hodlr_algebra.o main_utils.o
 	gcc \
 		${BUILD_DIR}/test_real_data.o \
 		${BUILD_DIR}/allocators.o \
 		${BUILD_DIR}/constructors_omp.o \
-		${BUILD_DIR}/utils.o \
+		${BUILD_DIR}/expect.o \
 		${BUILD_DIR}/hodlr.o \
 		${BUILD_DIR}/main_utils.o \
 		${BUILD_DIR}/common_data.o \
@@ -165,10 +174,10 @@ hodlr_algebra.o: ${SRC_DIR}/hodlr_algebra.c
 
 
 
-utils.o: ${UTIL_DIR}/utils.c
+expect.o: ${UTIL_DIR}/expect.c
 	gcc \
-		-c ${UTIL_DIR}/utils.c \
-		-o ${BUILD_DIR}/utils.o \
+		-c ${UTIL_DIR}/expect.c \
+		-o ${BUILD_DIR}/expect.o \
 		-lm -lcriterion \
 		-I ${UTIL_DIR} \
 		${EXTRA_FLAGS}
