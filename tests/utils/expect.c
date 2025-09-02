@@ -6,7 +6,7 @@
 #include <criterion/logging.h>
 #include <criterion/new/assert.h>
 
-#include "./utils.h"
+#include "./expect.h"
 #include "../../include/hmat_lib/hodlr.h"
 #include "../../include/internal/blas_wrapper.h"
 

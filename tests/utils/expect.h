@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef _TEST_HODLR
 #define _TEST_HODLR 1
 #endif
