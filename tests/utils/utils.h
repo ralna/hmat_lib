@@ -129,13 +129,6 @@ int expect_vector_double_eq_custom(
   const double delta
 );
 
-void fill_leaf_node_ints(struct TreeHODLR *hodlr, const int m, int *ss);
 
 void print_matrix(int m, int n, double *matrix, int lda);
-
-void copy_block_sizes(
-  const struct TreeHODLR *src,
-  struct TreeHODLR *dest,
-  const bool copy_s
-);
 
