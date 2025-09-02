@@ -1,3 +1,4 @@
+add_subdirectory(utils)
 add_subdirectory(unit_tests)
 
 if(BUILD_TESTING)
@@ -7,7 +8,7 @@ if(BUILD_TESTING)
     add_executable(
       test_real_data 
       ./test_real_data.c 
-      utils/utils.c utils/common_data.c utils/io.c 
+      utils/io.c 
       ../dev/common.c 
       ../src/allocators.c ../src/constructors.c 
       ../src/vector_algebra.c ../src/dense_algebra.c
@@ -18,6 +19,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_real_data ${MATH_LIBRARY})
     target_link_libraries(test_real_data openblas)
     target_link_libraries(test_real_data criterion)
+
+    target_link_libraries(test_real_data testing_utils)
 
     if(BUILD_OPENMP_TESTS AND OpenMP_C_FOUND)
       message(STATUS "Building real-world data tests with OpenMP")
