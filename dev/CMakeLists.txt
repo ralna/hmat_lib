@@ -25,6 +25,14 @@ target_link_libraries(timings hmat_lib)
 target_link_libraries(timings criterion)
 target_link_libraries(timings OpenMP::OpenMP_C)
 
+add_executable(timings2 timings2.c ../tests/utils/common_data.c)
+target_link_libraries(timings2 ${MATH_LIBRARY})
+target_link_libraries(timings2 openblas)
+target_link_libraries(timings2 hmat_lib)
+target_link_libraries(timings2 criterion)
+target_link_libraries(timings2 OpenMP::OpenMP_C)
+
+
 if(ASAN)
   if (CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
     add_compile_options($<$<CONFIG:Debug>:"-fsanitize=address -fsanitize=leak -fsanitize=undefined">)
