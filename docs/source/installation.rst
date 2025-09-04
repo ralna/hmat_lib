@@ -48,6 +48,14 @@ provided CMake options:
    * Leak Sanitisation (GCC, Clang, AppleClang)
    * Undefined Sanitisation (GCC, Clang)
 
+.. confval:: BUILD_DOCS
+   :type: ``bool``
+   :default: OFF
+
+   Enables the building of documentation. If ``ON``, documentation will be 
+   built when building ``hmat_lib``. Requires Python and the packages in
+   ``hmat_lib/docs/requirements.txt``.
+
 .. confval:: BUILD_TESTING
    :type: ``bool``
    :default: OFF
