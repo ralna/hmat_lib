@@ -10,6 +10,9 @@ option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 option(ENABLE_OPENMP "Allow user to activate/deactivate OpenMP support" ON)
 option(ASAN "Turns on/off Adress Sanitizer" OFF)
 
+# Documentation options:
+option(BUILD_DOCS "Build documentation" ON)
+
 # Testing options:
 include(CMakeDependentOption)
 include(CTest)
@@ -77,5 +80,9 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/${CMAKE_INSTALL_BINDIR})
 ##### MAIN #####
 add_subdirectory(src)
 add_subdirectory(dev)
+
+if(BUILD_DOCS)
+  add_subdirectory(docs)
+endif()
 
 
