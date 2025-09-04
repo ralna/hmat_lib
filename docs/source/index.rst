@@ -7,7 +7,7 @@ hmat_lib
 ========
 
 C library for working with Hierarchical Off-Diagonal Low-Rank (HODLR) 
-matrices.
+matrices, with a focus on HODLR-HODLR matrix-matrix multiplication.
 
 
 .. toctree::
@@ -15,4 +15,5 @@ matrices.
    :caption: Contents:
 
    api
+   dev
 

@@ -4,6 +4,7 @@ API
 These pages detail the *public* API documentation:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+   :glob:
 
    api/*
