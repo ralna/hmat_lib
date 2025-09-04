@@ -34,6 +34,10 @@ hawkmoth_clang = [f'-I{INCLUDE}']
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
+napoleon_custom_sections = [
+    ('Errors', 'Raises'),
+    ('Allocations')
+]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
