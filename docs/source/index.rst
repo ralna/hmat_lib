@@ -9,6 +9,7 @@ matrices, with a focus on HODLR-HODLR matrix-matrix multiplication.
    :maxdepth: 2
    :caption: Contents:
 
+   installation
    api
    dev
 
