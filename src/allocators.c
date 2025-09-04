@@ -547,7 +547,7 @@ void compute_construct_tree_array_sizes(
  * work_queue
  *     Pointer representing an array of pointers to internal nodes. This will
  *     be used to set :c:member:`TreeHODLR.work_queue`. Must be of length
- *     :c:mebmber:`TreeHODLR.len_work_queue`. Must not be ``NULL``.
+ *     :c:member:`TreeHODLR.len_work_queue`. Must not be ``NULL``.
  * innermost_leaves
  *     Pointer representing an array of pointers to leaf nodes. This will be
  *     used to set :c:member:`TreeHODLR.innermost_leaves`. Must be of length

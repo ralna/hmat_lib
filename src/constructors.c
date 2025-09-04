@@ -101,7 +101,7 @@ static struct HODLRInternalNode ** compute_block_sizes_halves(
  *
  * Given a HODLR tree and the size (number of rows) of each dense block of the
  * matrix (the innermost diagonal blocks, i.e. 
- * :c:param:`TreeHODLR.innermost_leaves`), iterates over the entire tree and 
+ * :c:member:`TreeHODLR.innermost_leaves`), iterates over the entire tree and 
  * computes the size of each node's dimensions by summing the two children's
  * block sizes (or looking at the siblings' block sizes as appropriate). The 
  * results are saved on the ``hodlr``.
@@ -375,10 +375,8 @@ static inline int compress_off_diagonal(
  * into an off-diagona leaf node.
  *
  * This function contains OpenMP pragmas that schedule tasks - it assumes that
- * the function is being run from:
+ * the function is being run from::
  *
- * .. literal::
- * 
  *    #pragma omp parallel
  *    #pragma omp single
  *    #pragma omp taskgroup

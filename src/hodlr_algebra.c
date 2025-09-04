@@ -90,7 +90,7 @@
  *
  *    * :math:`U_{new}` is stored in a new ``node->m`` x ``s`` matrix.
  *
- * 6. Right-side matrix multiply: :matrix:`V_{new} = Q_V R_V^T`
+ * 6. Right-side matrix multiply: :math:`V_{new} = Q_V R_V^T`
  *
  *    * :math:`V_{new}` is stored in a new ``node->n`` x ``s`` matrix.
  */
@@ -459,7 +459,7 @@ static inline int compute_workspace_size_s_component(
  *
  * Notes
  * -----
- * Concerning *, the largest pair is the largest ``s1 x s2`` for each pair of 
+ * Concerning \*, the largest pair is the largest ``s1 x s2`` for each pair of 
  * low-rank matrices multiplied. The "relevant" nodes depend on ``origin_idx``
  * since at each level only one of the two off-diagonal leaf nodes is used for
  * the multiplication from each tree.
@@ -1256,7 +1256,7 @@ static inline void add_off_diagonal_contribution(
  *
  * Notes
  * -----
- * Concerning * and **, technically ``s1`` and ``s2`` do not have to be the
+ * Concerning \* and \*\*, technically ``s1`` and ``s2`` do not have to be the
  * largest numbers overall, rather their combination (``s1×s2``/``s1×n``) 
  * must be the largest, but the former is simpler to compute and describe. 
  * What this means in practice is that to get the lowest sizes, all the 
