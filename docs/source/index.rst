@@ -11,6 +11,7 @@ matrices, with a focus on HODLR-HODLR matrix-matrix multiplication.
 
    installation
    theory
+   glossary
    api
    dev
 

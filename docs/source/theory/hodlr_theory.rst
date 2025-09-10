@@ -12,6 +12,10 @@ In other words, given a square dense matrix :math:`D`, we construct a HODLR
 matrix :math:`H` by first dividing :math:`D` into 4 blocks:
 
 .. image:: img/convert.svg
+   :alt: Visual representation of the conversion of a dense matrix into the 
+         HODLR format. Shows a dense matrix as a filled square being turned
+         into HODLR matrix, a square with the top left and bottom right
+         quarters filled.
 
 The two blocks on the diagonal are then stored as dense matrices while the two
 *off-diagonal* blocks are compressed and stored as *low-rank* matrices:
@@ -28,6 +32,12 @@ where :math:`{}^{i,i}D` is a dense block and :math:`{}^{i,j}U {}^{i,j}V^T` is
 a low-rank block. Visually:
 
 .. image:: img/partition.svg
+
+
+.. _low-rank-explanation:
+   :alt: Visual representation of a HODLR matrix. Shows a square with the top
+         left and bottom right quarters filled, both of which are labelled as
+         dense.
 
 
 Low-Rank
