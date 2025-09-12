@@ -37,7 +37,8 @@ a low-rank block. Visually:
 .. _low-rank-explanation:
    :alt: Visual representation of a HODLR matrix. Shows a square with the top
          left and bottom right quarters filled, both of which are labelled as
-         dense.
+         dense. The top right and bottom left quarters are labelled as 
+         off-diagonal.
 
 
 Low-Rank
@@ -70,6 +71,8 @@ is the ``m×n`` matrix of singular values, and :math:`{}^{i,j}V^T` is the
 ``n×n`` right-singular matrix. Visually:
 
 .. image:: img/svd.svg
+   :alt: Diagram illustrating SVD using a filled square for D, U, and V 
+         transpose matrices and an empty square with a diagonal for sigma.
 
 if :math:`D` is indeed structured correctly and suitable for conversion
 to HODLR, it will be the case that the singular values, of this off-diagonal
@@ -87,6 +90,11 @@ representing a column of the :math:`{}^{i,j}U` and
 :math:`{}^{i,j}V^T` matrix:
 
 .. image:: img/svd2.svg
+   :alt: Diagram illustrating truncated SVD using the previous diagram, but
+         with the diagonal of the sigma square going only halfway from the
+         top right corner. A vertical line halfway through U and a horizontal
+         line halfway through V transpose also indicate that only half the
+         matrices will be kept.
 
 Furthermore, it is expected that, due to this decay, the 
 singular values quickly become small enough in comparison to the first 
@@ -94,6 +102,10 @@ singular value that they can be considered insignificant (
 :math:`{}^{i,j}\Sigma_{r',r'} << {}^{i,j}\Sigma_{0,0}` for :math:`r' < r`):
 
 .. image:: img/svd3.svg
+   :alt: Diagram illustrating an even more truncated SVD. Uses the previous
+         diagram, but the diagonal of sigma only extends a tenth of the way,
+         after which it appears as a very faint line. The lines through the
+         U and V transpose are now placed at a tenth of the matrices.
 
 Then, we can discard all the insignificant singular values and truncate the 
 :math:`{}^{i,j}U` and :math:`{}^{i,j}V^T` matrices, keeping only a small 
@@ -116,6 +128,8 @@ Hierarchical
 Lastly, the above procedure can be repeated for the two diagonal blocks:
 
 .. image:: img/conversion2.svg
+   :alt: Diagram showing the conversion from a height 1 HODLR to a height 2
+         HODLR.
 
 splitting each block into quarters and compressing the two off-diagonal 
 sub-blocks. This can be repeated any number of times, yielding a HODLR matrix:
@@ -130,3 +144,4 @@ sub-blocks. This can be repeated any number of times, yielding a HODLR matrix:
 
 
 .. _Singular Value Decomposition: https://en.wikipedia.org/wiki/Singular_value_decomposition
+

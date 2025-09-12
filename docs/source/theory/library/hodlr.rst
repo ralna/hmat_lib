@@ -127,6 +127,9 @@ A :term:`tree` of :term:`height` equal to ``1`` consists of one :term:`root`
 :term:`internal node`:
 
 .. image:: ../img/tree1+hodlr1_root2.svg
+   :alt: Diagram showing a height 1 HODLR, above which is a tree diagram 
+         showing one parent node above four children nodes. The parent node
+         and the outline of the HODLR are highlighted.
 
 which has four children:
 
@@ -139,6 +142,10 @@ which has four children:
    format.
 
 .. image:: ../img/tree1+hodlr1_1.svg
+   :alt: Previous diagram, but with the first child node highlighted with the
+         top left block, the second child node highlighted with the top right
+         block, the third with the bottom left block, and the fourth with the
+         bottom right block.
 
 In this case, the first and fourth :term:`children` are 
 :term:`diagonal leaf nodes`, since the first level is the last one. Therefore,
@@ -152,6 +159,10 @@ A :term:`tree` of :term:`height` equal to ``2`` also starts with one
 :term:`root` :term:`internal node`:
 
 .. image:: ../img/tree2+hodlr2_0.svg
+   :alt: Diagram showing a height 2 HODLR, above which is a height 2 tree 
+         diagram, in which the root node has four children, the first and
+         fourth of which have four children of their own. The root node and
+         the HODLR outline are highlighted.
 
 which has four children:
 
@@ -165,6 +176,8 @@ which has four children:
    format.
 
 .. image:: ../img/tree2+hodlr2_1.svg
+   :alt: Previous diagram but with the children of the root node and the 
+         corresponding HODLR blocks highlighted.
 
 In this case, the first and fourth :term:`children` are :term:`internal nodes` 
 and therefore, instead of storing the respective blocks as dense matrices,
@@ -192,6 +205,8 @@ D. A :term:`diagonal leaf node` storing the bottom right block of the bottom
    right block in a dense format.
 
 .. image:: ../img/tree2+hodlr2_2.svg
+   :alt: Previous diagram but with the last-level nodes and the corresponding
+         HODLR blocks highlighted.
 
 
 
