@@ -230,11 +230,8 @@ static inline void copy_diagonal_blocks(
         *ierr = ALLOCATION_FAILURE;
         return;
       }
-      for (int j = 0; j < m; j++) {
-        for (int i = 0; i < m; i++) {
-          data[i + j * m] = matrix[i + offset + (j + offset) * matrix_ld];
-        }
-      }
+      dlacpy_("T", &m, &m, matrix + offset + offset * matrix_ld, &matrix_ld,
+              data, &m);
       queue[parent]->children[child].leaf->data.diagonal.data = data;
 
       offset += m;
