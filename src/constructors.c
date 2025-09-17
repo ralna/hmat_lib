@@ -537,6 +537,9 @@ static inline int compress_matrix(
   double *restrict const matrix,
   const int matrix_ld,
   double *restrict const s,
+#ifdef GPU_BUILD
+  double *__restrict const s_cpu,
+#endif
   double *restrict const u,
   double *restrict const vt,
   const double svd_threshold,
@@ -566,9 +569,17 @@ static inline int compress_matrix(
         double *sub_matrix_pointer = matrix + temp_offset;
 
 #ifndef _TEST_HODLR
+
+#ifndef GPU_BUILD
 #pragma omp task default(none) private(result) \
   firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) \
   shared(s, u, vt, svd_threshold, ierr, final_result, matrix_ld)
+#else
+#pragma omp task default(none) private(result) \
+  firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) \
+  shared(s, s_cpu, u, vt, svd_threshold, ierr, final_result, matrix_ld)
+#endif
+
 #else
 #pragma omp task default(none) private(result) \
   firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) \
@@ -576,8 +587,11 @@ static inline int compress_matrix(
 #endif
         {
           result = compress_off_diagonal(
-            node, m_smaller, matrix_ld, sub_matrix_pointer,
-            s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
+            node, m_smaller, matrix_ld, sub_matrix_pointer, s + offset_s, 
+#ifdef GPU_BUILD
+            s_cpu + offset_s,
+#endif
+            u + offset_u, vt + offset_u, svd_threshold, ierr
 #ifdef _TEST_HODLR
             , malloc
 #endif
@@ -733,17 +747,27 @@ int dense_to_tree_hodlr(
   const int m_larger = hodlr->root->children[1].leaf->data.off_diagonal.m;
   const int m_smaller = hodlr->root->children[1].leaf->data.off_diagonal.n;
 
-  double *s = malloc(hodlr->height * m * sizeof(double));
+#ifdef CUDA
+  double *s_cpu = (double*)malloc(hodlr->height * m * sizeof(double));
+  if (s_cpu == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    return 0;
+  }
+
+  double *s;
+  cudaMalloc(
+    (void**)&s, 
+    (hodlr->height * m + 8 * m_larger * m_smaller) * sizeof(double)
+  );
+#else
+  double *s = 
+    malloc((hodlr->height * m + 8 * m_larger * m_smaller) * sizeof(double));
+#endif
   if (s == NULL) {
     *ierr = ALLOCATION_FAILURE;
     return 0;
   }
-  double *u = malloc(8 * m_larger * m_smaller * sizeof(double));
-  if (u == NULL) {
-    *ierr = ALLOCATION_FAILURE;
-    free(s);
-    return 0;
-  }
+  double *u = s + hodlr->height * m;
   double *vt = u + (4 * m_larger * m_smaller);
 
   int result = 0;
@@ -754,7 +778,11 @@ int dense_to_tree_hodlr(
       #pragma omp taskgroup
       {
         result = compress_matrix(
-          hodlr, queue, matrix, m, s, u, vt, svd_threshold, ierr
+          hodlr, queue, matrix, m, s, 
+#ifdef GPU_BUILD
+          s_cpu,
+#endif
+          u, vt, svd_threshold, ierr
 #ifdef _TEST_HODLR
           , malloc
 #endif
@@ -763,7 +791,11 @@ int dense_to_tree_hodlr(
     }
   }
 
-  free(s); free(u);
+#ifdef CUDA
+  free(s_cpu); cudaFree(s);
+#else
+  free(s);
+#endif
   
   return result;
 }
