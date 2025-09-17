@@ -4,20 +4,34 @@
 #include "../include/internal/lapack_wrapper.h"
 #include "../include/hmat_lib/error.h"
 
+#ifdef GPU_BUILD
+#include <magma_types.h>
+#include <magma_d.h>
 
-int svd_double(int m,
-               int n,
-               int n_singular_values,
-               int matrix_leading_dim,
-               double *restrict matrix,
-               double *restrict s,
-               double *restrict u,
-               double *restrict vt,
-               int *restrict ierr) {
+#define restrict __restrict
+#endif
+
+
+int svd_double(
+  const int m,
+  const int n,
+  const int n_singular_values,
+  const int matrix_ld,
+  double *restrict const matrix,
+  double *restrict const s,
+  double *restrict const u,
+  double *restrict const vt,
+  int *restrict const ierr
+) {
   double work_size;
   double *work = &work_size;
   int lwork = -1;
+#ifdef CUDA
+  int *iwork;
+  cudaMalloc((void**)&iwork, 8 * n_singular_values * sizeof(double));
+#else
   int *iwork = malloc(8 * n_singular_values * sizeof(int));
+#endif
   if (iwork == NULL) {
     #pragma omp atomic write
     *ierr = SVD_ALLOCATION_FAILURE;
@@ -25,35 +39,64 @@ int svd_double(int m,
   }
 
   int info = 0;
-  //printf("m=%d, n=%d, s=%d, lda=%d\n", m, n, n_singular_values, matrix_leading_dim);
-  //printf("before dgesdd=%d\n", info);
-  dgesdd_("S", &m, &n, matrix, &matrix_leading_dim, s, u, &m, vt, 
+#ifndef GPU_BUILD
+  dgesdd_("S", &m, &n, matrix, &matrix_ld, s, u, &m, vt, 
           &n_singular_values, work, &lwork, iwork, &info);
+#else
+  magma_dgesdd(
+    MagmaSomeVec, m, n, matrix, matrix_ld, s, u, m, vt, n_singular_values, 
+    work, lwork, iwork, &info
+  );
+#endif
+
   if (info < 0) {
+#ifdef CUDA
+    cudaFree(iwork);
+#else
     free(iwork);
+#endif
+
     #pragma omp atomic write
     *ierr = SVD_FAILURE;
     return info;
   }
-  //printf("first dgesdd completed=%d\n", info);
 
   lwork = (int)work_size;
+#ifdef CUDA
+  cudaMalloc((void**)&work, lwork * sizeof(double));
+  if (work == NULL) {
+    cudaFree(iwork);
+#else
   work = malloc(lwork * sizeof(double));
   if (work == NULL) {
     free(iwork);
+#endif
+
     #pragma omp atomic write
     *ierr = SVD_ALLOCATION_FAILURE;
     return info;
   }
-  //printf("lowrk=%d\n", lwork);
-  dgesdd_("S", &m, &n, matrix, &matrix_leading_dim, s, u, &m, vt, 
+
+#ifndef GPU_BUILD
+  dgesdd_("S", &m, &n, matrix, &matrix_ld, s, u, &m, vt, 
           &n_singular_values, work, &lwork, iwork, &info);
+#else
+  magma_dgesdd(
+    MagmaSomeVec, m, n, matrix, matrix_ld, s, u, m, vt, n_singular_values, 
+    work, lwork, iwork, &info
+  );
+#endif
+
   if (info < 0) {
     #pragma omp atomic write
     *ierr = SVD_FAILURE;
   }
-  //printf("dgesdd completed=%d\n", info);
+
+#ifdef CUDA
+  cudaFree(work); cudaFree(iwork);
+#else
   free(work); free(iwork);
+#endif
 
   return info;
 }
