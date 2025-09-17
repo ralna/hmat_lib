@@ -8,6 +8,47 @@
 #include "../include/internal/blas_wrapper.h"
 
 
+#ifdef GPU_BUILD
+#include <cuda_runtime.h>
+
+#include <magma.h>
+
+#define restrict __restrict
+
+
+#ifdef CUDA
+__global__ static void copy_u(
+  int m,
+  int svd_cutoff_idx,
+  double *__restrict u,
+  double *__restrict s,
+  double *__restrict out
+) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+  if (i < m && j < svd_cutoff_idx)
+    out[i + j * m] = u[i + j * m] * s[i];
+}
+
+
+__global__ static void transpose_copy(
+  const int m,
+  const int n,
+  const int svd_cutoff_idx,
+  const double *__restrict const vt,
+  double *__restrict const out
+) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+  if (i < svd_cutoff_idx && j < n)
+    out[j + i * n] = vt[i + j * m];
+}
+#endif
+#endif
+
+
 /**
  * Computes and sets the sizes of all HODLR internal nodes from the matrix 
  * size.
@@ -221,17 +262,32 @@ static inline void copy_diagonal_blocks(
 ) {
   int offset = 0;
 
-  for (int parent = 0; parent < len_queue; parent++) {
+for (int parent = 0; parent < len_queue; parent++) {
     for (int child = 0; child < 4; child += 3) {
       const int m = queue[parent]->children[child].leaf->data.diagonal.m;
 
+#ifdef CUDA
+      double *data;
+      cudaMalloc((void**)&data, m * m * sizeof(double));
+#else
       double *data = malloc(m * m * sizeof(double));
+#endif
+
       if (data == NULL) {
         *ierr = ALLOCATION_FAILURE;
         return;
       }
+
+#ifdef GPU_BUILD
+      magmablas_dlacpy(
+        MagmaFull, m, m, matrix + offset + offset * matrix_ld, matrix_ld, 
+        data, m
+      );
+#else
       dlacpy_("T", &m, &m, matrix + offset + offset * matrix_ld, &matrix_ld,
               data, &m);
+#endif
+
       queue[parent]->children[child].leaf->data.diagonal.data = data;
 
       offset += m;
@@ -308,6 +364,9 @@ static inline int compress_off_diagonal(
   const int matrix_ld,
   double *restrict const lapack_matrix,
   double *restrict const s,
+#ifdef GPU_BUILD
+  double *__restrict const s_cpu,
+#endif
   double *restrict const u,
   double *restrict const vt,
   const double svd_threshold,
@@ -324,6 +383,18 @@ static inline int compress_off_diagonal(
   }
 
   int svd_cutoff_idx = 1;
+#ifdef CUDA
+  cudaMemcpy(s_cpu, s, m_smaller * sizeof(double), cudaMemcpyDeviceToHost);
+  if (s_cpu[0] > svd_threshold) {
+    for (svd_cutoff_idx=1; svd_cutoff_idx < m_smaller; svd_cutoff_idx++) {
+      if (s_cpu[svd_cutoff_idx] < svd_threshold * s_cpu[0]) {
+        break;
+      }
+    }
+  }
+  double *u_store;
+  cudaMalloc((void**)&u_store, m * svd_cutoff_idx * sizeof(double));
+#else
   if (s[0] > svd_threshold) {
     for (svd_cutoff_idx=1; svd_cutoff_idx < m_smaller; svd_cutoff_idx++) {
       if (s[svd_cutoff_idx] < svd_threshold * s[0]) {
@@ -331,32 +402,49 @@ static inline int compress_off_diagonal(
       }
     }
   }
+  double *u_store = malloc(m * svd_cutoff_idx * sizeof(double));
+#endif
 
-  double *u_top_right = malloc(m * svd_cutoff_idx * sizeof(double));
-  if (u_top_right == NULL) {
+  if (u_store == NULL) {
     #pragma omp atomic write
     *ierr = ALLOCATION_FAILURE;
     return result;
   }
+  
+#ifdef CUDA
+  dim3 dimBlock(16, 16);
+  dim3 dimGrid((m + blockDim.x - 1) / blockDim.x,
+               (svd_cutoff_idx + blockDim.x - 1) / blockDim.x);
+  copy_u<<<dimGrid, dimBlock>>(m, svd_cutoff_idx, u, s, u_store);
+
+  double *v_store;
+  cudaMalloc((void**)&v_store, svd_cutoff_idx * n * sizeof(double));
+#else
   for (int i=0; i<svd_cutoff_idx; i++) {
     for (int j=0; j<m; j++) {
-      u_top_right[j + i * m] = u[j + i * m] * s[i];
+      u_store[j + i * m] = u[j + i * m] * s[i];
     }
   }
-
   double *v_store = malloc(svd_cutoff_idx * n * sizeof(double));
+#endif
+
   if (v_store == NULL) {
     #pragma omp atomic write
     *ierr = ALLOCATION_FAILURE;
     return result;
   }
+
+#ifdef CUDA
+  transpose_copy<<<dimGrid, dimBlock>>>(m, n, svd_cutoff_idx, vt, v_store);
+#else
   for (int i=0; i<svd_cutoff_idx; i++) {
     for (int j=0; j<n; j++) {
       v_store[j + i * n] = vt[i + j * m_smaller];
     }
   }
+#endif
 
-  node->u = u_top_right;
+  node->u = u_store;
   node->v = v_store;
   node->s = svd_cutoff_idx;
 
