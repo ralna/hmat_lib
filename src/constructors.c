@@ -8,6 +8,47 @@
 #include "../include/internal/blas_wrapper.h"
 
 
+#ifdef GPU_BUILD
+#include <cuda_runtime.h>
+
+#include <magma.h>
+
+#define restrict __restrict
+
+
+#ifdef CUDA
+__global__ static void copy_u(
+  int m,
+  int svd_cutoff_idx,
+  double *__restrict u,
+  double *__restrict s,
+  double *__restrict out
+) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+  if (i < m && j < svd_cutoff_idx)
+    out[i + j * m] = u[i + j * m] * s[i];
+}
+
+
+__global__ static void transpose_copy(
+  const int m,
+  const int n,
+  const int svd_cutoff_idx,
+  const double *__restrict const vt,
+  double *__restrict const out
+) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+  if (i < svd_cutoff_idx && j < n)
+    out[j + i * n] = vt[i + j * m];
+}
+#endif
+#endif
+
+
 /**
  * Computes and sets the sizes of all HODLR internal nodes from the matrix 
  * size.
@@ -221,20 +262,32 @@ static inline void copy_diagonal_blocks(
 ) {
   int offset = 0;
 
-  for (int parent = 0; parent < len_queue; parent++) {
+for (int parent = 0; parent < len_queue; parent++) {
     for (int child = 0; child < 4; child += 3) {
       const int m = queue[parent]->children[child].leaf->data.diagonal.m;
 
+#ifdef CUDA
+      double *data;
+      cudaMalloc((void**)&data, m * m * sizeof(double));
+#else
       double *data = malloc(m * m * sizeof(double));
+#endif
+
       if (data == NULL) {
         *ierr = ALLOCATION_FAILURE;
         return;
       }
-      for (int j = 0; j < m; j++) {
-        for (int i = 0; i < m; i++) {
-          data[i + j * m] = matrix[i + offset + (j + offset) * matrix_ld];
-        }
-      }
+
+#ifdef GPU_BUILD
+      magmablas_dlacpy(
+        MagmaFull, m, m, matrix + offset + offset * matrix_ld, matrix_ld, 
+        data, m
+      );
+#else
+      dlacpy_("T", &m, &m, matrix + offset + offset * matrix_ld, &matrix_ld,
+              data, &m);
+#endif
+
       queue[parent]->children[child].leaf->data.diagonal.data = data;
 
       offset += m;
@@ -311,6 +364,9 @@ static inline int compress_off_diagonal(
   const int matrix_ld,
   double *restrict const lapack_matrix,
   double *restrict const s,
+#ifdef GPU_BUILD
+  double *__restrict const s_cpu,
+#endif
   double *restrict const u,
   double *restrict const vt,
   const double svd_threshold,
@@ -327,6 +383,18 @@ static inline int compress_off_diagonal(
   }
 
   int svd_cutoff_idx = 1;
+#ifdef CUDA
+  cudaMemcpy(s_cpu, s, m_smaller * sizeof(double), cudaMemcpyDeviceToHost);
+  if (s_cpu[0] > svd_threshold) {
+    for (svd_cutoff_idx=1; svd_cutoff_idx < m_smaller; svd_cutoff_idx++) {
+      if (s_cpu[svd_cutoff_idx] < svd_threshold * s_cpu[0]) {
+        break;
+      }
+    }
+  }
+  double *u_store;
+  cudaMalloc((void**)&u_store, m * svd_cutoff_idx * sizeof(double));
+#else
   if (s[0] > svd_threshold) {
     for (svd_cutoff_idx=1; svd_cutoff_idx < m_smaller; svd_cutoff_idx++) {
       if (s[svd_cutoff_idx] < svd_threshold * s[0]) {
@@ -334,32 +402,49 @@ static inline int compress_off_diagonal(
       }
     }
   }
+  double *u_store = malloc(m * svd_cutoff_idx * sizeof(double));
+#endif
 
-  double *u_top_right = malloc(m * svd_cutoff_idx * sizeof(double));
-  if (u_top_right == NULL) {
+  if (u_store == NULL) {
     #pragma omp atomic write
     *ierr = ALLOCATION_FAILURE;
     return result;
   }
+  
+#ifdef CUDA
+  dim3 dimBlock(16, 16);
+  dim3 dimGrid((m + blockDim.x - 1) / blockDim.x,
+               (svd_cutoff_idx + blockDim.x - 1) / blockDim.x);
+  copy_u<<<dimGrid, dimBlock>>(m, svd_cutoff_idx, u, s, u_store);
+
+  double *v_store;
+  cudaMalloc((void**)&v_store, svd_cutoff_idx * n * sizeof(double));
+#else
   for (int i=0; i<svd_cutoff_idx; i++) {
     for (int j=0; j<m; j++) {
-      u_top_right[j + i * m] = u[j + i * m] * s[i];
+      u_store[j + i * m] = u[j + i * m] * s[i];
     }
   }
-
   double *v_store = malloc(svd_cutoff_idx * n * sizeof(double));
+#endif
+
   if (v_store == NULL) {
     #pragma omp atomic write
     *ierr = ALLOCATION_FAILURE;
     return result;
   }
+
+#ifdef CUDA
+  transpose_copy<<<dimGrid, dimBlock>>>(m, n, svd_cutoff_idx, vt, v_store);
+#else
   for (int i=0; i<svd_cutoff_idx; i++) {
     for (int j=0; j<n; j++) {
       v_store[j + i * n] = vt[i + j * m_smaller];
     }
   }
+#endif
 
-  node->u = u_top_right;
+  node->u = u_store;
   node->v = v_store;
   node->s = svd_cutoff_idx;
 
@@ -452,6 +537,9 @@ static inline int compress_matrix(
   double *restrict const matrix,
   const int matrix_ld,
   double *restrict const s,
+#ifdef GPU_BUILD
+  double *__restrict const s_cpu,
+#endif
   double *restrict const u,
   double *restrict const vt,
   const double svd_threshold,
@@ -473,68 +561,59 @@ static inline int compress_matrix(
       const int m = node->m, n = node->n;
       const int m_smaller = (m < n) ? m : n;
 
-      double *sub_matrix_pointer = 
-        matrix + offset_matrix + matrix_ld * (offset_matrix + m);
+      // Matrix offset for node 1 (top right) set outside loop:
+      int temp_offset = offset_matrix + matrix_ld * (offset_matrix + m);
+
+      for (int child = 1; child < 3; child++) {
+        node = &(queue[parent]->children[child].leaf->data.off_diagonal);
+        double *sub_matrix_pointer = matrix + temp_offset;
 
 #ifndef _TEST_HODLR
-#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, matrix_ld)
+
+#ifndef GPU_BUILD
+#pragma omp task default(none) private(result) \
+  firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) \
+  shared(s, u, vt, svd_threshold, ierr, final_result, matrix_ld)
 #else
-#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, matrix_ld, malloc)
+#pragma omp task default(none) private(result) \
+  firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) \
+  shared(s, s_cpu, u, vt, svd_threshold, ierr, final_result, matrix_ld)
 #endif
-      {
-        result = compress_off_diagonal(
-          node, m_smaller, matrix_ld, sub_matrix_pointer,
-          s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
-#ifdef _TEST_HODLR
-          , malloc
-#endif
-        );
 
-        if (*ierr != SUCCESS) {
-          //handle_error(ierr, result);
-          #pragma omp atomic write
-          final_result = result;
-
-          #pragma omp cancel taskgroup
-
-          #if !defined(_OPENMP)
-          return result;
-          #endif
-        }
-      }
-      offset_s += m_smaller; offset_u += m * n;
-  
-      // Off-diagonal block in the bottom left corner
-      sub_matrix_pointer = matrix + matrix_ld * offset_matrix + offset_matrix + m;
-      node = &(queue[parent]->children[2].leaf->data.off_diagonal);
-
-#ifndef _TEST_HODLR
-#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, matrix_ld)
 #else
-#pragma omp task default(none) private(result) firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) shared(s, u, vt, svd_threshold, ierr, final_result, matrix_ld, malloc)
+#pragma omp task default(none) private(result) \
+  firstprivate(node, m_smaller, sub_matrix_pointer, offset_s, offset_u) \
+  shared(s, u, vt, svd_threshold, ierr, final_result, matrix_ld, malloc)
 #endif
-      {
-        result = compress_off_diagonal(
-          node, m_smaller, matrix_ld, sub_matrix_pointer, 
-          s + offset_s, u + offset_u, vt + offset_u, svd_threshold, ierr
+        {
+          result = compress_off_diagonal(
+            node, m_smaller, matrix_ld, sub_matrix_pointer, s + offset_s, 
+#ifdef GPU_BUILD
+            s_cpu + offset_s,
+#endif
+            u + offset_u, vt + offset_u, svd_threshold, ierr
 #ifdef _TEST_HODLR
-          , malloc
+            , malloc
 #endif
-        );
-        if (*ierr != SUCCESS) {
-          // error out
-          #pragma omp atomic write
-          final_result = result;
-          #pragma omp cancel taskgroup
+          );
 
-          #if !defined(_OPENMP)
-          return result;
-          #endif
+          if (*ierr != SUCCESS) {
+            //handle_error(ierr, result);
+            #pragma omp atomic write
+            final_result = result;
+
+            #pragma omp cancel taskgroup
+
+            #if !defined(_OPENMP)
+            return result;
+            #endif
+          }
         }
+        offset_s += m_smaller; offset_u += m * n;
+
+        // Offset for the node 2 (bottom left) set at the end of loop 1
+        temp_offset = matrix_ld * offset_matrix + offset_matrix + m;
       }
-
-      offset_s += m_smaller; offset_u += m * n;
-
       offset_matrix += m + n;
 
       queue[parent / 2] = queue[parent]->parent;
@@ -668,17 +747,27 @@ int dense_to_tree_hodlr(
   const int m_larger = hodlr->root->children[1].leaf->data.off_diagonal.m;
   const int m_smaller = hodlr->root->children[1].leaf->data.off_diagonal.n;
 
-  double *s = malloc(hodlr->height * m * sizeof(double));
+#ifdef CUDA
+  double *s_cpu = (double*)malloc(hodlr->height * m * sizeof(double));
+  if (s_cpu == NULL) {
+    *ierr = ALLOCATION_FAILURE;
+    return 0;
+  }
+
+  double *s;
+  cudaMalloc(
+    (void**)&s, 
+    (hodlr->height * m + 8 * m_larger * m_smaller) * sizeof(double)
+  );
+#else
+  double *s = 
+    malloc((hodlr->height * m + 8 * m_larger * m_smaller) * sizeof(double));
+#endif
   if (s == NULL) {
     *ierr = ALLOCATION_FAILURE;
     return 0;
   }
-  double *u = malloc(8 * m_larger * m_smaller * sizeof(double));
-  if (u == NULL) {
-    *ierr = ALLOCATION_FAILURE;
-    free(s);
-    return 0;
-  }
+  double *u = s + hodlr->height * m;
   double *vt = u + (4 * m_larger * m_smaller);
 
   int result = 0;
@@ -689,7 +778,11 @@ int dense_to_tree_hodlr(
       #pragma omp taskgroup
       {
         result = compress_matrix(
-          hodlr, queue, matrix, m, s, u, vt, svd_threshold, ierr
+          hodlr, queue, matrix, m, s, 
+#ifdef GPU_BUILD
+          s_cpu,
+#endif
+          u, vt, svd_threshold, ierr
 #ifdef _TEST_HODLR
           , malloc
 #endif
@@ -698,7 +791,11 @@ int dense_to_tree_hodlr(
     }
   }
 
-  free(s); free(u);
+#ifdef CUDA
+  free(s_cpu); cudaFree(s);
+#else
+  free(s);
+#endif
   
   return result;
 }
