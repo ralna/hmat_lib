@@ -57,7 +57,7 @@ matrix can be decomposed into:
 where :math:`U` and :math:`V^T` are square orthogonal matrices and 
 :math:`\Sigma` is a rectangular diagonal matrix containing the singular 
 values. The singular values (:math:`\sigma_k = \Sigma_{k,k}`) are real
-non-negative numbers and, whem obtained computationally, they usually come 
+non-negative numbers and, when obtained computationally, they usually come 
 sorted in descending order (:math:`\Sigma_{k,k} < \Sigma_{k+1,k+1}`). 
 Therefore, when performing an SVD of an off-diagonal (``i!=j``) block:
 

@@ -74,7 +74,7 @@ Diagonal blocks are square matrices
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The :c:struct:`TreeHODLR` data structure has also been designed so that all 
-the :term:`diagonal leaf nodes` store *squre* blocks. This way, the 
+the :term:`diagonal leaf nodes` store *square* blocks. This way, the 
 :term:`HODLR` always captures the diagonal - which is typically the densest 
 region of the kind of matrix well represented by a :term:`HODLR` - using dense
 data. As a consequence, however, a rectangular :term:`HODLR` may be difficult 

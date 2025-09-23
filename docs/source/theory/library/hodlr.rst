@@ -39,7 +39,7 @@ Conceptually, there are three types of nodes that make up a :term:`HODLR`
 
 1. :term:`internal node` is a node that represents a recursive :term:`HODLR` 
    component (:math:`{}^{i,i}H`). It has :term:`children` (always four of 
-   them, again unline a binary tree) and forms the backbone of the 
+   them, again unlike a binary tree) and forms the backbone of the 
    :term:`tree`, connecting all the nodes, but holds no data.
 
 .. _diagonal-node-explanation:
@@ -120,7 +120,7 @@ penultimate level :term:`internal nodes` have two :term:`diagonal leaf node`
 Examples
 --------
 
-Hieght 1 tree
+Height 1 tree
 ^^^^^^^^^^^^^
 
 A :term:`tree` of :term:`height` equal to ``1`` consists of one :term:`root`

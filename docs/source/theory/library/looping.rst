@@ -9,7 +9,7 @@ A :term:`HODLR` :term:`tree` can be iterated through in two directions:
     :local:
 
 
-Top-down interation
+Top-down iteration
 -------------------
 
 The first direction is to start at the :term:`root node` (``level==0``) and 
@@ -57,7 +57,7 @@ new source, and the original ``q1`` array is reused in ``q2`` as the new
 destination and will be overwritten. At each iteration, either the ``q1`` or 
 ``q2`` nodes can be used for computations etc. At the end, the ``q1`` array 
 stores the highest-level :term:`internal nodes`, which can be utilised in an 
-additional loop after the above one, if neccessary.
+additional loop after the above one, if necessary.
 
 **Pros**
 
@@ -123,7 +123,7 @@ and the halfway point of ``queue``, etc.
 At each iteration, the nodes from ``queue`` can be used either before or after
 being updated. At the end, the ``queue`` array stores the highest-level 
 :term:`internal nodes`, which can be utilised in an additional loop after the 
-above one, if neccessary.
+above one, if necessary.
 
 **Pros**
 
