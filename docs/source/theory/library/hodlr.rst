@@ -37,33 +37,63 @@ Conceptually, there are three types of nodes that make up a :term:`HODLR`
 
 .. _internal-node-explanation:
 
-1. :term:`internal node` is a node that represents a recursive :term:`HODLR` 
-   component (:math:`{}^{i,i}H`). It has :term:`children` (always four of 
-   them, again unlike a binary tree) and forms the backbone of the 
-   :term:`tree`, connecting all the nodes, but holds no data.
+1. :ref:`internal node<internal-node-explanation2>` is a node that represents 
+   a recursive :term:`HODLR` component (:math:`{}^{i,i}H`). It has 
+   :term:`children` (always four of them, again unlike a binary tree) and 
+   forms the backbone of the :term:`tree`, connecting all the nodes, but holds 
+   no data.
 
 .. _diagonal-node-explanation:
 
-2. :term:`diagonal leaf node` is a node that represents a diagonal dense block
-   of the :term:`HODLR` (:math:`{}^{i,i}D`). It has no :term:`children`
-   (it is a terminal node) but stores a dense matrix.
+2. :ref:`diagonal leaf node<diagonal-node-explanation2>` is a node that 
+   represents a diagonal dense block of the :term:`HODLR` (:math:`{}^{i,i}D`). 
+   It has no :term:`children` (it is a terminal node) but stores a dense 
+   matrix.
 
 .. _offdiagonal-node-explanation:
 
-3. :term:`off-diagonal leaf node` is a node that represents an off-diagonal
-   low-rank block of the :term:`HODLR` (:math:`{}^{i,j}U {}^{i,j}V^T`). It has
-   no :term:`children` (it is a terminal node) but stores a low-rank matrix.
+3. :ref:`off-diagonal leaf node<offdiagonal-node-explanation2>` is a node that 
+   represents an off-diagonal low-rank block of the :term:`HODLR` 
+   (:math:`{}^{i,j}U {}^{i,j}V^T`). It has no :term:`children` (it is a 
+   terminal node) but stores a low-rank matrix.
 
 In a table format:
 
-============================== ============================= ======== ======== =======================================================
-Node                           Block                         Children Data     Struct(s)
-============================== ============================= ======== ======== =======================================================
-:term:`internal node`          :math:`{}^{i,i}H`             4        none     :c:struct:`HODLRInternalNode`
-:term:`diagonal leaf node`     :math:`{}^{i,i}D`             0        dense    :c:struct:`HODLRLeafNode` & :c:struct:`NodeDiagonal`
-:term:`off-diagonal leaf node` :math:`{}^{i,j}U {}^{i,j}V^T` 0        low-rank :c:struct:`HODLRLeafNode` & :c:struct:`NodeOffDiagonal`
-============================== ============================= ======== ======== =======================================================
+.. list-table:: 
+   :header-rows: 1
+   :stub-columns: 1
 
+   * - Node
+     - :term:`internal node`
+     - :term:`diagonal leaf node`
+     - :term:`off-diagonal leaf node`
+   * - Block
+     - :math:`{}^{i,i}H`
+     - :math:`{}^{i,i}D`
+     - :math:`{}^{i,j}U {}^{i,j}V^T`
+   * - Children
+     - 4
+     - 0
+     - 0
+   * - Is terminal
+     - No
+     - Yes
+     - Yes
+   * - Data
+     - none
+     - dense
+     - low-rank
+   * - Possible positions in tree
+     - ``level < height``
+     - ``level <= height``
+     - ``level == height``
+   * - Struct(s)
+     - :c:struct:`HODLRInternalNode`
+     - :c:struct:`HODLRLeafNode` & :c:struct:`NodeDiagonal`
+     - :c:struct:`HODLRLeafNode` & :c:struct:`NodeOffDiagonal`
+
+
+.. _internal-node-explanation2:
 
 Internal node
 -------------
@@ -132,6 +162,8 @@ Information stored on the node
 * Pointers to its four children (as specified above).
 
 
+.. _diagonal-node-explanation2:
+
 Diagonal leaf node
 ------------------
 
@@ -166,6 +198,8 @@ Information stored on the node
 * Size of the block it stores.
 * The dense matrix.
 
+
+.. _offdiagonal-node-explanation2:
 
 Off-diagonal leaf node
 ----------------------
