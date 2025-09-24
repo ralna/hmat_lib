@@ -10,6 +10,8 @@ matrices, with a focus on HODLR-HODLR matrix-matrix multiplication.
    :caption: Contents:
 
    installation
+   theory
+   glossary
    api
    dev
 

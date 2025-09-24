@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="255.01688mm"
+   height="100mm"
+   viewBox="0 0 255.01688 100"
+   version="1.1"
+   id="svg1"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <linearGradient
+       id="swatch13">
+      <stop
+         style="stop-color:#000000;stop-opacity:1;"
+         offset="0"
+         id="stop13" />
+    </linearGradient>
+    <linearGradient
+       id="swatch11">
+      <stop
+         style="stop-color:#2e2c61;stop-opacity:1;"
+         offset="0"
+         id="stop11" />
+    </linearGradient>
+    <marker
+       style="overflow:visible"
+       id="marker11"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path11" />
+    </marker>
+    <linearGradient
+       id="swatch2">
+      <stop
+         style="stop-color:#2e2c61;stop-opacity:1;"
+         offset="0"
+         id="stop2" />
+    </linearGradient>
+    <linearGradient
+       id="swatch1">
+      <stop
+         style="stop-color:#ffffff;stop-opacity:1;"
+         offset="0"
+         id="stop1" />
+    </linearGradient>
+    <linearGradient
+       xlink:href="#swatch1"
+       id="linearGradient1"
+       x1="50.111111"
+       y1="88.611107"
+       x2="149.1111"
+       y2="88.611107"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(0.99495597,0,0,0.99495588,40.89174,-38.164147)" />
+    <linearGradient
+       xlink:href="#swatch2"
+       id="linearGradient2"
+       x1="50.111111"
+       y1="88.611107"
+       x2="149.1111"
+       y2="88.611107"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(0.99495597,0,0,0.99495588,40.89174,-38.164147)" />
+    <linearGradient
+       xlink:href="#swatch2"
+       id="linearGradient3"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(0.49012904,0,0,0.49012905,66.178104,-18.430879)"
+       x1="50.111111"
+       y1="88.611107"
+       x2="149.1111"
+       y2="88.611107" />
+    <linearGradient
+       xlink:href="#swatch2"
+       id="linearGradient4"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(0.49012904,0,0,0.49012905,66.178104,-18.430879)"
+       x1="50.111111"
+       y1="88.611107"
+       x2="149.1111"
+       y2="88.611107" />
+    <linearGradient
+       xlink:href="#swatch2"
+       id="linearGradient5"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(0.49012904,0,0,0.49012905,116.17833,31.569151)"
+       x1="50.111111"
+       y1="88.611107"
+       x2="149.1111"
+       y2="88.611107" />
+    <linearGradient
+       xlink:href="#swatch2"
+       id="linearGradient6"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(0.49012904,0,0,0.49012905,116.17833,31.569151)"
+       x1="50.111111"
+       y1="88.611107"
+       x2="149.1111"
+       y2="88.611107" />
+    <marker
+       style="overflow:visible"
+       id="marker11-2"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path11-2" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker11-2-7"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path11-2-6" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker11-2-7-7"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path11-2-6-9" />
+    </marker>
+  </defs>
+  <g
+     id="layer1"
+     transform="translate(-14.177016)">
+    <rect
+       style="fill:url(#linearGradient1);stroke:url(#linearGradient2);stroke-width:1.49938;stroke-dasharray:none"
+       id="rect1"
+       width="98.500626"
+       height="98.500626"
+       x="90.750069"
+       y="0.74968678" />
+    <rect
+       style="fill:url(#linearGradient3);stroke:url(#linearGradient4);stroke-width:1.47723;stroke-dasharray:none"
+       id="rect1-2"
+       width="48.522774"
+       height="48.522774"
+       x="90.739029"
+       y="0.73861217" />
+    <rect
+       style="fill:url(#linearGradient5);stroke:url(#linearGradient6);stroke-width:1.47723;stroke-dasharray:none"
+       id="rect1-2-1"
+       width="48.522774"
+       height="48.522774"
+       x="140.73859"
+       y="50.738609" />
+    <rect
+       style="fill:none;stroke-width:1.465;stroke-dasharray:none"
+       id="rect2"
+       width="9.166666"
+       height="6.1111112"
+       x="79.333649"
+       y="91.666664" />
+    <path
+       style="fill:none;stroke-width:1.5;stroke-dasharray:none"
+       d="m 104.96108,49.427656 h 32.5641"
+       id="path8" />
+    <path
+       style="fill:#2e2c61;fill-opacity:1;stroke-width:2.2;stroke-dasharray:none"
+       d="m 109.32234,48.555401 h 28.49359"
+       id="path9" />
+    <path
+       style="fill:#2e2c61;fill-opacity:1;stroke:#2e2c61;stroke-width:0.753413;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker11)"
+       d="M 60,25.654616 H 77.824178"
+       id="path10" />
+    <path
+       style="fill:#2e2c61;fill-opacity:1;stroke:#2e2c61;stroke-width:0.753413;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker11-2)"
+       d="M 60,75.318774 H 77.824178"
+       id="path10-6" />
+    <path
+       style="fill:#2e2c61;fill-opacity:1;stroke:#2e2c61;stroke-width:0.753413;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker11-2-7)"
+       d="M 220.49961,75.318774 H 202.67533"
+       id="path10-6-8" />
+    <path
+       style="fill:#2e2c61;fill-opacity:1;stroke:#2e2c61;stroke-width:0.753413;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker11-2-7-7)"
+       d="M 220.49961,25.318774 H 202.67533"
+       id="path10-6-8-4" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.81944px;font-family:'0xProto Nerd Font Mono';-inkscape-font-specification:'0xProto Nerd Font Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#2e2c61;fill-opacity:1;stroke:none;stroke-width:1;stroke-dasharray:none;stroke-opacity:1"
+       x="22.969322"
+       y="28.261803"
+       id="text13"><tspan
+         id="tspan13"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.81944px;font-family:'0xProto Nerd Font Mono';-inkscape-font-specification:'0xProto Nerd Font Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#2e2c61;fill-opacity:1;stroke:none;stroke-width:1"
+         x="22.969322"
+         y="28.261803">Dense</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.81944px;font-family:'0xProto Nerd Font Mono';-inkscape-font-specification:'0xProto Nerd Font Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#2e2c61;fill-opacity:1;stroke:none;stroke-width:1;stroke-dasharray:none;stroke-opacity:1"
+       x="233.02492"
+       y="77.761803"
+       id="text13-3"><tspan
+         id="tspan13-3"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.81944px;font-family:'0xProto Nerd Font Mono';-inkscape-font-specification:'0xProto Nerd Font Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#2e2c61;fill-opacity:1;stroke:none;stroke-width:1"
+         x="233.02492"
+         y="77.761803">Dense</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.81944px;font-family:'0xProto Nerd Font Mono';-inkscape-font-specification:'0xProto Nerd Font Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#2e2c61;fill-opacity:1;stroke:none;stroke-width:1;stroke-dasharray:none;stroke-opacity:1"
+       x="225.84628"
+       y="28.61458"
+       id="text13-38"><tspan
+         id="tspan14"
+         x="225.84628"
+         y="28.61458">Low-Rank</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.81944px;font-family:'0xProto Nerd Font Mono';-inkscape-font-specification:'0xProto Nerd Font Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#2e2c61;fill-opacity:1;stroke:none;stroke-width:1;stroke-dasharray:none;stroke-opacity:1"
+       x="13.286252"
+       y="78.114578"
+       id="text13-38-7"><tspan
+         id="tspan14-9"
+         x="13.286252"
+         y="78.114578">Low-Rank</tspan></text>
+  </g>
+</svg>
