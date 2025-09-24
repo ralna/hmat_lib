@@ -74,7 +74,11 @@ is the ``m×n`` matrix of singular values, and :math:`{}^{i,j}V^T` is the
    :alt: Diagram illustrating SVD using a filled square for D, U, and V 
          transpose matrices and an empty square with a diagonal for sigma.
 
-if :math:`D` is indeed structured correctly and suitable for conversion
+
+Truncating zeroes
+^^^^^^^^^^^^^^^^^
+
+If :math:`D` is indeed structured correctly and suitable for conversion
 to HODLR, it will be the case that the singular values, of this off-diagonal
 block will decay rapidly (:math:`{}^{i,j}\Sigma_{r,r} \approx 0` for a 
 :math:`r << \min(m, n)`). In that case, the decomposition can be written as:
@@ -95,6 +99,10 @@ representing a column of the :math:`{}^{i,j}U` and
          top right corner. A vertical line halfway through U and a horizontal
          line halfway through V transpose also indicate that only half the
          matrices will be kept.
+
+
+Truncating insignificant singular values
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Furthermore, it is expected that, due to this decay, the 
 singular values quickly become small enough in comparison to the first 
@@ -120,7 +128,39 @@ or
 
 .. math::
 
-   {}^{i,j}D = \sum_{k=0}^{k<r'}{{}^{i,j}\sigma_k {}^{i,j}\mathbf{u}_k {}^{i,j}\mathbf{v^T}_k}
+   {}^{i,j}D \approx \sum_{k=0}^{k<r'}{{}^{i,j}\sigma_k {}^{i,j}\mathbf{u}_k {}^{i,j}\mathbf{v^T}_k}
+
+
+.. _u-scaling:
+
+In practice
+^^^^^^^^^^^
+
+In practice, to save memory, the :math:`{}^{i,j}U` matrix can be scaled by the
+singular values (i.e. :math:`{}^{i,j}U' = {}^{i,j}U {}^{i,j}\Sigma`) with
+only the result and the :math:`{}^{i,j}V^T` matrices stored:
+
+.. math::
+
+   {}^{i,j}D \approx {}^{i,j}\hat{U'} {}^{i,j}\hat{V}^T
+
+or
+
+.. math::
+
+   {}^{i,j}D \approx \sum_{k=0}^{k<r'}{ {}^{i,j}\mathbf{u'}_k {}^{i,j}\mathbf{v^T}_k}
+
+or visually:
+
+.. image:: img/svd4.svg
+   :alt: Diagram illustrating the fully truncated SVD. Uses a similar diagram
+         to the previous ones, but with the middle square representing sigma
+         completely gone, the U becoming a tall and narrow rectangle, and V 
+         becoming a wide and short rectangle.
+
+For more information, see the 
+:doc:`explanation from the code perspective<library/hodlr>`.
+
 
 Hierarchical
 ------------

@@ -7,32 +7,9 @@
    viewBox="0 0 232.00002 67.000008"
    version="1.1"
    id="svg1"
-   sodipodi:docname="svd3.svg"
-   inkscape:version="1.4 (86a8ad7, 2024-10-11)"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:xlink="http://www.w3.org/1999/xlink"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
-  <sodipodi:namedview
-     id="namedview1"
-     pagecolor="#ffffff"
-     bordercolor="#000000"
-     borderopacity="0.25"
-     inkscape:showpageshadow="2"
-     inkscape:pageopacity="0.0"
-     inkscape:pagecheckerboard="0"
-     inkscape:deskcolor="#d1d1d1"
-     inkscape:document-units="mm"
-     inkscape:zoom="1.3480064"
-     inkscape:cx="318.61867"
-     inkscape:cy="117.21013"
-     inkscape:window-width="1280"
-     inkscape:window-height="730"
-     inkscape:window-x="607"
-     inkscape:window-y="1105"
-     inkscape:window-maximized="1"
-     inkscape:current-layer="layer1" />
   <defs
      id="defs1">
     <linearGradient
@@ -85,7 +62,7 @@
        xlink:href="#swatch2"
        id="linearGradient16"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="matrix(0.49012904,0,0,0.49012905,56.178367,141.56914)"
+       gradientTransform="matrix(0.06916794,0,0,0.49939239,76.814092,140.7483)"
        x1="50.111111"
        y1="88.611107"
        x2="149.1111"
@@ -94,7 +71,7 @@
        xlink:href="#swatch2"
        id="linearGradient17"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="matrix(0.49012904,0,0,0.49012905,56.178367,141.56914)"
+       gradientTransform="matrix(0.06916794,0,0,0.49939239,76.814092,140.7483)"
        x1="50.111111"
        y1="88.611107"
        x2="149.1111"
@@ -112,7 +89,7 @@
        xlink:href="#swatch2"
        id="linearGradient20"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="matrix(0.49012904,0,0,0.49012905,158.17836,141.56913)"
+       gradientTransform="matrix(0.49931543,0,0,0.07107357,157.26331,157.50413)"
        x1="50.111111"
        y1="88.611107"
        x2="149.1111"
@@ -121,7 +98,7 @@
        xlink:href="#swatch2"
        id="linearGradient21"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="matrix(0.49012904,0,0,0.49012905,158.17836,141.56913)"
+       gradientTransform="matrix(0.49931543,0,0,0.07107357,157.26331,157.50413)"
        x1="50.111111"
        y1="88.611107"
        x2="149.1111"
@@ -138,42 +115,30 @@
        x="0.73861498"
        y="160.73862" />
     <rect
-       style="fill:url(#linearGradient16);stroke:url(#linearGradient17);stroke-width:1.47723;stroke-dasharray:none"
+       style="fill:url(#linearGradient16);stroke:url(#linearGradient17);stroke-width:0.560159;stroke-dasharray:none"
        id="rect1-2-1-0-8"
-       width="48.522774"
-       height="48.522774"
-       x="80.738617"
-       y="160.73862" />
+       width="6.8476257"
+       height="49.439846"
+       x="80.280083"
+       y="160.28008" />
     <rect
-       style="fill:url(#linearGradient20);stroke:url(#linearGradient21);stroke-width:1.47723;stroke-dasharray:none"
+       style="fill:url(#linearGradient20);stroke:url(#linearGradient21);stroke-width:0.567779;stroke-dasharray:none"
        id="rect1-2-1-0-8-4"
-       width="48.522774"
-       height="48.522774"
-       x="182.73862"
-       y="160.73862" />
-    <rect
-       style="fill:none;stroke:url(#linearGradient19);stroke-width:1.47723;stroke-dasharray:none"
-       id="rect1-2-1-0-8-6"
-       width="48.522774"
-       height="48.522774"
-       x="131.73862"
-       y="160.73862" />
+       width="49.432224"
+       height="7.036283"
+       x="182.28389"
+       y="160.28389" />
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.1111px;font-family:'0xProto Nerd Font Mono';-inkscape-font-specification:'0xProto Nerd Font Mono, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#2e2c61;fill-opacity:1;stroke:none;stroke-width:1;stroke-dasharray:none;stroke-opacity:1"
        x="60.941666"
        y="191.37822"
        id="text17"><tspan
-         sodipodi:role="line"
          id="tspan1">≈</tspan></text>
     <path
        style="fill:none;fill-opacity:1;stroke:none;stroke-width:1;stroke-dasharray:none;stroke-opacity:1"
        d="m 131.41941,160.4945 48.26465,48.55541"
        id="path21" />
-    <path
-       style="fill:none;fill-opacity:1;stroke:#2e2c61;stroke-width:0.25;stroke-dasharray:none;stroke-opacity:1"
-       d="m 132.5008,161.28043 23.87129,24.01422"
-       id="path22" />
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.1111px;font-family:Calibri;-inkscape-font-specification:'Calibri, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-dasharray:none;stroke-opacity:1"
@@ -189,10 +154,7 @@
        x="100.72389"
        y="155.51888"
        id="text22-6"><tspan
-         id="tspan22-1"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.1111px;font-family:Calibri;-inkscape-font-specification:'Calibri, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-opacity:1"
-         x="100.72389"
-         y="155.51888">U</tspan></text>
+         id="tspan2">U'</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.1111px;font-family:Calibri;-inkscape-font-specification:'Calibri, Normal';font-variant-ligatures:normal;font-variant-position:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-dasharray:none;stroke-opacity:1"
@@ -204,35 +166,5 @@
          y="154.93977">V<tspan
    style="font-size:65%;baseline-shift:super"
    id="tspan24">T</tspan></tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.1111px;font-family:Calibri;-inkscape-font-specification:'Calibri, Normal';font-variant-ligatures:normal;font-variant-position:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-dasharray:none;stroke-opacity:1"
-       x="152.06273"
-       y="155.41589"
-       id="text25"><tspan
-         id="tspan25"
-         style="stroke-width:1"
-         x="152.06273"
-         y="155.41589">Σ</tspan></text>
-    <path
-       style="fill:#ff6900;fill-opacity:1;stroke:#ff6900;stroke-width:0.596319;stroke-dasharray:none;stroke-opacity:1"
-       d="m 138.05435,161.28 v 47.1"
-       id="path25" />
-    <path
-       style="fill:#ff6900;fill-opacity:1;stroke:#ff6900;stroke-width:0.596319;stroke-dasharray:none;stroke-opacity:1"
-       d="m 179.42328,167.21865 h -47.1"
-       id="path25-5" />
-    <path
-       style="fill:#ff6900;fill-opacity:1;stroke:#ff6900;stroke-width:0.596319;stroke-dasharray:none;stroke-opacity:1"
-       d="m 230.72113,167.25024 h -47.1"
-       id="path25-5-0" />
-    <path
-       style="fill:#ff6900;fill-opacity:1;stroke:#ff6900;stroke-width:0.596319;stroke-dasharray:none;stroke-opacity:1"
-       d="m 87.04816,161.28 v 47.1"
-       id="path25-2" />
-    <path
-       style="fill:none;fill-opacity:1;stroke:#2e2c61;stroke-width:1.2;stroke-dasharray:none;stroke-opacity:1"
-       d="m 131.51672,160.55176 5.90388,5.93923"
-       id="path22-6" />
   </g>
 </svg>
