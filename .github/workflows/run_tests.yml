@@ -25,7 +25,7 @@ jobs:
       - name: Setup dependencies MacOS
         if: runner.os == 'macOS'
         run: |
-          sudo brew install openblas criterion
+          brew install openblas criterion
 
       - name: Compile
         env:
