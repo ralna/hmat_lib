@@ -65,7 +65,7 @@ find_package(BLAS REQUIRED)
 
 if(BUILD_TESTING)
   find_package(PkgConfig REQUIRED)
-  pkg_check_modules(criterion REQUIRED criterion)
+  pkg_check_modules(CRITERION REQUIRED IMPORTED_TARGET criterion)
   add_subdirectory(tests)
 endif()
 
