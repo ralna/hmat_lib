@@ -5,6 +5,6 @@ if(BUILD_TESTING)
   )
 
   target_link_libraries(testing_utils ${MATH_LIBRARY})
-  target_link_libraries(testing_utils openblas)
+  target_link_libraries(testing_utils BLAS::BLAS)
   target_link_libraries(testing_utils PkgConfig::CRITERION)
 endif()

@@ -5,7 +5,7 @@ if(ASAN)
     EXCLUDE_FROM_ALL $<NOT:$<CONFIG:Debug>>
   )
   target_link_libraries(test_asan ${MATH_LIBRARY})
-  target_link_libraries(test_asan openblas)
+  target_link_libraries(test_asan BLAS::BLAS)
   target_link_libraries(test_asan hmat_lib)
 else()
   message(STATUS "Building executable test_unsafe")
@@ -14,7 +14,7 @@ else()
     EXCLUDE_FROM_ALL $<NOT:$<CONFIG:Debug>>
   )
   target_link_libraries(test_unsafe ${MATH_LIBRARY})
-  target_link_libraries(test_unsafe openblas)
+  target_link_libraries(test_unsafe BLAS::BLAS)
   target_link_libraries(test_unsafe hmat_lib)
 endif()
 
