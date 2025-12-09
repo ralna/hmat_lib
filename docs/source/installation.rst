@@ -63,6 +63,14 @@ provided CMake options:
    Enables the building of tests. If ``ON``, the tests are built in addition
    to ``hmat_lib``.
 
+.. confval:: DISABLE_LIBRARY_BUILD
+   :type: ``bool``
+   :default: OFF
+
+   Disables the building of the library. If ``ON``, ``hmat_lib`` is not 
+   actually built, only the tests are. Otherwise, builds the library as 
+   normal. Can only be enabled if the tests are being built.
+
 .. confval:: BUILD_OPENMP_TESTS
    :type: ``bool``
    :default: ON

@@ -18,6 +18,14 @@ include(CMakeDependentOption)
 include(CTest)
 
 cmake_dependent_option(
+  DISABLE_LIBRARY_BUILD
+  "Disables building of the main library - only builds the tests"
+  OFF
+  BUILD_TESTING
+  OFF
+)
+
+cmake_dependent_option(
   BUILD_OPENMP_TESTS 
   "In addition to normal tests, also builds and runs tests with OpenMP" 
   ON
@@ -70,7 +78,7 @@ if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()
 
-message(STATUS "building ${PROJECT_NAME}, version ${PROJECT_VERSION}")
+message(STATUS "Building ${PROJECT_NAME}, version ${PROJECT_VERSION}")
 
 include(GNUInstallDirs)
 
@@ -79,8 +87,12 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/${CMAKE_INSTALL_BINDIR})
 
 ##### MAIN #####
-add_subdirectory(src)
-add_subdirectory(dev)
+if(DISABLE_LIBRARY_BUILD)
+  message(STATUS "Library build disabled - only building tests")
+else()
+  add_subdirectory(src)
+  add_subdirectory(dev)
+endif()
 
 if(BUILD_DOCS)
   add_subdirectory(docs)

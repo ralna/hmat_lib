@@ -65,9 +65,24 @@ jobs:
           BREW_PREFIX="$(brew --prefix)"
           export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:"/opt/homebrew/opt/openblas"
           if [ $CC = "gcc" ]; then
-            cmake -DCMAKE_C_COMPILER=${BREW_PREFIX}/bin/gcc-13 -DBLA_VENDOR=$BLAS_VENDOR -DBUILD_TESTING=ON -DBUILD_OPENMP_TESTS=ON -S . -B /tmp/build
+            cmake \
+              -DCMAKE_C_COMPILER=${BREW_PREFIX}/bin/gcc-13 \
+              -DBLA_VENDOR=$BLAS_VENDOR \
+              -DBUILD_TESTING=ON \
+              -DBUILD_DOCS=OFF \
+              -DBUILD_OPENMP_TESTS=ON \
+              -DBUILD_REAL_DATA_TESTS=OFF \
+              -DDISABLE_LIBRARY_BUILD=ON \
+              -S . -B /tmp/build
           else
-            cmake -DBLA_VENDOR=$BLAS_VENDOR -DBUILD_TESTING=ON -DBUILD_OPENMP_TESTS=ON -S . -B /tmp/build
+            cmake \
+              -DBLA_VENDOR=$BLAS_VENDOR \
+              -DBUILD_TESTING=ON \
+              -DBUILD_DOCS=OFF \
+              -DBUILD_OPENMP_TESTS=ON \
+              -DBUILD_REAL_DATA_TESTS=OFF \
+              -DDISABLE_LIBRARY_BUILD=ON \
+              -S . -B /tmp/build
           fi
           cmake --build /tmp/build
 
