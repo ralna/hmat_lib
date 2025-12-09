@@ -16,14 +16,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup dependencies Ubuntu
-        if: contains(${{matrix.os}}, 'ubuntu')
+        if: runner.os == 'Linux'
         run: |
           sudo apt update
           sudo apt upgrade
           sudo apt-get install -y libcriterion-dev libopenblas-dev
 
       - name: Setup dependencies MacOS
-        if: contains(${{matrix.os}}, 'macos')
+        if: runner.os == 'macOS'
         run: |
           sudo brew install openblas criterion
 
