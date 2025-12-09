@@ -3,11 +3,11 @@ name: Run tests
 on: [push,workflow_dispatch]
 
 jobs:
-  test:
+  test-linux:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
         compiler: [gcc, clang]
 
     runs-on: ${{matrix.os}}
@@ -15,23 +15,53 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup dependencies Ubuntu
-        if: runner.os == 'Linux'
+      - name: Setup dependencies
         run: |
           sudo apt update
           sudo apt upgrade
           sudo apt-get install -y libcriterion-dev libopenblas-dev
-
-      - name: Setup dependencies MacOS
-        if: runner.os == 'macOS'
-        run: |
-          brew install openblas criterion
 
       - name: Compile
         env:
           CC: ${{ matrix.compiler }}
         run: |
           cmake -DBUILD_TESTING=ON -DBUILD_OPENMP_TESTS=ON -S . -B /tmp/build
+          cmake --build /tmp/build
+
+      - name: Run tests
+        run: |
+          cd /tmp/build
+          make vtest
+
+  test-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup dependencies
+        run: |
+          brew install criterion
+
+      - name: Install gcc
+        if: matrix.compiler == 'gcc'
+        run: brew install gcc@13
+
+      - name: Compile
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          if [ $CC = "gcc" ]; then
+            BREW_PREFIX="$(brew --prefix)"
+            cmake -DCMAKE_C_COMPILER=${BREW_PREFIX}/bin/gcc-13 -DBUILD_TESTING=ON -DBUILD_OPENMP_TESTS=ON -S . -B /tmp/build
+          else
+            cmake -DBUILD_TESTING=ON -DBUILD_OPENMP_TESTS=ON -S . -B /tmp/build
+          fi
           cmake --build /tmp/build
 
       - name: Run tests
