@@ -19,6 +19,7 @@ add_library(
 
 target_link_libraries(hmat_lib ${MATH_LIBRARY})
 target_link_libraries(hmat_lib BLAS::BLAS)
+target_link_libraries(hmat_lib LAPACK::LAPACK)
 
 if(OpenMP_C_FOUND)
   target_link_libraries(hmat_lib OpenMP::OpenMP_C)

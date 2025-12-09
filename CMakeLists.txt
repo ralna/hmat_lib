@@ -62,6 +62,7 @@ endif()
 
 find_library(MATH_LIBRARY m REQUIRED)
 find_package(BLAS REQUIRED)
+find_package(LAPACK REQUIRED)
 
 if(BUILD_TESTING)
   find_package(PkgConfig REQUIRED)
