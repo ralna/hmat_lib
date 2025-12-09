@@ -38,6 +38,7 @@ jobs:
       fail-fast: false
       matrix:
         compiler: [gcc, clang]
+        blas: [OpenBLAS]
 
     runs-on: macos-latest
 
@@ -52,15 +53,21 @@ jobs:
         if: matrix.compiler == 'gcc'
         run: brew install gcc@13
 
+      - name: Install OpenBLAS
+        if: matrix.blas == 'OpenBLAS'
+        run: brew install openblas
+
       - name: Compile
         env:
           CC: ${{ matrix.compiler }}
+          BLAS_VENDOR: ${{ matrix.blas }}
         run: |
+          BREW_PREFIX="$(brew --prefix)"
+          export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:"/opt/homebrew/opt/openblas"
           if [ $CC = "gcc" ]; then
-            BREW_PREFIX="$(brew --prefix)"
-            cmake -DCMAKE_C_COMPILER=${BREW_PREFIX}/bin/gcc-13 -DBUILD_TESTING=ON -DBUILD_OPENMP_TESTS=ON -S . -B /tmp/build
+            cmake -DCMAKE_C_COMPILER=${BREW_PREFIX}/bin/gcc-13 -DBLA_VENDOR=$BLAS_VENDOR -DBUILD_TESTING=ON -DBUILD_OPENMP_TESTS=ON -S . -B /tmp/build
           else
-            cmake -DBUILD_TESTING=ON -DBUILD_OPENMP_TESTS=ON -S . -B /tmp/build
+            cmake -DBLA_VENDOR=$BLAS_VENDOR -DBUILD_TESTING=ON -DBUILD_OPENMP_TESTS=ON -S . -B /tmp/build
           fi
           cmake --build /tmp/build
 
