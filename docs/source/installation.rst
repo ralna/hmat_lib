@@ -6,6 +6,45 @@ At this stage, the only way to install ``hmat_lib`` is from source:
 From Source
 ===========
 
+Dependencies
+------------
+
+The following dependencies must first be installed before building:
+
+C Compiler
+^^^^^^^^^^
+
+The following C compilers have been tested for building ``hmat_lib``:
+
+* gcc
+* Clang
+* AppleClang
+
+.. important:: 
+   ``hmat_lib`` uses OpenMP for parallelisation, so the compiler has to support
+   OpenMP if this is desirable - without it, a single-threaded code will be
+   produced.
+
+Math Libraries
+^^^^^^^^^^^^^^
+
+Both BLAS and LAPACK routines are used throughout ``hmat_lib``, so some 
+implementation that provides both of these is required.
+
+.. warning::
+   While the specific implementation of the math libraries does not matter in
+   general, it **must** export Fortran-style symbols. Therefore, some 
+   implementations that only provide special interfaces (e.g. Apple's 
+   Accelerate) will currently fail to build.
+
+
+Testing Libraries
+^^^^^^^^^^^^^^^^^
+
+`Criterion <https://github.com/Snaipe/Criterion>`_ is used for running tests,
+so it must be installed before tests can be built.
+
+
 CMake
 -----
 
@@ -62,6 +101,14 @@ provided CMake options:
 
    Enables the building of tests. If ``ON``, the tests are built in addition
    to ``hmat_lib``.
+
+.. confval:: DISABLE_LIBRARY_BUILD
+   :type: ``bool``
+   :default: OFF
+
+   Disables the building of the library. If ``ON``, ``hmat_lib`` is not 
+   actually built, only the tests are. Otherwise, builds the library as 
+   normal. Can only be enabled if the tests are being built.
 
 .. confval:: BUILD_OPENMP_TESTS
    :type: ``bool``

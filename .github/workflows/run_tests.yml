@@ -3,7 +3,7 @@ name: Run tests
 on: [push,workflow_dispatch]
 
 jobs:
-  test:
+  test-linux:
     strategy:
       fail-fast: false
       matrix:
@@ -26,6 +26,64 @@ jobs:
           CC: ${{ matrix.compiler }}
         run: |
           cmake -DBUILD_TESTING=ON -DBUILD_OPENMP_TESTS=ON -S . -B /tmp/build
+          cmake --build /tmp/build
+
+      - name: Run tests
+        run: |
+          cd /tmp/build
+          make vtest
+
+  test-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        blas: [OpenBLAS]
+
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup dependencies
+        run: |
+          brew install criterion
+
+      - name: Install gcc
+        if: matrix.compiler == 'gcc'
+        run: brew install gcc@13
+
+      - name: Install OpenBLAS
+        if: matrix.blas == 'OpenBLAS'
+        run: brew install openblas
+
+      - name: Compile
+        env:
+          CC: ${{ matrix.compiler }}
+          BLAS_VENDOR: ${{ matrix.blas }}
+        run: |
+          BREW_PREFIX="$(brew --prefix)"
+          export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:"/opt/homebrew/opt/openblas"
+          if [ $CC = "gcc" ]; then
+            cmake \
+              -DCMAKE_C_COMPILER=${BREW_PREFIX}/bin/gcc-13 \
+              -DBLA_VENDOR=$BLAS_VENDOR \
+              -DBUILD_TESTING=ON \
+              -DBUILD_DOCS=OFF \
+              -DBUILD_OPENMP_TESTS=ON \
+              -DBUILD_REAL_DATA_TESTS=OFF \
+              -DDISABLE_LIBRARY_BUILD=ON \
+              -S . -B /tmp/build
+          else
+            cmake \
+              -DBLA_VENDOR=$BLAS_VENDOR \
+              -DBUILD_TESTING=ON \
+              -DBUILD_DOCS=OFF \
+              -DBUILD_OPENMP_TESTS=ON \
+              -DBUILD_REAL_DATA_TESTS=OFF \
+              -DDISABLE_LIBRARY_BUILD=ON \
+              -S . -B /tmp/build
+          fi
           cmake --build /tmp/build
 
       - name: Run tests

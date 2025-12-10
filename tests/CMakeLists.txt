@@ -17,8 +17,9 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(test_real_data ${MATH_LIBRARY})
-    target_link_libraries(test_real_data openblas)
-    target_link_libraries(test_real_data criterion)
+    target_link_libraries(test_real_data BLAS::BLAS)
+    target_link_libraries(test_real_data LAPACK::LAPACK)
+    target_link_libraries(test_real_data PkgConfig::CRITERION)
 
     target_link_libraries(test_real_data testing_utils)
 

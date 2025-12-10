@@ -13,8 +13,9 @@ if(BUILD_TESTING)
   )
     
   target_link_libraries(unit_test ${MATH_LIBRARY})
-  target_link_libraries(unit_test openblas)
-  target_link_libraries(unit_test criterion)
+  target_link_libraries(unit_test BLAS::BLAS)
+  target_link_libraries(unit_test LAPACK::LAPACK)
+  target_link_libraries(unit_test PkgConfig::CRITERION)
 
   target_link_libraries(unit_test testing_utils)
 
@@ -36,8 +37,9 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(test_constructors_omp ${MATH_LIBRARY})
-    target_link_libraries(test_constructors_omp openblas)
-    target_link_libraries(test_constructors_omp criterion)
+    target_link_libraries(test_constructors_omp BLAS::BLAS)
+    target_link_libraries(test_constructors_omp LAPACK::LAPACK)
+    target_link_libraries(test_constructors_omp PkgConfig::CRITERION)
     target_link_libraries(test_constructors_omp OpenMP::OpenMP_C)
 
     target_link_libraries(test_constructors_omp testing_utils)
